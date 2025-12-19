@@ -66,3 +66,8 @@ Thumbs.db
 # AI Files
 .cursor
 .kiro
+
+# PocketBase files (executable and documentation)
+pocketbase/pocketbase
+pocketbase/LICENSE.md
+pocketbase/CHANGELOG.md

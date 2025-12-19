@@ -108,4 +108,4 @@ jobs:
         run: yarn build
 
       - name: Test basic functionality
-        run: yarn test --run --reporter=basic
+        run: yarn test --run
