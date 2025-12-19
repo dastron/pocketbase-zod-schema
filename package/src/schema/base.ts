@@ -35,7 +35,7 @@ export const baseImageFileSchema = {
 /**
  * Input schema for image file uploads
  * Used in forms where users upload File objects
- * Requires Node.js 18+ or browser environment with File API
+ * Requires Node.js 20+ or browser environment with File API
  */
 export const inputImageFileSchema = {
   imageFiles: z.array(z.instanceof(File)),
@@ -129,7 +129,7 @@ export function jsonField<T extends z.ZodTypeAny>(schema?: T) {
 /**
  * Creates a single file field schema for form input
  * Maps to PocketBase 'file' field type with maxSelect=1
- * Requires Node.js 18+ or browser environment with File API
+ * Requires Node.js 20+ or browser environment with File API
  */
 export function fileField() {
   return z.instanceof(File);
@@ -138,7 +138,7 @@ export function fileField() {
 /**
  * Creates a multiple file field schema for form input
  * Maps to PocketBase 'file' field type with maxSelect>1
- * Requires Node.js 18+ or browser environment with File API
+ * Requires Node.js 20+ or browser environment with File API
  * @param options - Optional constraints for the file field
  */
 export function filesField(options?: { min?: number; max?: number }) {
