@@ -1,21 +1,21 @@
-import { ProjectInputSchema } from "../schema";
-import type { ProjectInputType, ProjectType } from "../types";
-import { BaseMutator, type MutatorOptions } from "./baseMutator";
+// // import { ProjectInputSchema } from "../schema";
+// import type { ProjectInputType, ProjectType } from "../types";
+// import { BaseMutator, type MutatorOptions } from "./baseMutator";
 
-export class ProjectMutator extends BaseMutator<ProjectType, ProjectInputType> {
-  protected setDefaults(): MutatorOptions {
-    return {
-      expand: [],
-      filter: [],
-      sort: ["-updated"],
-    };
-  }
+// export class ProjectMutator extends BaseMutator<ProjectType, ProjectInputType> {
+//   protected setDefaults(): MutatorOptions {
+//     return {
+//       expand: [],
+//       filter: [],
+//       sort: ["-updated"],
+//     };
+//   }
 
-  protected getCollection() {
-    return this.pb.collection("Projects");
-  }
+//   protected getCollection() {
+//     return this.pb.collection("Projects");
+//   }
 
-  protected async validateInput(input: ProjectInputType) {
-    return ProjectInputSchema.parse(input);
-  }
-}
+//   protected async validateInput(input: ProjectInputType) {
+//     return ProjectInputSchema.parse(input);
+//   }
+// }

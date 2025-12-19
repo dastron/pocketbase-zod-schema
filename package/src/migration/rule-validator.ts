@@ -5,7 +5,7 @@
  * including field references, @request references, and basic syntax validation.
  */
 
-import type { APIRuleType, RuleExpression } from "../schema/permissions";
+import type { APIRuleType, RuleExpression } from "../utils/permissions";
 import type { FieldDefinition } from "./types";
 
 /**

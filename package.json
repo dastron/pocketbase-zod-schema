@@ -19,8 +19,8 @@
     "clean": "yarn workspace pocketbase-zod-schema clean",
     "publish:npm": "yarn workspace pocketbase-zod-schema publish:npm",
     "prepare": "husky install",
-    "migrate:generate": "node package/dist/cli/migrate.js generate",
-    "migrate:status": "node package/dist/cli/migrate.js status",
+    "migrate:generate": "npx --yes tsx package/dist/cli/migrate.js generate",
+    "migrate:status": "npx --yes tsx package/dist/cli/migrate.js status",
     "pb:download": "node scripts/download-pocketbase.js",
     "pb:start": "node scripts/start-pocketbase.js",
     "pb:stop": "node scripts/stop-pocketbase.js"
@@ -32,6 +32,7 @@
   "license": "MIT",
   "packageManager": "yarn@4.8.1",
   "devDependencies": {
-    "husky": "^9.0.0"
+    "husky": "^9.0.0",
+    "tsx": "^4.21.0"
   }
 }

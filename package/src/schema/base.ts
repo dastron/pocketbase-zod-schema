@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PermissionSchema, PermissionTemplateConfig } from "./permissions";
+import type { PermissionSchema, PermissionTemplateConfig } from "../utils/permissions";
 
 /**
  * Base schema fields that PocketBase automatically adds to all records

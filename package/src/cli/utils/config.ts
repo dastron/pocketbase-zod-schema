@@ -341,7 +341,7 @@ export function getSampleConfig(format: "json" | "js"): string {
  */
 export default {
   schema: {
-    directory: "src/schema",
+    directory: "/src/schema",
     exclude: ["base.ts", "index.ts", "permissions.ts", "permission-templates.ts"],
   },
   migrations: {

@@ -621,6 +621,8 @@ function convertPocketBaseCollection(pbCollection: any): CollectionSchema {
 
   if (Object.keys(rules).length > 0) {
     schema.rules = rules;
+    // Also set permissions to match rules (they're the same thing)
+    schema.permissions = { ...rules };
   }
 
   return schema;

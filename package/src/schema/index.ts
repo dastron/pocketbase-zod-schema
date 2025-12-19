@@ -2,9 +2,9 @@
 export * from "./base";
 
 // Permission system
-export * from "./permission-templates";
-export * from "./permissions";
+export * from "../utils/permission-templates";
+export * from "../utils/permissions";
 
 // Example schemas (for reference/testing)
-export * from "./project";
+// export * from "./project";
 export * from "./user";

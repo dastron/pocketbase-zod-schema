@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { PermissionSchema, PermissionTemplateConfig } from "../../schema/permissions";
+import type { PermissionSchema, PermissionTemplateConfig } from "../../utils/permissions";
 import { PermissionAnalyzer } from "../permission-analyzer";
 import type { FieldDefinition } from "../types";
 

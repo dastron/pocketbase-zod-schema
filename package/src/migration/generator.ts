@@ -57,10 +57,8 @@ export interface MigrationGeneratorConfig {
 const DEFAULT_TEMPLATE = `/// <reference path="{{TYPES_PATH}}" />
 migrate((app) => {
 {{UP_CODE}}
-  return true;
 }, (app) => {
 {{DOWN_CODE}}
-  return true;
 });
 `;
 
@@ -493,7 +491,11 @@ export function generateIndexesArray(indexes?: string[]): string {
  * @param varName - Variable name to use for the collection (default: 'collection')
  * @returns JavaScript code for creating the collection
  */
-export function generateCollectionCreation(collection: CollectionSchema, varName: string = "collection"): string {
+export function generateCollectionCreation(
+  collection: CollectionSchema,
+  varName: string = "collection",
+  isLast: boolean = false
+): string {
   const lines: string[] = [];
 
   lines.push(`  const ${varName} = new Collection({`);
@@ -519,7 +521,7 @@ export function generateCollectionCreation(collection: CollectionSchema, varName
 
   lines.push(`  });`);
   lines.push(``);
-  lines.push(`  app.save(${varName});`);
+  lines.push(isLast ? `  return app.save(${varName});` : `  app.save(${varName});`);
 
   return lines.join("\n");
 }
@@ -606,9 +608,15 @@ function generateFieldConstructorOptions(field: FieldDefinition): string {
  * @param collectionName - Name of the collection
  * @param field - Field definition to add
  * @param varName - Variable name to use for the collection (default: auto-generated)
+ * @param isLast - Whether this is the last operation (will return the result)
  * @returns JavaScript code for adding the field
  */
-export function generateFieldAddition(collectionName: string, field: FieldDefinition, varName?: string): string {
+export function generateFieldAddition(
+  collectionName: string,
+  field: FieldDefinition,
+  varName?: string,
+  isLast: boolean = false
+): string {
   const lines: string[] = [];
   const constructorName = getFieldConstructorName(field.type);
   const collectionVar = varName || `collection_${collectionName}_${field.name}`;
@@ -619,7 +627,7 @@ export function generateFieldAddition(collectionName: string, field: FieldDefini
   lines.push(generateFieldConstructorOptions(field));
   lines.push(`  }));`);
   lines.push(``);
-  lines.push(`  app.save(${collectionVar});`);
+  lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
   return lines.join("\n");
 }
@@ -631,12 +639,14 @@ export function generateFieldAddition(collectionName: string, field: FieldDefini
  * @param collectionName - Name of the collection
  * @param modification - Field modification details
  * @param varName - Variable name to use for the collection (default: auto-generated)
+ * @param isLast - Whether this is the last operation (will return the result)
  * @returns JavaScript code for modifying the field
  */
 export function generateFieldModification(
   collectionName: string,
   modification: FieldModification,
-  varName?: string
+  varName?: string,
+  isLast: boolean = false
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${modification.fieldName}`;
@@ -672,7 +682,7 @@ export function generateFieldModification(
   }
 
   lines.push(``);
-  lines.push(`  app.save(${collectionVar});`);
+  lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
   return lines.join("\n");
 }
@@ -683,9 +693,15 @@ export function generateFieldModification(
  * @param collectionName - Name of the collection
  * @param fieldName - Name of the field to delete
  * @param varName - Variable name to use for the collection (default: auto-generated)
+ * @param isLast - Whether this is the last operation (will return the result)
  * @returns JavaScript code for deleting the field
  */
-export function generateFieldDeletion(collectionName: string, fieldName: string, varName?: string): string {
+export function generateFieldDeletion(
+  collectionName: string,
+  fieldName: string,
+  varName?: string,
+  isLast: boolean = false
+): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${fieldName}`;
   const fieldVar = `${collectionVar}_field`;
@@ -695,7 +711,7 @@ export function generateFieldDeletion(collectionName: string, fieldName: string,
   lines.push(``);
   lines.push(`  ${collectionVar}.fields.remove(${fieldVar}.id);`);
   lines.push(``);
-  lines.push(`  app.save(${collectionVar});`);
+  lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
   return lines.join("\n");
 }
@@ -706,15 +722,21 @@ export function generateFieldDeletion(collectionName: string, fieldName: string,
  * @param collectionName - Name of the collection
  * @param index - Index SQL statement
  * @param varName - Variable name to use for the collection (default: auto-generated)
+ * @param isLast - Whether this is the last operation (will return the result)
  * @returns JavaScript code for adding the index
  */
-function generateIndexAddition(collectionName: string, index: string, varName?: string): string {
+function generateIndexAddition(
+  collectionName: string,
+  index: string,
+  varName?: string,
+  isLast: boolean = false
+): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_idx`;
 
   lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
   lines.push(`  ${collectionVar}.indexes.push("${index}");`);
-  lines.push(`  app.save(${collectionVar});`);
+  lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
   return lines.join("\n");
 }
@@ -725,9 +747,15 @@ function generateIndexAddition(collectionName: string, index: string, varName?: 
  * @param collectionName - Name of the collection
  * @param index - Index SQL statement
  * @param varName - Variable name to use for the collection (default: auto-generated)
+ * @param isLast - Whether this is the last operation (will return the result)
  * @returns JavaScript code for removing the index
  */
-function generateIndexRemoval(collectionName: string, index: string, varName?: string): string {
+function generateIndexRemoval(
+  collectionName: string,
+  index: string,
+  varName?: string,
+  isLast: boolean = false
+): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_idx`;
   const indexVar = `${collectionVar}_indexToRemove`;
@@ -737,7 +765,7 @@ function generateIndexRemoval(collectionName: string, index: string, varName?: s
   lines.push(`  if (${indexVar} !== -1) {`);
   lines.push(`    ${collectionVar}.indexes.splice(${indexVar}, 1);`);
   lines.push(`  }`);
-  lines.push(`  app.save(${collectionVar});`);
+  lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
   return lines.join("\n");
 }
@@ -749,20 +777,22 @@ function generateIndexRemoval(collectionName: string, index: string, varName?: s
  * @param ruleType - Type of rule to update
  * @param newValue - New rule value
  * @param varName - Variable name to use for the collection (default: auto-generated)
+ * @param isLast - Whether this is the last operation (will return the result)
  * @returns JavaScript code for updating the rule
  */
 function generateRuleUpdate(
   collectionName: string,
   ruleType: string,
   newValue: string | null,
-  varName?: string
+  varName?: string,
+  isLast: boolean = false
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${ruleType}`;
 
   lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
   lines.push(`  ${collectionVar}.${ruleType} = ${formatValue(newValue)};`);
-  lines.push(`  app.save(${collectionVar});`);
+  lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
   return lines.join("\n");
 }
@@ -775,20 +805,22 @@ function generateRuleUpdate(
  * @param ruleType - Type of permission rule to update
  * @param newValue - New permission rule value
  * @param varName - Variable name to use for the collection (default: auto-generated)
+ * @param isLast - Whether this is the last operation (will return the result)
  * @returns JavaScript code for updating the permission
  */
 export function generatePermissionUpdate(
   collectionName: string,
   ruleType: string,
   newValue: string | null,
-  varName?: string
+  varName?: string,
+  isLast: boolean = false
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${ruleType}`;
 
   lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
   lines.push(`  ${collectionVar}.${ruleType} = ${formatValue(newValue)};`);
-  lines.push(`  app.save(${collectionVar});`);
+  lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
   return lines.join("\n");
 }
@@ -798,13 +830,18 @@ export function generatePermissionUpdate(
  *
  * @param collectionName - Name of the collection to delete
  * @param varName - Variable name to use for the collection (default: 'collection')
+ * @param isLast - Whether this is the last operation (will return the result)
  * @returns JavaScript code for deleting the collection
  */
-function generateCollectionDeletion(collectionName: string, varName: string = "collection"): string {
+function generateCollectionDeletion(
+  collectionName: string,
+  varName: string = "collection",
+  isLast: boolean = false
+): string {
   const lines: string[] = [];
 
   lines.push(`  const ${varName} = app.findCollectionByNameOrId("${collectionName}");`);
-  lines.push(`  app.delete(${varName});`);
+  lines.push(isLast ? `  return app.delete(${varName});` : `  app.delete(${varName});`);
 
   return lines.join("\n");
 }
@@ -927,7 +964,44 @@ export function generateUpMigration(diff: SchemaDiff): string {
     lines.push(``);
   }
 
-  return lines.join("\n");
+  let code = lines.join("\n");
+
+  // Find the last app.save() or app.delete() call and make it return the result
+  // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
+  const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
+  const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
+
+  const saveMatches = [...code.matchAll(savePattern)];
+  const deleteMatches = [...code.matchAll(deletePattern)];
+
+  // Combine all matches and find the last one by position
+  const allMatches = [
+    ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
+    ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
+  ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+
+  if (allMatches.length > 0) {
+    const lastMatch = allMatches[0];
+    if (lastMatch.type === "save") {
+      code =
+        code.substring(0, lastMatch.match.index!) +
+        lastMatch.match[1] +
+        "return app.save(" +
+        lastMatch.match[2] +
+        ");" +
+        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    } else {
+      code =
+        code.substring(0, lastMatch.match.index!) +
+        lastMatch.match[1] +
+        "return app.delete(" +
+        lastMatch.match[2] +
+        ");" +
+        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    }
+  }
+
+  return code;
 }
 
 /**
@@ -1064,7 +1138,44 @@ export function generateDownMigration(diff: SchemaDiff): string {
     lines.push(``);
   }
 
-  return lines.join("\n");
+  let code = lines.join("\n");
+
+  // Find the last app.save() or app.delete() call and make it return the result
+  // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
+  const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
+  const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
+
+  const saveMatches = [...code.matchAll(savePattern)];
+  const deleteMatches = [...code.matchAll(deletePattern)];
+
+  // Combine all matches and find the last one by position
+  const allMatches = [
+    ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
+    ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
+  ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+
+  if (allMatches.length > 0) {
+    const lastMatch = allMatches[0];
+    if (lastMatch.type === "save") {
+      code =
+        code.substring(0, lastMatch.match.index!) +
+        lastMatch.match[1] +
+        "return app.save(" +
+        lastMatch.match[2] +
+        ");" +
+        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    } else {
+      code =
+        code.substring(0, lastMatch.match.index!) +
+        lastMatch.match[1] +
+        "return app.delete(" +
+        lastMatch.match[2] +
+        ");" +
+        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    }
+  }
+
+  return code;
 }
 
 /**
