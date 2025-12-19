@@ -115,6 +115,7 @@
     "clean": "rm -rf dist",
     "bundle-size": "yarn build && du -sh dist/* | sort -hr",
     "prepublishOnly": "yarn clean && yarn build && yarn test",
+    "publish:npm": "npm publish",
     "check-updates": "yarn outdated"
   },
   "bin": {

@@ -17,6 +17,7 @@
     "format": "yarn workspace pocketbase-zod-schema format",
     "lint": "yarn workspace pocketbase-zod-schema lint",
     "clean": "yarn workspace pocketbase-zod-schema clean",
+    "publish:npm": "yarn workspace pocketbase-zod-schema publish:npm",
     "prepare": "husky install",
     "migrate:generate": "node package/dist/cli/migrate.js generate",
     "migrate:status": "node package/dist/cli/migrate.js status",

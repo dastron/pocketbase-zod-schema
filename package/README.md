@@ -1,8 +1,7 @@
 # PocketBase Zod Migration Package
 
-This is the **published NPM package**: `pocketbase-zod-schema`.
+`pocketbase-zod-schema`.
 
-If you're here from NPM, you can ignore the monorepo details — everything you need to **install and use** the library/CLI is below.
 
 ## Structure
 
@@ -134,4 +133,4 @@ All commands are proxied through the root package.json to this workspace.
 
 ## Publishing
 
-Publishing is handled by GitHub Actions (Release Please). The package is published **from this workspace** (`package/`) using `yarn workspace pocketbase-zod-schema npm publish`.
+Publishing is handled by GitHub Actions (Release Please).

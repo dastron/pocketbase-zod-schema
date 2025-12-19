@@ -247,6 +247,15 @@ Releases are automated with [Release Please](https://github.com/googleapis/relea
 - **Conventional Commits**: use `feat:`, `fix:`, `perf:`, etc. (see `docs/RELEASE.md`)
 - **NPM token**: repo secret `NPM_TOKEN` must be set for publishing
 
+### Manual publish (emergency)
+
+If CI publishing is blocked and you need to publish manually, use the **same command as CI**. It only requires `NPM_TOKEN`:
+
+```bash
+export NPM_TOKEN="***"
+yarn publish:npm
+```
+
 ### Files that control releases
 
 - `release-please-config.json`: release configuration (changelog sections, package path, etc.)
