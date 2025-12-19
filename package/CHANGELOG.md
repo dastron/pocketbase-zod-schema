@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.1.2...pocketbase-zod-schema-v0.1.3) (2025-12-19)
+
+
+### Bug Fixes
+
+* Add Relationship Field ([7cc8ff4](https://github.com/dastron/pocketbase-zod-schema/commit/7cc8ff4264219014feeb6ca0a8d8a411dca02eb2))
+* Repair Initial State and Generated Files ([4cd5c62](https://github.com/dastron/pocketbase-zod-schema/commit/4cd5c62ed995f3150ec7eacd39ddeaf1958b2f07))
+
 ## [0.1.2](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.1.1...pocketbase-zod-schema-v0.1.2) (2025-12-19)
 
 
