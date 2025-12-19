@@ -177,14 +177,14 @@ describe("Relation Detector", () => {
   });
 
   describe("getMinSelect", () => {
-    it("should return undefined for single relations", () => {
+    it("should return 0 for single relations (PocketBase default)", () => {
       const zodType = z.string();
-      expect(getMinSelect("User", zodType)).toBeUndefined();
+      expect(getMinSelect("User", zodType)).toBe(0);
     });
 
-    it("should return undefined for multiple relations without min", () => {
+    it("should return 0 for multiple relations without min", () => {
       const zodType = z.array(z.string());
-      expect(getMinSelect("Users", zodType)).toBeUndefined();
+      expect(getMinSelect("Users", zodType)).toBe(0);
     });
 
     it("should return specified min for multiple relations", () => {
@@ -206,6 +206,12 @@ describe("Relation Detector", () => {
       const zodType = z.array(z.string()).min(1).max(5);
       expect(getMinSelect("Users", zodType)).toBe(1);
       expect(getMaxSelect("Users", zodType)).toBe(5);
+    });
+
+    it("should return 0 for non-relation fields as fallback", () => {
+      const zodType = z.string();
+      // A lowercase field name that's not a relation
+      expect(getMinSelect("title", zodType)).toBe(0);
     });
   });
 });

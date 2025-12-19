@@ -350,10 +350,11 @@ export function generateFieldDefinitionObject(field: FieldDefinition): string {
   if (field.relation) {
     // For relation fields, we need to resolve the collection ID
     // For now, we'll use a placeholder that needs to be resolved at runtime
-    const collectionIdPlaceholder =
-      field.relation.collection === "Users"
-        ? '"_pb_users_auth_"'
-        : `app.findCollectionByNameOrId("${field.relation.collection}").id`;
+    // Use case-insensitive check for "users" to handle both explicit and implicit relation definitions
+    const isUsersCollection = field.relation.collection.toLowerCase() === "users";
+    const collectionIdPlaceholder = isUsersCollection
+      ? '"_pb_users_auth_"'
+      : `app.findCollectionByNameOrId("${field.relation.collection}").id`;
 
     parts.push(`      collectionId: ${collectionIdPlaceholder}`);
 
@@ -578,10 +579,11 @@ function generateFieldConstructorOptions(field: FieldDefinition): string {
 
   // Add relation-specific options
   if (field.relation && field.type === "relation") {
-    const collectionIdPlaceholder =
-      field.relation.collection === "Users"
-        ? '"_pb_users_auth_"'
-        : `app.findCollectionByNameOrId("${field.relation.collection}").id`;
+    // Use case-insensitive check for "users" to handle both explicit and implicit relation definitions
+    const isUsersCollection = field.relation.collection.toLowerCase() === "users";
+    const collectionIdPlaceholder = isUsersCollection
+      ? '"_pb_users_auth_"'
+      : `app.findCollectionByNameOrId("${field.relation.collection}").id`;
 
     parts.push(`    collectionId: ${collectionIdPlaceholder}`);
 
@@ -669,8 +671,11 @@ export function generateFieldModification(
 
       if (relationKey === "collection") {
         // Special handling for collection ID
-        const collectionIdValue =
-          change.newValue === "Users" ? '"_pb_users_auth_"' : `app.findCollectionByNameOrId("${change.newValue}").id`;
+        // Use case-insensitive check for "users" to handle both explicit and implicit relation definitions
+        const isUsersCollection = String(change.newValue).toLowerCase() === "users";
+        const collectionIdValue = isUsersCollection
+          ? '"_pb_users_auth_"'
+          : `app.findCollectionByNameOrId("${change.newValue}").id`;
         lines.push(`  ${fieldVar}.collectionId = ${collectionIdValue};`);
       } else {
         lines.push(`  ${fieldVar}.${relationKey} = ${formatValue(change.newValue)};`);

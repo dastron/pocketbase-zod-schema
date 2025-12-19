@@ -8,6 +8,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { z } from "zod";
+import { extractRelationMetadata } from "../schema/base";
 import type { PermissionSchema } from "../utils/permissions";
 import { FileSystemError, SchemaParsingError } from "./errors";
 import { PermissionAnalyzer } from "./permission-analyzer";
@@ -386,8 +387,24 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     options,
   };
 
-  // Handle relation fields
-  if (isRelationField(fieldName, zodType)) {
+  // Check for explicit relation metadata first (from relation() or relations() helpers)
+  const relationMetadata = extractRelationMetadata(zodType.description);
+
+  if (relationMetadata) {
+    // Explicit relation definition found
+    fieldDef.type = "relation";
+    fieldDef.relation = {
+      collection: relationMetadata.collection,
+      maxSelect: relationMetadata.maxSelect,
+      minSelect: relationMetadata.minSelect,
+      cascadeDelete: relationMetadata.cascadeDelete,
+    };
+
+    // Clear out string-specific options that don't apply to relation fields
+    fieldDef.options = undefined;
+  }
+  // Fall back to naming convention detection for backward compatibility
+  else if (isRelationField(fieldName, zodType)) {
     // Override type to 'relation' for relation fields
     fieldDef.type = "relation";
 
@@ -401,6 +418,16 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
       minSelect,
       cascadeDelete: false, // Default to false, can be configured later
     };
+
+    // Clear out string-specific options that don't apply to relation fields
+    // Options like 'min', 'max', 'pattern' are from string validation and don't apply to relations
+    if (fieldDef.options) {
+      const { min, max, pattern, ...relationSafeOptions } = fieldDef.options;
+      console.log("min", min);
+      console.log("max", max);
+      console.log("pattern", pattern);
+      fieldDef.options = Object.keys(relationSafeOptions).length > 0 ? relationSafeOptions : undefined;
+    }
   }
 
   return fieldDef;

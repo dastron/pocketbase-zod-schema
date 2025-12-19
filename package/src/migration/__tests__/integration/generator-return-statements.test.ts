@@ -1,6 +1,6 @@
 /**
  * Tests to verify that generated migrations have correct return statements
- * 
+ *
  * PocketBase migrations must return app.save() or app.delete() instead of return true
  */
 
@@ -240,18 +240,13 @@ describe("Generator Return Statements", () => {
         const downLines = downBody.trim().split("\n");
 
         // Find the last non-empty, non-comment line in up function
-        const lastUpLine = upLines
-          .reverse()
-          .find((line) => line.trim() && !line.trim().startsWith("//"));
+        const lastUpLine = upLines.reverse().find((line) => line.trim() && !line.trim().startsWith("//"));
         expect(lastUpLine).toMatch(/^(\s*)return\s+app\.(save|delete)\(/);
 
         // Find the last non-empty, non-comment line in down function
-        const lastDownLine = downLines
-          .reverse()
-          .find((line) => line.trim() && !line.trim().startsWith("//"));
+        const lastDownLine = downLines.reverse().find((line) => line.trim() && !line.trim().startsWith("//"));
         expect(lastDownLine).toMatch(/^(\s*)return\s+app\.(save|delete)\(/);
       }
     });
   });
 });
-
