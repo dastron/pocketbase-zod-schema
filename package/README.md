@@ -1,6 +1,8 @@
 # PocketBase Zod Migration Package
 
-This is the main package for the PocketBase Zod Migration library. The source code has been moved to this `package/` folder to create a more organized monorepo structure.
+This is the **published NPM package**: `pocketbase-zod-schema`.
+
+If you're here from NPM, you can ignore the monorepo details — everything you need to **install and use** the library/CLI is below.
 
 ## Structure
 
@@ -14,7 +16,100 @@ This is the main package for the PocketBase Zod Migration library. The source co
 - `nodemon.json` - Development server configuration
 - `.npmignore` - Files to exclude from npm package
 
-## Development
+## Installation (NPM)
+
+```bash
+npm install pocketbase-zod-schema
+# or
+yarn add pocketbase-zod-schema
+# or
+pnpm add pocketbase-zod-schema
+```
+
+## Usage
+
+### CLI (`pocketbase-migrate`)
+
+The package ships a CLI named `pocketbase-migrate`.
+
+```bash
+# generate migrations from schema changes
+npx pocketbase-migrate generate
+
+# show migration status without writing files
+npx pocketbase-migrate status
+
+# force generation even if destructive changes are detected
+npx pocketbase-migrate generate --force
+```
+
+### Configuration
+
+Create a `pocketbase-migrate.config.js` at your project root:
+
+```js
+export default {
+  schema: {
+    directory: "./src/schema",
+    exclude: ["*.test.ts", "*.spec.ts"],
+  },
+  migrations: {
+    directory: "./pocketbase/pb_migrations",
+    format: "js",
+  },
+  diff: {
+    warnOnDelete: true,
+    requireForceForDestructive: true,
+  },
+};
+```
+
+### Defining schemas (Zod)
+
+```ts
+import { z } from "zod";
+import { baseSchema, withPermissions } from "pocketbase-zod-schema/schema";
+
+export const UserInputSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  avatar: z.string().optional(),
+  role: z.enum(["user", "admin"]).default("user"),
+});
+
+export const UserSchema = withPermissions(
+  baseSchema.extend(UserInputSchema.shape),
+  {
+    listRule: '@request.auth.id != ""',
+    viewRule: '@request.auth.id != ""',
+    createRule: "",
+    updateRule: "@request.auth.id = id",
+    deleteRule: "@request.auth.id = id",
+  }
+);
+```
+
+### Programmatic usage
+
+```ts
+import {
+  parseSchemaFiles,
+  compare,
+  generate,
+  loadSnapshotIfExists,
+} from "pocketbase-zod-schema/migration";
+
+const migrationsDir = "./pocketbase/pb_migrations";
+
+const currentSchema = await parseSchemaFiles("./src/schema");
+const previousSnapshot = loadSnapshotIfExists({ migrationsPath: migrationsDir });
+
+const diff = compare(currentSchema, previousSnapshot);
+const migrationPath = generate(diff, migrationsDir);
+console.log({ migrationPath });
+```
+
+## Development (repo contributors)
 
 From the root directory, you can run:
 
@@ -39,4 +134,4 @@ All commands are proxied through the root package.json to this workspace.
 
 ## Publishing
 
-The package is published from this directory. The root `.npmignore` excludes this folder from the root package, and this folder has its own package configuration for publishing to npm.
+Publishing is handled by GitHub Actions (Release Please). The package is published **from this workspace** (`package/`) using `yarn workspace pocketbase-zod-schema npm publish`.

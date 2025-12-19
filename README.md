@@ -12,8 +12,8 @@ A TypeScript-first migration generator for PocketBase that uses Zod schemas to c
 - 🚀 **Schema-Driven**: Define your database structure using Zod schemas
 - 🔄 **Automatic Migrations**: Generate PocketBase migrations from schema changes
 - 🔍 **Change Detection**: Smart diff engine with destructive change warnings
-- � **StaItus Reporting**: Check migration status without generating files
-- �️ **CLiI Tools**: Command-line interface for migration management
+- 📋 **Status Reporting**: Check migration status without generating files
+- 🛠️ **CLI Tools**: Command-line interface for migration management
 
 ## Installation
 
@@ -201,6 +201,57 @@ const migrationPath = generate(diff, migrationsDir);
 - [Migration Guide](docs/MIGRATION_GUIDE.md)
 - [Type Mapping](docs/TYPE_MAPPING.md)
 - [Naming Conventions](docs/NAMING_CONVENTIONS.md)
+
+## Development (repo contributors)
+
+This repo is a Yarn workspace / monorepo:
+
+- The **published package** lives in `package/`
+- The root `package.json` proxies common commands to that workspace
+
+### Setup
+
+```bash
+corepack enable
+yarn install --immutable
+```
+
+### Common commands
+
+```bash
+# run tests
+yarn test
+
+# typecheck
+yarn typecheck
+
+# lint
+yarn lint
+
+# build
+yarn build
+
+# watch/dev mode (if configured)
+yarn dev
+```
+
+## Deployment / Release (maintainers)
+
+Releases are automated with [Release Please](https://github.com/googleapis/release-please).
+
+- **Release PRs**: A push/merge to `main` will prompt Release Please to open/update a release PR based on Conventional Commits.
+- **Publishing**: When the release PR is merged, GitHub Actions creates the GitHub release/tag and publishes to NPM.
+
+### Requirements
+
+- **Conventional Commits**: use `feat:`, `fix:`, `perf:`, etc. (see `docs/RELEASE.md`)
+- **NPM token**: repo secret `NPM_TOKEN` must be set for publishing
+
+### Files that control releases
+
+- `release-please-config.json`: release configuration (changelog sections, package path, etc.)
+- `.release-please-manifest.json`: last released versions (manifest mode)
+- `.github/workflows/release.yml`: runs release-please + publishes to NPM
 
 ## Contributing
 
