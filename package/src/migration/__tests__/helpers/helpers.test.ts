@@ -29,8 +29,8 @@ describe("Test Helpers", () => {
 
     it("should parse a migration file with collection creation", () => {
       const migrationPath = path.join(
-        process.cwd(),
-        "../pocketbase/pb_migrations/1764625735_created_create_new_collection_blank.js"
+        __dirname,
+        "../fixtures/reference-migrations/1764625735_created_create_new_collection_blank.js"
       );
 
       const result = parseMigrationFile(migrationPath);

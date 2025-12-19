@@ -54,13 +54,13 @@ const collectionSchemaArb = fc.record({
   name: collectionNameArb,
   type: fc.constant("base" as const),
   fields: fc.array(fieldDefinitionArb, { minLength: 0, maxLength: 5 }),
-  indexes: fc.constant([]),
+  indexes: fc.constant([] as string[]),
   permissions: fc.constant({
-    listRule: null,
-    viewRule: null,
-    createRule: null,
-    updateRule: null,
-    deleteRule: null,
+    listRule: null as string | null,
+    viewRule: null as string | null,
+    createRule: null as string | null,
+    updateRule: null as string | null,
+    deleteRule: null as string | null,
   }),
 });
 

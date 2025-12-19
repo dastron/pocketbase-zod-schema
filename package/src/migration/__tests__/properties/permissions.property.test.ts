@@ -11,8 +11,7 @@
 
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { compare } from "../../diff";
-import { generateCollectionCreation, generateCollectionPermissions } from "../../generator";
+import { generateCollectionPermissions } from "../../generator";
 import type { CollectionSchema, SchemaDefinition } from "../../types";
 
 describe("Permission Handling Property Tests", () => {
@@ -98,34 +97,38 @@ describe("Permission Handling Property Tests", () => {
 
     it("should distinguish between null (locked) and empty string (public) permissions", () => {
       fc.assert(
-        fc.property(collectionNameArb, fc.array(textFieldArb, { minLength: 0, maxLength: 2 }), (collectionName, fields) => {
-          // Create collection with mixed null and empty string permissions
-          const collection: CollectionSchema = {
-            name: collectionName,
-            type: "base",
-            fields,
-            indexes: [],
-            permissions: {
-              listRule: null, // Locked
-              viewRule: null, // Locked
-              createRule: "", // Public
-              updateRule: null, // Locked
-              deleteRule: null, // Locked
-            },
-          };
+        fc.property(
+          collectionNameArb,
+          fc.array(textFieldArb, { minLength: 0, maxLength: 2 }),
+          (collectionName, fields) => {
+            // Create collection with mixed null and empty string permissions
+            const collection: CollectionSchema = {
+              name: collectionName,
+              type: "base",
+              fields,
+              indexes: [],
+              permissions: {
+                listRule: null, // Locked
+                viewRule: null, // Locked
+                createRule: "", // Public
+                updateRule: null, // Locked
+                deleteRule: null, // Locked
+              },
+            };
 
-          // Generate permissions code
-          const permissionsCode = generateCollectionPermissions(collection.permissions);
+            // Generate permissions code
+            const permissionsCode = generateCollectionPermissions(collection.permissions);
 
-          // Verify null permissions are preserved as null
-          expect(permissionsCode).toContain("listRule: null");
-          expect(permissionsCode).toContain("viewRule: null");
-          expect(permissionsCode).toContain("updateRule: null");
-          expect(permissionsCode).toContain("deleteRule: null");
+            // Verify null permissions are preserved as null
+            expect(permissionsCode).toContain("listRule: null");
+            expect(permissionsCode).toContain("viewRule: null");
+            expect(permissionsCode).toContain("updateRule: null");
+            expect(permissionsCode).toContain("deleteRule: null");
 
-          // Verify empty string permission is preserved as empty string
-          expect(permissionsCode).toContain('createRule: ""');
-        }),
+            // Verify empty string permission is preserved as empty string
+            expect(permissionsCode).toContain('createRule: ""');
+          }
+        ),
         { numRuns: 100 }
       );
     });

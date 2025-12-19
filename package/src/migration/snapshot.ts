@@ -1,7 +1,7 @@
 /**
  * Snapshot Manager component
  * Handles saving and loading schema snapshots
- * 
+ *
  * This module provides a standalone, configurable snapshot manager that can be used
  * by consumer projects to manage schema snapshots and convert PocketBase migrations.
  */
@@ -69,11 +69,10 @@ const SNAPSHOT_MIGRATIONS: SnapshotMigration[] = [
   // }
 ];
 
-
 /**
  * Default configuration values
  */
-const DEFAULT_CONFIG: Omit<Required<SnapshotConfig>, 'migrationsPath'> & { migrationsPath?: string } = {
+const DEFAULT_CONFIG: Omit<Required<SnapshotConfig>, "migrationsPath"> & { migrationsPath?: string } = {
   snapshotPath: DEFAULT_SNAPSHOT_FILENAME,
   workspaceRoot: process.cwd(),
   autoMigrate: true,
@@ -120,7 +119,7 @@ export function snapshotExists(config: SnapshotConfig = {}): boolean {
   try {
     const snapshotPath = getSnapshotPath(config);
     return fs.existsSync(snapshotPath);
-  } catch (error) {
+  } catch {
     // If there's any error checking existence, treat as non-existent
     return false;
   }
@@ -300,23 +299,22 @@ function parseAndValidateSnapshot(jsonContent: string, snapshotPath: string): an
   }
 }
 
-
 /**
  * Compares two version strings
  * Returns -1 if a < b, 0 if a == b, 1 if a > b
  */
 function compareVersions(a: string, b: string): number {
-  const partsA = a.split('.').map(Number);
-  const partsB = b.split('.').map(Number);
-  
+  const partsA = a.split(".").map(Number);
+  const partsB = b.split(".").map(Number);
+
   for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
     const numA = partsA[i] || 0;
     const numB = partsB[i] || 0;
-    
+
     if (numA < numB) return -1;
     if (numA > numB) return 1;
   }
-  
+
   return 0;
 }
 
@@ -340,7 +338,9 @@ function migrateSnapshotFormat(data: any, config?: SnapshotConfig): any {
 
   // If auto-migrate is disabled, just return the data with a warning
   if (!mergedConfig.autoMigrate) {
-    console.warn(`Snapshot version ${currentVersion} differs from current ${targetVersion}, but auto-migrate is disabled.`);
+    console.warn(
+      `Snapshot version ${currentVersion} differs from current ${targetVersion}, but auto-migrate is disabled.`
+    );
     return data;
   }
 
@@ -349,9 +349,7 @@ function migrateSnapshotFormat(data: any, config?: SnapshotConfig): any {
   let currentMigrationVersion = currentVersion;
 
   // Sort migrations by fromVersion
-  const sortedMigrations = [...SNAPSHOT_MIGRATIONS].sort((a, b) => 
-    compareVersions(a.fromVersion, b.fromVersion)
-  );
+  const sortedMigrations = [...SNAPSHOT_MIGRATIONS].sort((a, b) => compareVersions(a.fromVersion, b.fromVersion));
 
   for (const migration of sortedMigrations) {
     if (compareVersions(currentMigrationVersion, migration.fromVersion) === 0) {
@@ -501,54 +499,45 @@ export function findLatestSnapshot(migrationsPath: string): string | null {
   }
 }
 
-
 /**
  * Loads snapshot if it exists, returns null for first run
  * Convenience method that handles missing snapshot gracefully
- * Uses the most recent snapshot file from migrations directory
+ * Finds the most recent snapshot file from migrations directory
  *
- * @param config - Snapshot configuration
- * @param migrationsPath - Optional path to migrations directory for finding snapshots
+ * @param config - Snapshot configuration (must include migrationsPath)
  * @returns SchemaSnapshot object or null if snapshot doesn't exist
  */
-export function loadSnapshotIfExists(config: SnapshotConfig = {}, migrationsPath?: string): SchemaSnapshot | null {
-  const effectiveMigrationsPath = migrationsPath || config.migrationsPath;
-  
-  // If migrationsPath is provided, try to find and load the most recent snapshot
-  if (effectiveMigrationsPath) {
-    // Check if migrationsPath is actually a file (for backward compatibility with tests)
-    // If it's a file, treat it as a direct snapshot file path
-    if (fs.existsSync(effectiveMigrationsPath) && fs.statSync(effectiveMigrationsPath).isFile()) {
-      try {
-        const migrationContent = fs.readFileSync(effectiveMigrationsPath, "utf-8");
-        return convertPocketBaseMigration(migrationContent);
-      } catch (error) {
-        console.warn(`Failed to load snapshot from ${effectiveMigrationsPath}: ${error}`);
-        // Fall through to try loading from config path
-      }
-    } else {
-      // It's a directory, find the latest snapshot
-      const latestSnapshotPath = findLatestSnapshot(effectiveMigrationsPath);
+export function loadSnapshotIfExists(config: SnapshotConfig = {}): SchemaSnapshot | null {
+  const migrationsPath = config.migrationsPath;
 
-      if (latestSnapshotPath) {
-        try {
-          // Read and convert the PocketBase snapshot file
-          const migrationContent = fs.readFileSync(latestSnapshotPath, "utf-8");
-          return convertPocketBaseMigration(migrationContent);
-        } catch (error) {
-          console.warn(`Failed to load snapshot from ${latestSnapshotPath}: ${error}`);
-          // Fall through to try loading from config path
-        }
-      }
+  if (!migrationsPath) {
+    // No migrations path provided - return null
+    return null;
+  }
+
+  // Check if migrationsPath is actually a file (for backward compatibility with tests)
+  // If it's a file, treat it as a direct snapshot file path
+  if (fs.existsSync(migrationsPath) && fs.statSync(migrationsPath).isFile()) {
+    try {
+      const migrationContent = fs.readFileSync(migrationsPath, "utf-8");
+      return convertPocketBaseMigration(migrationContent);
+    } catch (error) {
+      console.warn(`Failed to load snapshot from ${migrationsPath}: ${error}`);
+      return null;
     }
   }
 
-  // Fall back to loading from config path (custom snapshot)
-  if (snapshotExists(config)) {
+  // It's a directory, find the latest snapshot
+  const latestSnapshotPath = findLatestSnapshot(migrationsPath);
+
+  if (latestSnapshotPath) {
     try {
-      return loadSnapshot(config);
+      // Read and convert the PocketBase snapshot file
+      const migrationContent = fs.readFileSync(latestSnapshotPath, "utf-8");
+      return convertPocketBaseMigration(migrationContent);
     } catch (error) {
-      console.warn(`Failed to load existing snapshot: ${error}`);
+      console.warn(`Failed to load snapshot from ${latestSnapshotPath}: ${error}`);
+      return null;
     }
   }
 
@@ -699,7 +688,6 @@ export function convertPocketBaseMigration(migrationContent: string): SchemaSnap
   }
 }
 
-
 /**
  * Loads the base PocketBase schema from the initial migration file
  *
@@ -833,8 +821,8 @@ export class SnapshotManager {
   /**
    * Loads snapshot if it exists, returns null otherwise
    */
-  loadSnapshotIfExists(migrationsPath?: string): SchemaSnapshot | null {
-    return loadSnapshotIfExists(this.config, migrationsPath);
+  loadSnapshotIfExists(): SchemaSnapshot | null {
+    return loadSnapshotIfExists(this.config);
   }
 
   /**

@@ -28,6 +28,9 @@ test-pocketbase/
 *.db-shm
 *.db-wal
 
+# Legacy snapshot file (snapshots now managed in pb_migrations/)
+.migration-snapshot.json
+
 # Runtime files
 *.local
 .cache/

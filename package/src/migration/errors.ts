@@ -188,12 +188,7 @@ export class ConfigurationError extends MigrationError {
   public readonly invalidFields?: string[];
   public readonly originalError?: Error;
 
-  constructor(
-    message: string,
-    configPath?: string,
-    invalidFields?: string[],
-    originalError?: Error
-  ) {
+  constructor(message: string, configPath?: string, invalidFields?: string[], originalError?: Error) {
     super(message);
     this.name = "ConfigurationError";
     this.configPath = configPath;

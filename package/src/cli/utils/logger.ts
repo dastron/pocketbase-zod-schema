@@ -315,7 +315,7 @@ export function logTable(headers: string[], rows: string[][]): void {
 
   // Calculate column widths
   const widths = headers.map((h, i) => {
-    const maxRowWidth = Math.max(...rows.map(r => (r[i] || "").length));
+    const maxRowWidth = Math.max(...rows.map((r) => (r[i] || "").length));
     return Math.max(h.length, maxRowWidth);
   });
 
@@ -340,7 +340,7 @@ export function logTable(headers: string[], rows: string[][]): void {
 export function logBox(title: string, content: string[]): void {
   if (!shouldLog("normal")) return;
 
-  const maxWidth = Math.max(title.length, ...content.map(c => c.length));
+  const maxWidth = Math.max(title.length, ...content.map((c) => c.length));
   const border = "─".repeat(maxWidth + 2);
 
   console.log();
@@ -365,7 +365,7 @@ export function createProgressBar(current: number, total: number, width: number 
   const percentage = Math.min(100, Math.round((current / total) * 100));
   const filled = Math.round((percentage / 100) * width);
   const empty = width - filled;
-  
+
   const bar = chalk.green("█".repeat(filled)) + chalk.gray("░".repeat(empty));
   return `${bar} ${percentage}%`;
 }

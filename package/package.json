@@ -111,7 +111,7 @@
     "test:property": "vitest run --testNamePattern='Property'",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write ./src",
-    "lint": "eslint src --ext .ts,.tsx --fix",
+    "lint": "eslint src --fix",
     "clean": "rm -rf dist",
     "bundle-size": "yarn build && du -sh dist/* | sort -hr",
     "prepublishOnly": "yarn clean && yarn build && yarn test",
@@ -137,6 +137,7 @@
   },
   "devDependencies": {
     "@babel/parser": "^7.28.5",
+    "@eslint/js": "^9.39.2",
     "@types/node": "^22.14.1",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
@@ -149,6 +150,7 @@
     "prettier-plugin-organize-imports": "^4.1.0",
     "tsup": "^8.4.0",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.50.0",
     "vitest": "^3.1.2"
   },
   "dependencies": {

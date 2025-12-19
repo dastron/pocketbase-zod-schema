@@ -48,16 +48,11 @@ const domainOptionsArb = fc.record({
 
 /**
  * Arbitrary for generating date field options
+ * Using constant date strings to avoid invalid time value issues with fc.date()
  */
 const dateOptionsArb = fc.record({
-  min: fc.oneof(
-    fc.constant(""),
-    fc.date().map((d) => d.toISOString())
-  ),
-  max: fc.oneof(
-    fc.constant(""),
-    fc.date().map((d) => d.toISOString())
-  ),
+  min: fc.constantFrom("", "2020-01-01T00:00:00.000Z", "2023-06-15T12:30:00.000Z"),
+  max: fc.constantFrom("", "2025-12-31T23:59:59.000Z", "2030-01-01T00:00:00.000Z"),
 });
 
 /**

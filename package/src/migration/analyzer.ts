@@ -1,6 +1,6 @@
 /**
  * Schema Analyzer - Parses Zod schemas and extracts field definitions
- * 
+ *
  * This module provides a standalone, configurable schema analyzer that can be used
  * by consumer projects to parse Zod schemas and convert them to PocketBase collection schemas.
  */
@@ -68,18 +68,29 @@ export interface SchemaAnalyzerConfig {
 /**
  * Default configuration values
  */
-const DEFAULT_CONFIG: Required<Omit<SchemaAnalyzerConfig, 'schemaDir' | 'pathTransformer'>> = {
+const DEFAULT_CONFIG: Required<Omit<SchemaAnalyzerConfig, "schemaDir" | "pathTransformer">> = {
   workspaceRoot: process.cwd(),
-  excludePatterns: ['base.ts', 'index.ts', 'permissions.ts', 'permission-templates.ts', 'base.js', 'index.js', 'permissions.js', 'permission-templates.js'],
-  includeExtensions: ['.ts', '.js'],
-  schemaPatterns: ['Schema', 'InputSchema'],
+  excludePatterns: [
+    "base.ts",
+    "index.ts",
+    "permissions.ts",
+    "permission-templates.ts",
+    "base.js",
+    "index.js",
+    "permissions.js",
+    "permission-templates.js",
+  ],
+  includeExtensions: [".ts", ".js"],
+  schemaPatterns: ["Schema", "InputSchema"],
   useCompiledFiles: true,
 };
 
 /**
  * Merges user config with defaults
  */
-function mergeConfig(config: SchemaAnalyzerConfig): Required<Omit<SchemaAnalyzerConfig, 'pathTransformer'>> & { pathTransformer?: (sourcePath: string) => string } {
+function mergeConfig(
+  config: SchemaAnalyzerConfig
+): Required<Omit<SchemaAnalyzerConfig, "pathTransformer">> & { pathTransformer?: (sourcePath: string) => string } {
   return {
     ...DEFAULT_CONFIG,
     ...config,
@@ -94,11 +105,11 @@ function mergeConfig(config: SchemaAnalyzerConfig): Required<Omit<SchemaAnalyzer
  */
 function resolveSchemaDir(config: SchemaAnalyzerConfig): string {
   const workspaceRoot = config.workspaceRoot || process.cwd();
-  
+
   if (path.isAbsolute(config.schemaDir)) {
     return config.schemaDir;
   }
-  
+
   return path.join(workspaceRoot, config.schemaDir);
 }
 
@@ -111,10 +122,8 @@ function resolveSchemaDir(config: SchemaAnalyzerConfig): string {
  */
 export function discoverSchemaFiles(config: SchemaAnalyzerConfig | string): string[] {
   // Support legacy string-only parameter
-  const normalizedConfig: SchemaAnalyzerConfig = typeof config === 'string' 
-    ? { schemaDir: config }
-    : config;
-  
+  const normalizedConfig: SchemaAnalyzerConfig = typeof config === "string" ? { schemaDir: config } : config;
+
   const mergedConfig = mergeConfig(normalizedConfig);
   const schemaDir = resolveSchemaDir(normalizedConfig);
 
@@ -128,14 +137,14 @@ export function discoverSchemaFiles(config: SchemaAnalyzerConfig | string): stri
     // Filter files based on configuration
     const schemaFiles = files.filter((file) => {
       // Check extension
-      const hasValidExtension = mergedConfig.includeExtensions.some(ext => file.endsWith(ext));
+      const hasValidExtension = mergedConfig.includeExtensions.some((ext) => file.endsWith(ext));
       if (!hasValidExtension) return false;
 
       // Check exclusion patterns
-      const isExcluded = mergedConfig.excludePatterns.some(pattern => {
+      const isExcluded = mergedConfig.excludePatterns.some((pattern) => {
         // Support both exact match and glob-like patterns
-        if (pattern.includes('*')) {
-          const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
+        if (pattern.includes("*")) {
+          const regex = new RegExp("^" + pattern.replace(/\*/g, ".*") + "$");
           return regex.test(file);
         }
         return file === pattern;
@@ -147,7 +156,7 @@ export function discoverSchemaFiles(config: SchemaAnalyzerConfig | string): stri
 
     // Return full paths without extension (for dynamic import)
     return schemaFiles.map((file) => {
-      const ext = mergedConfig.includeExtensions.find(ext => file.endsWith(ext)) || '.ts';
+      const ext = mergedConfig.includeExtensions.find((ext) => file.endsWith(ext)) || ".ts";
       return path.join(schemaDir, file.replace(new RegExp(`\\${ext}$`), ""));
     });
   } catch (error) {
@@ -186,14 +195,14 @@ export function discoverSchemaFiles(config: SchemaAnalyzerConfig | string): stri
 export async function importSchemaModule(filePath: string, config?: SchemaAnalyzerConfig): Promise<any> {
   try {
     let importPath = filePath;
-    
+
     // Apply path transformation if provided
     if (config?.pathTransformer) {
       importPath = config.pathTransformer(filePath);
     }
-    
+
     // Add .js extension for ESM import
-    if (!importPath.endsWith('.js')) {
+    if (!importPath.endsWith(".js")) {
       importPath = `${importPath}.js`;
     }
 
@@ -234,8 +243,8 @@ export function getCollectionNameFromFile(filePath: string): string {
  * @returns Object containing found schemas
  */
 export function extractSchemaDefinitions(
-  module: any, 
-  patterns: string[] = ['Schema', 'InputSchema']
+  module: any,
+  patterns: string[] = ["Schema", "InputSchema"]
 ): { inputSchema?: z.ZodObject<any>; schema?: z.ZodObject<any> } {
   const result: { inputSchema?: z.ZodObject<any>; schema?: z.ZodObject<any> } = {};
 
@@ -244,9 +253,9 @@ export function extractSchemaDefinitions(
     // Check if it's a Zod schema
     if (value instanceof z.ZodObject) {
       // Check for InputSchema pattern first (more specific)
-      if (patterns.includes('InputSchema') && key.endsWith("InputSchema")) {
+      if (patterns.includes("InputSchema") && key.endsWith("InputSchema")) {
         result.inputSchema = value as z.ZodObject<any>;
-      } else if (patterns.includes('Schema') && key.endsWith("Schema") && !key.endsWith("InputSchema")) {
+      } else if (patterns.includes("Schema") && key.endsWith("Schema") && !key.endsWith("InputSchema")) {
         result.schema = value as z.ZodObject<any>;
       }
     }
@@ -298,7 +307,7 @@ export function extractFieldDefinitions(
 
   // Additional fields to exclude (image file handling fields)
   const defaultExcludeFields = ["thumbnailURL", "imageFiles"];
-  
+
   // Combine all exclusions
   const allExclusions = new Set([...baseFields, ...defaultExcludeFields, ...(excludeFields || [])]);
 
@@ -338,7 +347,7 @@ export function isAuthCollection(fields: Array<{ name: string; zodType: z.ZodTyp
  * @returns Field definition with constraints
  */
 export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): FieldDefinition {
-  let fieldType = mapZodTypeToPocketBase(zodType, fieldName);
+  const fieldType = mapZodTypeToPocketBase(zodType, fieldName);
   const required = isFieldRequired(zodType);
   const options = extractFieldOptions(zodType);
 
@@ -486,10 +495,8 @@ export function convertZodSchemaToCollectionSchema(
  */
 export async function buildSchemaDefinition(config: SchemaAnalyzerConfig | string): Promise<SchemaDefinition> {
   // Support legacy string-only parameter
-  const normalizedConfig: SchemaAnalyzerConfig = typeof config === 'string' 
-    ? { schemaDir: config }
-    : config;
-  
+  const normalizedConfig: SchemaAnalyzerConfig = typeof config === "string" ? { schemaDir: config } : config;
+
   const mergedConfig = mergeConfig(normalizedConfig);
   const collections = new Map<string, CollectionSchema>();
 
@@ -508,7 +515,7 @@ export async function buildSchemaDefinition(config: SchemaAnalyzerConfig | strin
   for (const filePath of schemaFiles) {
     try {
       let importPath = filePath;
-      
+
       // Apply path transformation if provided (for monorepo setups)
       if (normalizedConfig.pathTransformer) {
         importPath = normalizedConfig.pathTransformer(filePath);
@@ -574,7 +581,9 @@ export async function parseSchemaFiles(config: SchemaAnalyzerConfig | string): P
  * Provides an object-oriented interface for schema analysis
  */
 export class SchemaAnalyzer {
-  private config: Required<Omit<SchemaAnalyzerConfig, 'pathTransformer'>> & { pathTransformer?: (sourcePath: string) => string };
+  private config: Required<Omit<SchemaAnalyzerConfig, "pathTransformer">> & {
+    pathTransformer?: (sourcePath: string) => string;
+  };
 
   constructor(config: SchemaAnalyzerConfig) {
     this.config = mergeConfig(config);

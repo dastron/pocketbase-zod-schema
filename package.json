@@ -4,7 +4,9 @@
   "description": "Monorepo for PocketBase Zod Schema library",
   "private": true,
   "type": "module",
-  "workspaces": ["package"],
+  "workspaces": [
+    "package"
+  ],
   "scripts": {
     "build": "yarn workspace pocketbase-zod-schema build",
     "dev": "yarn workspace pocketbase-zod-schema dev",

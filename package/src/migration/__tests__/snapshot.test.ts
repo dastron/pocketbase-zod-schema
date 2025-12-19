@@ -401,80 +401,64 @@ describe("Snapshot Merging", () => {
   });
 });
 
-describe("loadSnapshotIfExists with base migration", () => {
-  const testSnapshotPath = path.join(__dirname, ".test-snapshot-merge.json");
-  const testConfig = { snapshotPath: testSnapshotPath, workspaceRoot: __dirname };
-  const baseMigrationPath = path.join(
-    __dirname,
-    "../../../../pocketbase/pb_migrations/000000000_collections_snapshot.js"
-  );
+describe("loadSnapshotIfExists with migrations directory", () => {
+  const testMigrationsDir = path.join(__dirname, ".test-migrations-base");
 
-  afterEach(() => {
-    if (fs.existsSync(testSnapshotPath)) {
-      fs.unlinkSync(testSnapshotPath);
+  beforeEach(() => {
+    // Create test migrations directory
+    if (!fs.existsSync(testMigrationsDir)) {
+      fs.mkdirSync(testMigrationsDir, { recursive: true });
     }
   });
 
-  it("should load base migration when no custom snapshot exists", () => {
-    // Ensure no custom snapshot exists
-    expect(snapshotExists(testConfig)).toBe(false);
+  afterEach(() => {
+    // Clean up test migrations directory
+    if (fs.existsSync(testMigrationsDir)) {
+      const files = fs.readdirSync(testMigrationsDir);
+      for (const file of files) {
+        fs.unlinkSync(path.join(testMigrationsDir, file));
+      }
+      fs.rmdirSync(testMigrationsDir);
+    }
+  });
 
-    // Load with base migration path (which no longer exists after removing hardcoded snapshot)
-    const snapshot = loadSnapshotIfExists(testConfig, baseMigrationPath);
-
-    // Should return null since no snapshots exist (empty database)
-    // This is the new behavior - no hardcoded base snapshot
+  it("should return null when migrations directory is empty", () => {
+    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
     expect(snapshot).toBeNull();
   });
 
-  it("should load custom snapshot when it exists (no base migration)", () => {
-    // Create a custom snapshot
-    const customSchema: SchemaDefinition = {
-      collections: new Map<string, CollectionSchema>([
-        [
-          "projects",
+  it("should load snapshot from migrations directory when it exists", () => {
+    // Create a snapshot file in migrations directory
+    const snapshotContent = `
+      migrate((app) => {
+        const snapshot = [
           {
             name: "projects",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
-          },
-        ],
-      ]),
-    };
-    saveSnapshot(customSchema, testConfig);
+            fields: [
+              { name: "title", type: "text", required: true }
+            ]
+          }
+        ];
+      });
+    `;
+    fs.writeFileSync(path.join(testMigrationsDir, "1234567890_collections_snapshot.js"), snapshotContent);
 
-    // Load with base migration path (which doesn't exist) - should load custom snapshot
-    const snapshot = loadSnapshotIfExists(testConfig, baseMigrationPath);
+    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
 
-    // Should have loaded custom snapshot
+    // Should have loaded snapshot
     expect(snapshot).not.toBeNull();
-
-    // Should have custom collection
     expect(snapshot?.collections.has("projects")).toBe(true);
-
-    // Should NOT have system collections (they're not in the custom snapshot)
-    expect(snapshot?.collections.has("_mfas")).toBe(false);
-    expect(snapshot?.collections.has("users")).toBe(false);
   });
 
-  it("should return null when neither base nor custom snapshot exists", () => {
-    // Ensure no custom snapshot exists
-    expect(snapshotExists(testConfig)).toBe(false);
-
-    // Load without base migration path
-    const snapshot = loadSnapshotIfExists(testConfig);
-
-    // Should return null
+  it("should return null when no migrationsPath is provided", () => {
+    const snapshot = loadSnapshotIfExists({});
     expect(snapshot).toBeNull();
   });
 
-  it("should handle invalid base migration path gracefully", () => {
-    const invalidPath = "/nonexistent/path/to/migration.js";
-
-    // Should not throw, just log warning
-    const snapshot = loadSnapshotIfExists(testConfig, invalidPath);
-
-    // Should return null since neither base nor custom exists
+  it("should handle invalid migrations path gracefully", () => {
+    const invalidPath = "/nonexistent/path/to/migrations";
+    const snapshot = loadSnapshotIfExists({ migrationsPath: invalidPath });
     expect(snapshot).toBeNull();
   });
 });
@@ -590,8 +574,6 @@ describe("findLatestSnapshot - Snapshot Generation Tests", () => {
 
 describe("Snapshot Loading with Multiple Snapshots", () => {
   const testMigrationsDir = path.join(__dirname, ".test-migrations-loading");
-  const testSnapshotPath = path.join(__dirname, ".test-snapshot-loading.json");
-  const testConfig = { snapshotPath: testSnapshotPath, workspaceRoot: __dirname };
 
   beforeEach(() => {
     // Create test migrations directory
@@ -608,11 +590,6 @@ describe("Snapshot Loading with Multiple Snapshots", () => {
         fs.unlinkSync(path.join(testMigrationsDir, file));
       }
       fs.rmdirSync(testMigrationsDir);
-    }
-
-    // Clean up test snapshot
-    if (fs.existsSync(testSnapshotPath)) {
-      fs.unlinkSync(testSnapshotPath);
     }
   });
 
@@ -657,7 +634,7 @@ describe("Snapshot Loading with Multiple Snapshots", () => {
     fs.writeFileSync(path.join(testMigrationsDir, "1234567900_collections_snapshot.js"), newestSnapshotContent);
 
     // Load snapshot using loadSnapshotIfExists with migrations directory
-    const snapshot = loadSnapshotIfExists(testConfig, testMigrationsDir);
+    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
 
     // Should have loaded the newest snapshot
     expect(snapshot).not.toBeNull();
@@ -670,53 +647,13 @@ describe("Snapshot Loading with Multiple Snapshots", () => {
     // Create only regular migration files
     fs.writeFileSync(path.join(testMigrationsDir, "1234567890_create_users.js"), "// migration");
 
-    const snapshot = loadSnapshotIfExists(testConfig, testMigrationsDir);
+    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
     expect(snapshot).toBeNull();
   });
 
   it("should handle empty migrations directory", () => {
     // Directory exists but is empty
-    const snapshot = loadSnapshotIfExists(testConfig, testMigrationsDir);
+    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
     expect(snapshot).toBeNull();
-  });
-
-  it("should prefer custom snapshot over migrations directory snapshots", () => {
-    // Create a snapshot in migrations directory
-    const migrationsSnapshotContent = `
-      migrate((app) => {
-        const snapshot = [
-          {
-            name: "users",
-            type: "auth",
-            fields: [
-              { name: "email", type: "email", required: true }
-            ]
-          }
-        ];
-      });
-    `;
-    fs.writeFileSync(path.join(testMigrationsDir, "1234567890_collections_snapshot.js"), migrationsSnapshotContent);
-
-    // Create a custom snapshot
-    const customSchema: SchemaDefinition = {
-      collections: new Map<string, CollectionSchema>([
-        [
-          "projects",
-          {
-            name: "projects",
-            type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
-          },
-        ],
-      ]),
-    };
-    saveSnapshot(customSchema, testConfig);
-
-    // Load snapshot - should prefer migrations directory snapshot
-    const snapshot = loadSnapshotIfExists(testConfig, testMigrationsDir);
-
-    // Should have loaded from migrations directory (users collection)
-    expect(snapshot).not.toBeNull();
-    expect(snapshot?.collections.has("users")).toBe(true);
   });
 });

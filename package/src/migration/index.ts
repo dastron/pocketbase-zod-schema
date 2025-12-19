@@ -1,7 +1,6 @@
 // Migration utilities exports
 
 // Analyzer module
-export type { SchemaAnalyzerConfig } from './analyzer.js';
 export {
   SchemaAnalyzer,
   buildFieldDefinition,
@@ -16,10 +15,10 @@ export {
   isAuthCollection,
   parseSchemaFiles,
   selectSchemaForCollection,
-} from './analyzer.js';
+} from "./analyzer.js";
+export type { SchemaAnalyzerConfig } from "./analyzer.js";
 
 // Snapshot module
-export type { SnapshotConfig } from './snapshot.js';
 export {
   SnapshotManager,
   convertPocketBaseMigration,
@@ -33,10 +32,10 @@ export {
   saveSnapshot,
   snapshotExists,
   validateSnapshot,
-} from './snapshot.js';
+} from "./snapshot.js";
+export type { SnapshotConfig } from "./snapshot.js";
 
 // Diff module
-export type { ChangeSummary, DestructiveChange, DiffEngineConfig } from './diff.js';
 export {
   DiffEngine,
   aggregateChanges,
@@ -60,10 +59,10 @@ export {
   matchCollectionsByName,
   matchFieldsByName,
   requiresForceFlag,
-} from './diff.js';
+} from "./diff.js";
+export type { ChangeSummary, DestructiveChange, DiffEngineConfig } from "./diff.js";
 
 // Generator module
-export type { MigrationGeneratorConfig } from './generator.js';
 export {
   MigrationGenerator,
   createMigrationFileStructure,
@@ -74,8 +73,8 @@ export {
   generateDownMigration,
   generateFieldAddition,
   generateFieldDefinitionObject,
-  generateFieldModification,
   generateFieldDeletion,
+  generateFieldModification,
   generateFieldsArray,
   generateIndexesArray,
   generateMigrationDescription,
@@ -84,15 +83,16 @@ export {
   generateTimestamp,
   generateUpMigration,
   writeMigrationFile,
-} from './generator.js';
+} from "./generator.js";
+export type { MigrationGeneratorConfig } from "./generator.js";
 
 // Types
-export * from './types.js';
+export * from "./types.js";
 
 // Errors
-export * from './errors.js';
+export * from "./errors.js";
 
 // Migration utilities
-export * from './utils/type-mapper.js';
-export * from './utils/relation-detector.js';
-export * from './utils/pluralize.js';
+export * from "./utils/pluralize.js";
+export * from "./utils/relation-detector.js";
+export * from "./utils/type-mapper.js";

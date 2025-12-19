@@ -5,8 +5,8 @@
  * Schema-driven PocketBase migration generator
  */
 
-import { Command } from "commander";
 import chalk from "chalk";
+import { Command } from "commander";
 import { createGenerateCommand } from "./commands/generate.js";
 import { createStatusCommand } from "./commands/status.js";
 
@@ -31,7 +31,9 @@ const program = new Command();
 // Configure main program
 program
   .name("pocketbase-migrate")
-  .description("Schema-driven PocketBase migration tool\n\nGenerate type-safe migrations from Zod schemas for PocketBase applications.")
+  .description(
+    "Schema-driven PocketBase migration tool\n\nGenerate type-safe migrations from Zod schemas for PocketBase applications."
+  )
   .version(VERSION, "-v, --version", "Output the current version")
   .option("-c, --config <path>", "Path to configuration file")
   .option("--verbose", "Enable verbose output")
@@ -40,12 +42,12 @@ program
   .hook("preAction", (thisCommand) => {
     // Handle global options before any command runs
     const opts = thisCommand.opts();
-    
+
     // Handle no-color option
     if (opts.color === false) {
       chalk.level = 0;
     }
-    
+
     // Display banner unless quiet mode
     if (!opts.quiet) {
       displayBanner();
@@ -57,7 +59,9 @@ program.addCommand(createGenerateCommand());
 program.addCommand(createStatusCommand());
 
 // Add examples to help output
-program.addHelpText("after", `
+program.addHelpText(
+  "after",
+  `
 ${chalk.bold("Examples:")}
   $ pocketbase-migrate status              Check for pending schema changes
   $ pocketbase-migrate generate            Generate migration from schema changes
@@ -73,7 +77,8 @@ ${chalk.bold("Configuration:")}
 
 ${chalk.bold("Documentation:")}
   For more information, visit: https://github.com/dastron/pocketbase-zod-schema
-`);
+`
+);
 
 // Custom error handling
 program.exitOverride((err) => {

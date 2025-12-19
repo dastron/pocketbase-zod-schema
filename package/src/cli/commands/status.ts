@@ -3,27 +3,27 @@
  * Shows current migration status without generating files
  */
 
-import { Command } from "commander";
 import chalk from "chalk";
+import { Command } from "commander";
 import { parseSchemaFiles } from "../../migration/analyzer.js";
 import { categorizeChangesBySeverity, compare } from "../../migration/diff.js";
 import { ConfigurationError, SchemaParsingError, SnapshotError } from "../../migration/errors.js";
 import { loadSnapshotIfExists } from "../../migration/snapshot.js";
 import type { SchemaDiff } from "../../migration/types.js";
 import { getMigrationsDirectory, getSchemaDirectory, loadConfig } from "../utils/config.js";
-import { 
-  formatChangeSummary, 
-  formatStatusJson, 
-  logDebug, 
-  logError, 
-  logInfo, 
+import {
+  formatChangeSummary,
+  formatStatusJson,
+  logDebug,
+  logError,
+  logInfo,
   logKeyValue,
-  logSection, 
-  logSuccess, 
+  logSection,
+  logSuccess,
   logTable,
-  setVerbosity, 
+  setVerbosity,
   withProgress,
-  type StatusOutput 
+  type StatusOutput,
 } from "../utils/logger.js";
 
 /**
@@ -127,13 +127,7 @@ function displayChangeTable(diff: SchemaDiff): void {
 
   // Add collections to delete
   for (const collection of diff.collectionsToDelete) {
-    rows.push([
-      chalk.red("-"),
-      collection.name,
-      collection.type || "base",
-      "-",
-      chalk.red("Delete"),
-    ]);
+    rows.push([chalk.red("-"), collection.name, collection.type || "base", "-", chalk.red("Delete")]);
   }
 
   // Add collections to modify
@@ -146,20 +140,11 @@ function displayChangeTable(diff: SchemaDiff): void {
     if (mod.indexesToRemove.length > 0) changes.push(`-${mod.indexesToRemove.length} indexes`);
     if (mod.rulesToUpdate.length > 0) changes.push(`~${mod.rulesToUpdate.length} rules`);
 
-    rows.push([
-      chalk.yellow("~"),
-      mod.collection,
-      "-",
-      changes.join(", ") || "No changes",
-      chalk.yellow("Modify"),
-    ]);
+    rows.push([chalk.yellow("~"), mod.collection, "-", changes.join(", ") || "No changes", chalk.yellow("Modify")]);
   }
 
   if (rows.length > 0) {
-    logTable(
-      ["", "Collection", "Type", "Changes", "Action"],
-      rows
-    );
+    logTable(["", "Collection", "Type", "Changes", "Action"], rows);
   }
 }
 
@@ -201,15 +186,12 @@ export async function executeStatus(options: any): Promise<void> {
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s) in schema`);
 
-    // Load previous snapshot (uses most recent snapshot from migrations directory)
+    // Load previous snapshot from migrations directory
     logInfo("Loading previous snapshot...");
-    const previousSnapshot = loadSnapshotIfExists(
-      {
-        snapshotPath: config.snapshot.path,
-        workspaceRoot: process.cwd(),
-      },
-      migrationsDir // Pass migrations directory to find latest snapshot
-    );
+    const previousSnapshot = loadSnapshotIfExists({
+      migrationsPath: migrationsDir,
+      workspaceRoot: process.cwd(),
+    });
 
     // Handle first-time setup
     if (!previousSnapshot) {
@@ -336,14 +318,16 @@ export async function executeStatus(options: any): Promise<void> {
 export function createStatusCommand(): Command {
   return new Command("status")
     .description("Show current migration status without generating files")
-    .option("-s, --snapshot <path>", "Path to snapshot file")
     .option("--schema-dir <directory>", "Directory containing Zod schema files")
     .option("--json", "Output status as JSON for programmatic use", false)
-    .addHelpText("after", `
+    .addHelpText(
+      "after",
+      `
 Examples:
   $ pocketbase-migrate status              Check for pending schema changes
   $ pocketbase-migrate status --json       Output status as JSON
   $ pocketbase-migrate status --verbose    Show detailed status information
-`)
+`
+    )
     .action(executeStatus);
 }

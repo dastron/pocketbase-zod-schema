@@ -136,7 +136,7 @@ function parseFunctionBody(code: string): {
         collection: collectionDef.name,
         details: collectionDef,
       });
-    } catch (e) {
+    } catch {
       // Skip malformed collection definitions
     }
   }
@@ -153,7 +153,7 @@ function parseFunctionBody(code: string): {
  */
 export function parseCollectionDefinition(code: string): ParsedCollection {
   // Clean up the code to make it valid JSON
-  let jsonStr = code
+  const jsonStr = code
     .replace(/'/g, '"') // Replace single quotes with double quotes
     .replace(/,(\s*[}\]])/g, "$1") // Remove trailing commas
     .replace(/(\w+):/g, '"$1":'); // Quote unquoted keys
@@ -205,7 +205,7 @@ export function extractOperations(code: string): MigrationOperation[] {
         collection: collectionId,
         details: { position, field: fieldDef },
       });
-    } catch (e) {
+    } catch {
       // Skip malformed field definitions
     }
   }
@@ -247,7 +247,7 @@ export function extractOperations(code: string): MigrationOperation[] {
  */
 function parseFieldDefinition(code: string): ParsedField {
   // Clean up the code to make it valid JSON
-  let jsonStr = code
+  const jsonStr = code
     .replace(/'/g, '"')
     .replace(/,(\s*[}\]])/g, "$1")
     .replace(/(\w+):/g, '"$1":');

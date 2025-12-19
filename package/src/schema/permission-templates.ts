@@ -114,10 +114,11 @@ export function resolveTemplate(config: PermissionTemplateConfig): PermissionSch
     case "custom":
       baseRules = {};
       break;
-    default:
+    default: {
       // Exhaustive check - TypeScript will error if we miss a template type
       const _exhaustive: never = config.template;
       throw new Error(`Unknown template type: ${_exhaustive}`);
+    }
   }
 
   // Merge with custom rules if provided (custom rules override template rules)
@@ -132,7 +133,9 @@ export function resolveTemplate(config: PermissionTemplateConfig): PermissionSch
  * @param config - Configuration to check
  * @returns True if it's a template configuration
  */
-export function isTemplateConfig(config: PermissionTemplateConfig | PermissionSchema): config is PermissionTemplateConfig {
+export function isTemplateConfig(
+  config: PermissionTemplateConfig | PermissionSchema
+): config is PermissionTemplateConfig {
   return "template" in config;
 }
 

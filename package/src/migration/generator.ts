@@ -1,7 +1,7 @@
 /**
  * Migration Generator component
  * Creates PocketBase migration files based on detected differences
- * 
+ *
  * This module provides a standalone, configurable migration generator that can be used
  * by consumer projects to generate PocketBase-compatible migration files.
  */
@@ -64,16 +64,15 @@ migrate((app) => {
 });
 `;
 
-
 /**
  * Default configuration values
  */
-const DEFAULT_CONFIG: Omit<Required<MigrationGeneratorConfig>, 'migrationDir'> = {
+const DEFAULT_CONFIG: Omit<Required<MigrationGeneratorConfig>, "migrationDir"> = {
   workspaceRoot: process.cwd(),
   timestampGenerator: () => Math.floor(Date.now() / 1000).toString(),
   template: DEFAULT_TEMPLATE,
   includeTypeReference: true,
-  typesPath: '../pb_data/types.d.ts',
+  typesPath: "../pb_data/types.d.ts",
 };
 
 /**
@@ -91,11 +90,11 @@ function mergeConfig(config: MigrationGeneratorConfig): Required<MigrationGenera
  */
 function resolveMigrationDir(config: MigrationGeneratorConfig): string {
   const workspaceRoot = config.workspaceRoot || process.cwd();
-  
+
   if (path.isAbsolute(config.migrationDir)) {
     return config.migrationDir;
   }
-  
+
   return path.join(workspaceRoot, config.migrationDir);
 }
 
@@ -188,23 +187,23 @@ export function generateMigrationFilename(diff: SchemaDiff, config?: MigrationGe
  * @returns Complete migration file content
  */
 export function createMigrationFileStructure(
-  upCode: string, 
+  upCode: string,
   downCode: string,
   config?: MigrationGeneratorConfig
 ): string {
   const mergedConfig = config ? mergeConfig(config) : DEFAULT_CONFIG;
   let template = mergedConfig.template;
-  
+
   // Replace placeholders
-  template = template.replace('{{TYPES_PATH}}', mergedConfig.typesPath);
-  template = template.replace('{{UP_CODE}}', upCode);
-  template = template.replace('{{DOWN_CODE}}', downCode);
-  
+  template = template.replace("{{TYPES_PATH}}", mergedConfig.typesPath);
+  template = template.replace("{{UP_CODE}}", upCode);
+  template = template.replace("{{DOWN_CODE}}", downCode);
+
   // Remove type reference if disabled
   if (!mergedConfig.includeTypeReference) {
-    template = template.replace(/\/\/\/ <reference path="[^"]*" \/>\n?/, '');
+    template = template.replace(/\/\/\/ <reference path="[^"]*" \/>\n?/, "");
   }
-  
+
   return template;
 }
 
@@ -281,7 +280,6 @@ export function writeMigrationFile(migrationDir: string, filename: string, conte
     throw new MigrationGenerationError(`Failed to write migration file: ${fsError.message}`, filePath, error as Error);
   }
 }
-
 
 /**
  * Formats a value for JavaScript code generation
@@ -487,7 +485,6 @@ export function generateIndexesArray(indexes?: string[]): string {
   const indexStrings = indexes.map((idx) => `"${idx}"`);
   return `[\n    ${indexStrings.join(",\n    ")},\n  ]`;
 }
-
 
 /**
  * Generates Collection constructor call for creating a new collection
@@ -703,7 +700,6 @@ export function generateFieldDeletion(collectionName: string, fieldName: string,
   return lines.join("\n");
 }
 
-
 /**
  * Generates code for adding an index to a collection
  *
@@ -843,8 +839,6 @@ export function generateUpMigration(diff: SchemaDiff): string {
     lines.push(`  // Modify existing collections`);
     for (const modification of diff.collectionsToModify) {
       const collectionName = modification.collection;
-      let operationCounter = 0;
-
       // Add new fields
       if (modification.fieldsToAdd.length > 0) {
         lines.push(`  // Add fields to ${collectionName}`);
@@ -852,7 +846,6 @@ export function generateUpMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_add_${field.name}`;
           lines.push(generateFieldAddition(collectionName, field, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -863,7 +856,6 @@ export function generateUpMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_modify_${fieldMod.fieldName}`;
           lines.push(generateFieldModification(collectionName, fieldMod, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -874,7 +866,6 @@ export function generateUpMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_remove_${field.name}`;
           lines.push(generateFieldDeletion(collectionName, field.name, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -886,7 +877,6 @@ export function generateUpMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_addidx_${i}`;
           lines.push(generateIndexAddition(collectionName, index, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -898,7 +888,6 @@ export function generateUpMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_rmidx_${i}`;
           lines.push(generateIndexRemoval(collectionName, index, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -909,7 +898,6 @@ export function generateUpMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_perm_${permission.ruleType}`;
           lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName));
           lines.push(``);
-          operationCounter++;
         }
       } else if (modification.rulesToUpdate.length > 0) {
         lines.push(`  // Update rules for ${collectionName}`);
@@ -917,7 +905,6 @@ export function generateUpMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_rule_${rule.ruleType}`;
           lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.newValue, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
     }
@@ -942,7 +929,6 @@ export function generateUpMigration(diff: SchemaDiff): string {
 
   return lines.join("\n");
 }
-
 
 /**
  * Generates the down migration function code
@@ -976,8 +962,6 @@ export function generateDownMigration(diff: SchemaDiff): string {
     lines.push(`  // Revert modifications`);
     for (const modification of diff.collectionsToModify) {
       const collectionName = modification.collection;
-      let operationCounter = 0;
-
       // Revert permissions (preferred) or rules (fallback)
       if (modification.permissionsToUpdate && modification.permissionsToUpdate.length > 0) {
         lines.push(`  // Revert permissions for ${collectionName}`);
@@ -985,7 +969,6 @@ export function generateDownMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_revert_perm_${permission.ruleType}`;
           lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName));
           lines.push(``);
-          operationCounter++;
         }
       } else if (modification.rulesToUpdate.length > 0) {
         lines.push(`  // Revert rules for ${collectionName}`);
@@ -993,7 +976,6 @@ export function generateDownMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_revert_rule_${rule.ruleType}`;
           lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.oldValue, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -1005,7 +987,6 @@ export function generateDownMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_restore_idx_${i}`;
           lines.push(generateIndexAddition(collectionName, index, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -1017,7 +998,6 @@ export function generateDownMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_revert_idx_${i}`;
           lines.push(generateIndexRemoval(collectionName, index, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -1028,7 +1008,6 @@ export function generateDownMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_restore_${field.name}`;
           lines.push(generateFieldAddition(collectionName, field, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -1053,7 +1032,6 @@ export function generateDownMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_revert_${fieldMod.fieldName}`;
           lines.push(generateFieldModification(collectionName, reverseMod, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
 
@@ -1064,7 +1042,6 @@ export function generateDownMigration(diff: SchemaDiff): string {
           const varName = `collection_${collectionName}_revert_add_${field.name}`;
           lines.push(generateFieldDeletion(collectionName, field.name, varName));
           lines.push(``);
-          operationCounter++;
         }
       }
     }
@@ -1100,13 +1077,11 @@ export function generateDownMigration(diff: SchemaDiff): string {
  */
 export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | string): string {
   // Support legacy string-only parameter (migration directory)
-  const normalizedConfig: MigrationGeneratorConfig = typeof config === 'string'
-    ? { migrationDir: config }
-    : config;
+  const normalizedConfig: MigrationGeneratorConfig = typeof config === "string" ? { migrationDir: config } : config;
 
   try {
     const migrationDir = resolveMigrationDir(normalizedConfig);
-    
+
     // Generate up and down migration code
     const upCode = generateUpMigration(diff);
     const downCode = generateDownMigration(diff);

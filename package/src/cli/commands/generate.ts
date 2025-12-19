@@ -7,9 +7,15 @@ import { Command } from "commander";
 import * as path from "path";
 import { parseSchemaFiles } from "../../migration/analyzer.js";
 import { compare } from "../../migration/diff.js";
-import { ConfigurationError, FileSystemError, MigrationGenerationError, SchemaParsingError, SnapshotError } from "../../migration/errors.js";
+import {
+  ConfigurationError,
+  FileSystemError,
+  MigrationGenerationError,
+  SchemaParsingError,
+  SnapshotError,
+} from "../../migration/errors.js";
 import { generate } from "../../migration/generator.js";
-import { loadSnapshotIfExists, saveSnapshot } from "../../migration/snapshot.js";
+import { loadSnapshotIfExists } from "../../migration/snapshot.js";
 import {
   detectDestructiveChanges,
   formatDestructiveChanges,
@@ -132,15 +138,12 @@ export async function executeGenerate(options: any): Promise<void> {
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s)`);
 
-    // Load previous snapshot (uses most recent snapshot from migrations directory)
+    // Load previous snapshot from migrations directory
     logInfo("Loading previous snapshot...");
-    const previousSnapshot = loadSnapshotIfExists(
-      {
-        snapshotPath: config.snapshot.path,
-        workspaceRoot: process.cwd(),
-      },
-      migrationsDir // Pass migrations directory to find latest snapshot
-    );
+    const previousSnapshot = loadSnapshotIfExists({
+      migrationsPath: migrationsDir,
+      workspaceRoot: process.cwd(),
+    });
 
     if (!previousSnapshot) {
       logInfo("No previous snapshot found - treating as empty database (first-time generation)");
@@ -178,16 +181,8 @@ export async function executeGenerate(options: any): Promise<void> {
 
     logSuccess(`Migration file created: ${path.basename(migrationPath)}`);
 
-    // Update snapshot
-    await withProgress("Updating snapshot...", () => {
-      saveSnapshot(currentSchema, {
-        snapshotPath: config.snapshot.path,
-        workspaceRoot: process.cwd(),
-      });
-      return Promise.resolve();
-    });
-
-    logSuccess("Snapshot updated");
+    // Note: Snapshot is embedded in the generated migration file
+    // No separate snapshot file needed
 
     // Display next steps
     logSection("✅ Next Steps");
@@ -271,16 +266,18 @@ export function createGenerateCommand(): Command {
   return new Command("generate")
     .description("Generate a migration from schema changes")
     .option("-o, --output <directory>", "Output directory for migration files")
-    .option("-s, --snapshot <path>", "Path to snapshot file")
     .option("-f, --force", "Force generation even with destructive changes", false)
     .option("--dry-run", "Show what would be generated without creating files", false)
     .option("--schema-dir <directory>", "Directory containing Zod schema files")
-    .addHelpText("after", `
+    .addHelpText(
+      "after",
+      `
 Examples:
   $ pocketbase-migrate generate                    Generate migration from schema changes
   $ pocketbase-migrate generate --force            Force generation with destructive changes
   $ pocketbase-migrate generate --dry-run          Preview changes without generating files
   $ pocketbase-migrate generate -o ./migrations    Specify output directory
-`)
+`
+    )
     .action(executeGenerate);
 }

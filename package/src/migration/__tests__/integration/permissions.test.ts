@@ -16,7 +16,7 @@ import {
   CreateAuthCollectionWithManageRuleSchema,
   CreateCollectionWithNullPermissionsSchema,
 } from "../fixtures/schemas";
-import { compareMigrations, formatDifferences, parseMigrationFile } from "../helpers";
+import { parseMigrationFile } from "../helpers";
 
 /**
  * Helper function to create a schema definition from a collection schema

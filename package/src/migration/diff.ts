@@ -1,7 +1,7 @@
 /**
  * Diff Engine component
  * Compares current schema with previous snapshot and identifies changes
- * 
+ *
  * This module provides a standalone, configurable diff engine that can be used
  * by consumer projects to compare schema definitions and detect changes.
  */
@@ -43,7 +43,7 @@ export interface DiffEngineConfig {
    * 'low' = includes any constraint changes
    * Defaults to 'high'
    */
-  severityThreshold?: 'high' | 'medium' | 'low';
+  severityThreshold?: "high" | "medium" | "low";
 
   /**
    * Custom system collections to exclude from diff
@@ -58,25 +58,15 @@ export interface DiffEngineConfig {
   usersSystemFields?: string[];
 }
 
-
 /**
  * Default configuration values
  */
 const DEFAULT_CONFIG: Required<DiffEngineConfig> = {
   warnOnDelete: true,
   requireForceForDestructive: true,
-  severityThreshold: 'high',
+  severityThreshold: "high",
   systemCollections: ["_mfas", "_otps", "_externalAuths", "_authOrigins", "_superusers"],
-  usersSystemFields: [
-    "id",
-    "password",
-    "tokenKey",
-    "email",
-    "emailVisibility",
-    "verified",
-    "created",
-    "updated",
-  ],
+  usersSystemFields: ["id", "password", "tokenKey", "email", "emailVisibility", "verified", "created", "updated"],
 };
 
 /**
@@ -93,8 +83,8 @@ function mergeConfig(config?: DiffEngineConfig): Required<DiffEngineConfig> {
  * Destructive change information
  */
 export interface DestructiveChange {
-  type: 'collection_delete' | 'field_delete' | 'type_change' | 'required_change' | 'constraint_change';
-  severity: 'high' | 'medium' | 'low';
+  type: "collection_delete" | "field_delete" | "type_change" | "required_change" | "constraint_change";
+  severity: "high" | "medium" | "low";
   collection: string;
   field?: string;
   description: string;
@@ -167,7 +157,6 @@ export function filterSystemCollections(schema: SchemaDefinition, config?: DiffE
     collections: filteredCollections,
   };
 }
-
 
 /**
  * Identifies new collections in schema that don't exist in snapshot
@@ -330,7 +319,6 @@ export function matchFieldsByName(
 
   return matches;
 }
-
 
 /**
  * Compares two values for equality, handling deep object comparison
@@ -540,7 +528,6 @@ export function detectFieldChanges(currentField: FieldDefinition, previousField:
   return changes;
 }
 
-
 /**
  * Compares indexes between current and previous collections
  *
@@ -737,7 +724,6 @@ function hasChanges(modification: CollectionModification): boolean {
   );
 }
 
-
 /**
  * Aggregates all detected changes into a SchemaDiff
  * Main entry point for diff comparison
@@ -748,7 +734,7 @@ function hasChanges(modification: CollectionModification): boolean {
  * @returns Complete SchemaDiff with all changes
  */
 export function aggregateChanges(
-  currentSchema: SchemaDefinition, 
+  currentSchema: SchemaDefinition,
   previousSnapshot: SchemaSnapshot | null,
   config?: DiffEngineConfig
 ): SchemaDiff {
@@ -757,8 +743,12 @@ export function aggregateChanges(
   const collectionsToDelete = findRemovedCollections(currentSchema, previousSnapshot);
 
   // Filter out system collections from create and delete operations
-  const filteredCollectionsToCreate = collectionsToCreate.filter((collection) => !isSystemCollection(collection.name, config));
-  const filteredCollectionsToDelete = collectionsToDelete.filter((collection) => !isSystemCollection(collection.name, config));
+  const filteredCollectionsToCreate = collectionsToCreate.filter(
+    (collection) => !isSystemCollection(collection.name, config)
+  );
+  const filteredCollectionsToDelete = collectionsToDelete.filter(
+    (collection) => !isSystemCollection(collection.name, config)
+  );
 
   // Find modified collections
   const collectionsToModify: CollectionModification[] = [];
@@ -796,8 +786,8 @@ export function detectDestructiveChanges(diff: SchemaDiff, config?: DiffEngineCo
   // Collection deletions are always high severity
   for (const collection of diff.collectionsToDelete) {
     destructiveChanges.push({
-      type: 'collection_delete',
-      severity: 'high',
+      type: "collection_delete",
+      severity: "high",
       collection: collection.name,
       description: `Delete collection: ${collection.name}`,
     });
@@ -810,8 +800,8 @@ export function detectDestructiveChanges(diff: SchemaDiff, config?: DiffEngineCo
     // Field deletions are high severity
     for (const field of modification.fieldsToRemove) {
       destructiveChanges.push({
-        type: 'field_delete',
-        severity: 'high',
+        type: "field_delete",
+        severity: "high",
         collection: collectionName,
         field: field.name,
         description: `Delete field: ${collectionName}.${field.name}`,
@@ -825,8 +815,8 @@ export function detectDestructiveChanges(diff: SchemaDiff, config?: DiffEngineCo
 
       if (typeChange) {
         destructiveChanges.push({
-          type: 'type_change',
-          severity: 'high',
+          type: "type_change",
+          severity: "high",
           collection: collectionName,
           field: fieldMod.fieldName,
           description: `Change field type: ${collectionName}.${fieldMod.fieldName} (${typeChange.oldValue} → ${typeChange.newValue})`,
@@ -835,10 +825,10 @@ export function detectDestructiveChanges(diff: SchemaDiff, config?: DiffEngineCo
         });
       }
 
-      if (requiredChange && mergedConfig.severityThreshold !== 'high') {
+      if (requiredChange && mergedConfig.severityThreshold !== "high") {
         destructiveChanges.push({
-          type: 'required_change',
-          severity: 'medium',
+          type: "required_change",
+          severity: "medium",
           collection: collectionName,
           field: fieldMod.fieldName,
           description: `Make field required: ${collectionName}.${fieldMod.fieldName}`,
@@ -848,14 +838,12 @@ export function detectDestructiveChanges(diff: SchemaDiff, config?: DiffEngineCo
       }
 
       // Other constraint changes at low severity
-      if (mergedConfig.severityThreshold === 'low') {
-        const otherChanges = fieldMod.changes.filter(
-          (c) => c.property !== "type" && c.property !== "required"
-        );
+      if (mergedConfig.severityThreshold === "low") {
+        const otherChanges = fieldMod.changes.filter((c) => c.property !== "type" && c.property !== "required");
         for (const change of otherChanges) {
           destructiveChanges.push({
-            type: 'constraint_change',
-            severity: 'low',
+            type: "constraint_change",
+            severity: "low",
             collection: collectionName,
             field: fieldMod.fieldName,
             description: `Change constraint: ${collectionName}.${fieldMod.fieldName}.${change.property}`,
@@ -878,7 +866,10 @@ export function detectDestructiveChanges(diff: SchemaDiff, config?: DiffEngineCo
  * @param config - Optional configuration
  * @returns Object with categorized changes
  */
-export function categorizeChangesBySeverity(diff: SchemaDiff, _config?: DiffEngineConfig): {
+export function categorizeChangesBySeverity(
+  diff: SchemaDiff,
+  _config?: DiffEngineConfig
+): {
   destructive: string[];
   nonDestructive: string[];
 } {
@@ -943,7 +934,6 @@ export function categorizeChangesBySeverity(diff: SchemaDiff, _config?: DiffEngi
   return { destructive, nonDestructive };
 }
 
-
 /**
  * Generates a summary of all changes in a diff
  * Useful for status reporting and user feedback
@@ -973,10 +963,7 @@ export function generateChangeSummary(diff: SchemaDiff, config?: DiffEngineConfi
   }
 
   return {
-    totalChanges: 
-      diff.collectionsToCreate.length +
-      diff.collectionsToDelete.length +
-      diff.collectionsToModify.length,
+    totalChanges: diff.collectionsToCreate.length + diff.collectionsToDelete.length + diff.collectionsToModify.length,
     collectionsToCreate: diff.collectionsToCreate.length,
     collectionsToDelete: diff.collectionsToDelete.length,
     collectionsToModify: diff.collectionsToModify.length,
@@ -1000,24 +987,24 @@ export function generateChangeSummary(diff: SchemaDiff, config?: DiffEngineConfi
  */
 export function requiresForceFlag(diff: SchemaDiff, config?: DiffEngineConfig): boolean {
   const mergedConfig = mergeConfig(config);
-  
+
   if (!mergedConfig.requireForceForDestructive) {
     return false;
   }
 
   const destructiveChanges = detectDestructiveChanges(diff, config);
-  
+
   // Filter by severity threshold
   const relevantChanges = destructiveChanges.filter((change) => {
     switch (mergedConfig.severityThreshold) {
-      case 'high':
-        return change.severity === 'high';
-      case 'medium':
-        return change.severity === 'high' || change.severity === 'medium';
-      case 'low':
+      case "high":
+        return change.severity === "high";
+      case "medium":
+        return change.severity === "high" || change.severity === "medium";
+      case "low":
         return true;
       default:
-        return change.severity === 'high';
+        return change.severity === "high";
     }
   });
 
@@ -1034,7 +1021,7 @@ export function requiresForceFlag(diff: SchemaDiff, config?: DiffEngineConfig): 
  * @returns Complete SchemaDiff with all detected changes
  */
 export function compare(
-  currentSchema: SchemaDefinition, 
+  currentSchema: SchemaDefinition,
   previousSnapshot: SchemaSnapshot | null,
   config?: DiffEngineConfig
 ): SchemaDiff {

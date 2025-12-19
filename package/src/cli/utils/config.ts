@@ -19,10 +19,6 @@ export interface MigrationConfig {
     directory: string;
     format: string;
   };
-  snapshot: {
-    path: string;
-    basePath?: string;
-  };
   diff: {
     warnOnDelete: boolean;
     requireForceForDestructive: boolean;
@@ -35,7 +31,6 @@ export interface MigrationConfig {
 export type PartialMigrationConfig = {
   schema?: Partial<MigrationConfig["schema"]>;
   migrations?: Partial<MigrationConfig["migrations"]>;
-  snapshot?: Partial<MigrationConfig["snapshot"]>;
   diff?: Partial<MigrationConfig["diff"]>;
 };
 
@@ -63,15 +58,11 @@ const DEFAULT_CONFIG: MigrationConfig = {
     directory: "pocketbase/pb_migrations",
     format: "timestamp_description",
   },
-  snapshot: {
-    path: ".migration-snapshot.json",
-  },
   diff: {
     warnOnDelete: true,
     requireForceForDestructive: true,
   },
 };
-
 
 /**
  * Finds a configuration file in the given directory
@@ -95,12 +86,7 @@ function loadJsonConfig(configPath: string): PartialMigrationConfig {
     return JSON.parse(content);
   } catch (error) {
     if (error instanceof SyntaxError) {
-      throw new ConfigurationError(
-        "Invalid JSON syntax in configuration file",
-        configPath,
-        undefined,
-        error
-      );
+      throw new ConfigurationError("Invalid JSON syntax in configuration file", configPath, undefined, error);
     }
     throw new ConfigurationError(
       "Failed to read configuration file",
@@ -144,11 +130,7 @@ async function loadConfigFile(configPath: string): Promise<PartialMigrationConfi
   } else if (ext === ".js" || ext === ".mjs") {
     return loadJsConfig(configPath);
   } else {
-    throw new ConfigurationError(
-      `Unsupported configuration file format: ${ext}`,
-      configPath,
-      undefined
-    );
+    throw new ConfigurationError(`Unsupported configuration file format: ${ext}`, configPath, undefined);
   }
 }
 
@@ -159,7 +141,6 @@ function mergeConfig(base: MigrationConfig, override: PartialMigrationConfig): M
   return {
     schema: { ...base.schema, ...override.schema },
     migrations: { ...base.migrations, ...override.migrations },
-    snapshot: { ...base.snapshot, ...override.snapshot },
     diff: { ...base.diff, ...override.diff },
   };
 }
@@ -185,10 +166,6 @@ function loadConfigFromEnv(): PartialMigrationConfig {
     config.migrations = { directory: process.env.MIGRATION_OUTPUT_DIR };
   }
 
-  if (process.env.MIGRATION_SNAPSHOT_PATH) {
-    config.snapshot = { path: process.env.MIGRATION_SNAPSHOT_PATH };
-  }
-
   if (process.env.MIGRATION_REQUIRE_FORCE !== undefined) {
     config.diff = { requireForceForDestructive: process.env.MIGRATION_REQUIRE_FORCE === "true" };
   }
@@ -206,17 +183,12 @@ export function loadConfigFromArgs(options: any): PartialMigrationConfig {
     config.migrations = { directory: options.output };
   }
 
-  if (options.snapshot) {
-    config.snapshot = { path: options.snapshot };
-  }
-
   if (options.schemaDir) {
     config.schema = { directory: options.schemaDir };
   }
 
   return config;
 }
-
 
 /**
  * Validates configuration values
@@ -234,10 +206,6 @@ function validateConfig(config: MigrationConfig, configPath?: string): void {
 
   if (typeof config.migrations.directory !== "string" || config.migrations.directory.trim() === "") {
     invalidFields.push("migrations.directory (must be a non-empty string)");
-  }
-
-  if (typeof config.snapshot.path !== "string" || config.snapshot.path.trim() === "") {
-    invalidFields.push("snapshot.path (must be a non-empty string)");
   }
 
   if (typeof config.diff.warnOnDelete !== "boolean") {
@@ -262,11 +230,9 @@ function validateConfig(config: MigrationConfig, configPath?: string): void {
   const schemaDir = possiblePaths.find((p) => fs.existsSync(p));
 
   if (!schemaDir) {
-    throw new ConfigurationError(
-      `Schema directory not found. Tried: ${possiblePaths.join(", ")}`,
-      configPath,
-      ["schema.directory"]
-    );
+    throw new ConfigurationError(`Schema directory not found. Tried: ${possiblePaths.join(", ")}`, configPath, [
+      "schema.directory",
+    ]);
   }
 }
 
@@ -328,7 +294,6 @@ export async function loadConfig(options: any = {}): Promise<MigrationConfig> {
   return config;
 }
 
-
 /**
  * Gets the absolute path to the schema directory
  */
@@ -353,24 +318,6 @@ export function getMigrationsDirectory(config: MigrationConfig): string {
   ];
 
   return possiblePaths.find((p) => fs.existsSync(p)) || possiblePaths[0];
-}
-
-/**
- * Gets the absolute path to the snapshot file
- */
-export function getSnapshotPath(config: MigrationConfig): string {
-  const cwd = process.cwd();
-  return path.resolve(cwd, config.snapshot.path);
-}
-
-/**
- * Gets the absolute path to the base migration file
- */
-export function getBaseMigrationPath(config: MigrationConfig): string | undefined {
-  if (!config.snapshot.basePath) {
-    return undefined;
-  }
-  return path.resolve(process.cwd(), config.snapshot.basePath);
 }
 
 /**
@@ -400,9 +347,6 @@ export default {
   migrations: {
     directory: "pocketbase/pb_migrations",
     format: "timestamp_description",
-  },
-  snapshot: {
-    path: ".migration-snapshot.json",
   },
   diff: {
     warnOnDelete: true,

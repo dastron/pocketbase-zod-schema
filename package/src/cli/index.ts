@@ -1,46 +1,40 @@
 /**
  * CLI utilities for programmatic usage
- * 
+ *
  * This module exports CLI utilities that can be used programmatically
  * in addition to the command-line interface.
  */
 
 // Command implementations
-export { executeGenerate as generateMigration } from './commands/generate.js';
-export { executeStatus as getMigrationStatus } from './commands/status.js';
+export { executeGenerate as generateMigration } from "./commands/generate.js";
+export { executeStatus as getMigrationStatus } from "./commands/status.js";
 
 // Configuration utilities
-export { 
-  loadConfig, 
-  getSchemaDirectory,
-  getMigrationsDirectory,
-  getSnapshotPath,
-  type MigrationConfig 
-} from './utils/config.js';
+export { getMigrationsDirectory, getSchemaDirectory, loadConfig, type MigrationConfig } from "./utils/config.js";
 
 // Logging utilities
 export {
-  logSuccess,
-  logError,
-  logWarning,
-  logInfo,
-  logDebug,
-  logSection,
-  logStep,
-  logList,
-  logKeyValue,
-  logTable,
-  logBox,
-  logTimestamp,
-  logTimed,
+  createProgressBar,
+  createSpinner,
   formatChangeSummary,
   formatDuration,
   formatStatusJson,
-  createProgressBar,
-  createSpinner,
-  withProgress,
-  setVerbosity,
   getVerbosity,
-  type VerbosityLevel,
+  logBox,
+  logDebug,
+  logError,
+  logInfo,
+  logKeyValue,
+  logList,
+  logSection,
+  logStep,
+  logSuccess,
+  logTable,
+  logTimed,
+  logTimestamp,
+  logWarning,
+  setVerbosity,
+  withProgress,
   type StatusOutput,
-} from './utils/logger.js';
+  type VerbosityLevel,
+} from "./utils/logger.js";
