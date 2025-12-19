@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run linting and type checking before commit
+yarn lint
+yarn typecheck
+
+# Run tests on staged files
+yarn test --run --reporter=basic

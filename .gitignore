@@ -1,0 +1,65 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.test
+
+# Testing
+coverage/
+test-pocketbase/
+*.db
+*.db-shm
+*.db-wal
+
+# Runtime files
+*.local
+.cache/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Package manager files
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnpm-store/
+
+# Keep these Yarn files
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# AI Files
+.cursor
+.kiro

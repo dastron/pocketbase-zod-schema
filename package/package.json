@@ -1,0 +1,161 @@
+{
+  "name": "pocketbase-zod-schema",
+  "version": "0.1.0",
+  "description": "PocketBase migration generator using Zod schemas for type-safe database migrations",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "keywords": [
+    "pocketbase",
+    "zod",
+    "migration",
+    "database",
+    "typescript",
+    "schema",
+    "sqlite",
+    "orm",
+    "type-safe",
+    "code-generation"
+  ],
+  "homepage": "https://github.com/dastron/pocketbase-zod-schema#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dastron/pocketbase-zod-schema.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dastron/pocketbase-zod-schema/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "import": "./dist/schema.js",
+      "require": "./dist/schema.cjs"
+    },
+    "./enums": {
+      "types": "./dist/enums.d.ts",
+      "import": "./dist/enums.js",
+      "require": "./dist/enums.cjs"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js",
+      "require": "./dist/types.cjs"
+    },
+    "./mutator": {
+      "types": "./dist/mutator.d.ts",
+      "import": "./dist/mutator.js",
+      "require": "./dist/mutator.cjs"
+    },
+    "./migration": {
+      "types": "./dist/migration/index.d.ts",
+      "import": "./dist/migration/index.js",
+      "require": "./dist/migration/index.cjs"
+    },
+    "./migration/analyzer": {
+      "types": "./dist/migration/analyzer.d.ts",
+      "import": "./dist/migration/analyzer.js",
+      "require": "./dist/migration/analyzer.cjs"
+    },
+    "./migration/diff": {
+      "types": "./dist/migration/diff.d.ts",
+      "import": "./dist/migration/diff.js",
+      "require": "./dist/migration/diff.cjs"
+    },
+    "./migration/generator": {
+      "types": "./dist/migration/generator.d.ts",
+      "import": "./dist/migration/generator.js",
+      "require": "./dist/migration/generator.cjs"
+    },
+    "./migration/snapshot": {
+      "types": "./dist/migration/snapshot.d.ts",
+      "import": "./dist/migration/snapshot.js",
+      "require": "./dist/migration/snapshot.cjs"
+    },
+    "./migration/utils": {
+      "types": "./dist/migration/utils/index.d.ts",
+      "import": "./dist/migration/utils/index.js",
+      "require": "./dist/migration/utils/index.cjs"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "import": "./dist/cli/index.js",
+      "require": "./dist/cli/index.cjs"
+    },
+    "./cli/utils": {
+      "types": "./dist/cli/utils/index.d.ts",
+      "import": "./dist/cli/utils/index.js",
+      "require": "./dist/cli/utils/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "API.md",
+    "MIGRATION_GUIDE.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "nodemon",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:property": "vitest run --testNamePattern='Property'",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write ./src",
+    "lint": "eslint src --ext .ts,.tsx --fix",
+    "clean": "rm -rf dist",
+    "bundle-size": "yarn build && du -sh dist/* | sort -hr",
+    "prepublishOnly": "yarn clean && yarn build && yarn test",
+    "check-updates": "yarn outdated"
+  },
+  "bin": {
+    "pocketbase-migrate": "./dist/cli/migrate.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "dastron <erik.danford@gmail.com>",
+  "license": "MIT",
+  "sideEffects": false,
+  "bundleDependencies": false,
+  "peerDependencies": {
+    "zod": "^3.20.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@babel/parser": "^7.28.5",
+    "@types/node": "^22.14.1",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^3.1.2",
+    "diff": "^8.0.2",
+    "eslint": "^9.0.0",
+    "fast-check": "^4.3.0",
+    "nodemon": "^3.1.9",
+    "prettier": "^3.5.3",
+    "prettier-plugin-organize-imports": "^4.1.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "ora": "^8.0.1",
+    "pocketbase": "^0.26.0",
+    "zod": "^3.24.3"
+  }
+}

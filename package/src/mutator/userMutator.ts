@@ -1,0 +1,21 @@
+import { UserInputSchema } from "../schema";
+import type { UserInputType, UserType } from "../types";
+import { BaseMutator, type MutatorOptions } from "./baseMutator";
+
+export class UserMutator extends BaseMutator<UserType, UserInputType> {
+  protected setDefaults(): MutatorOptions {
+    return {
+      expand: [],
+      filter: [],
+      sort: ["-updated"],
+    };
+  }
+
+  protected getCollection() {
+    return this.pb.collection("Projects");
+  }
+
+  protected async validateInput(input: UserInputType) {
+    return UserInputSchema.parse(input);
+  }
+}

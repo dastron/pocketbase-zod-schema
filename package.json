@@ -1,0 +1,34 @@
+{
+  "name": "pocketbase-zod-schema-monorepo",
+  "version": "0.1.0",
+  "description": "Monorepo for PocketBase Zod Schema library",
+  "private": true,
+  "type": "module",
+  "workspaces": ["package"],
+  "scripts": {
+    "build": "yarn workspace pocketbase-zod-schema build",
+    "dev": "yarn workspace pocketbase-zod-schema dev",
+    "test": "yarn workspace pocketbase-zod-schema test",
+    "test:watch": "yarn workspace pocketbase-zod-schema test:watch",
+    "test:coverage": "yarn workspace pocketbase-zod-schema test:coverage",
+    "typecheck": "yarn workspace pocketbase-zod-schema typecheck",
+    "format": "yarn workspace pocketbase-zod-schema format",
+    "lint": "yarn workspace pocketbase-zod-schema lint",
+    "clean": "yarn workspace pocketbase-zod-schema clean",
+    "prepare": "husky install",
+    "migrate:generate": "node package/dist/cli/migrate.js generate",
+    "migrate:status": "node package/dist/cli/migrate.js status",
+    "pb:download": "node scripts/download-pocketbase.js",
+    "pb:start": "node scripts/start-pocketbase.js",
+    "pb:stop": "node scripts/stop-pocketbase.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "dastron",
+  "license": "MIT",
+  "packageManager": "yarn@4.8.1",
+  "devDependencies": {
+    "husky": "^9.0.0"
+  }
+}
