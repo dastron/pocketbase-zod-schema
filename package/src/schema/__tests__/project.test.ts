@@ -107,13 +107,13 @@ describe("Project Schema Migration Generation", () => {
     expect(ownerField).toBeDefined();
     expect(ownerField?.type).toBe("relation");
     expect(ownerField?.relation).toBeDefined();
-    expect(ownerField?.relation?.collection).toBe("users");
+    expect(ownerField?.relation?.collection).toBe("Users");
     expect(ownerField?.relation?.maxSelect).toBe(1);
 
     expect(subscribersField).toBeDefined();
     expect(subscribersField?.type).toBe("relation");
     expect(subscribersField?.relation).toBeDefined();
-    expect(subscribersField?.relation?.collection).toBe("users");
+    expect(subscribersField?.relation?.collection).toBe("Users");
     expect(subscribersField?.relation?.maxSelect).toBeGreaterThan(1);
   });
 

@@ -10,11 +10,19 @@ import * as path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compare } from "../../diff";
 import { generate } from "../../generator";
-import type { SchemaDefinition } from "../../types";
+import type { SchemaDefinition, SchemaSnapshot } from "../../types";
 import { CreateCollectionBlankSchema } from "../fixtures/schemas";
 
 function createSchemaDefinition(collectionSchema: any): SchemaDefinition {
   return {
+    collections: new Map([[collectionSchema.name, collectionSchema]]),
+  };
+}
+
+function createSchemaSnapshot(collectionSchema: any): SchemaSnapshot {
+  return {
+    version: "1.0.0",
+    timestamp: new Date().toISOString(),
     collections: new Map([[collectionSchema.name, collectionSchema]]),
   };
 }
@@ -95,7 +103,7 @@ describe("Generator Return Statements", () => {
   describe("Collection update migrations", () => {
     it("should return app.save() for update operations, not return true", () => {
       // Create a collection, then update it
-      const beforeSchema = createSchemaDefinition({
+      const beforeSchema = createSchemaSnapshot({
         name: "test_update_return",
         type: "base",
         fields: [
