@@ -14,6 +14,11 @@ node_modules/
 dist/
 dist-ssr/
 *.tsbuildinfo
+*.tgz
+
+# Local packaging artifacts (npm pack)
+package/.pack/
+package/*.tgz
 
 # Environment files
 .env
