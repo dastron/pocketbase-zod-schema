@@ -49,11 +49,16 @@ const fieldDefinitionArb = fc.record({
 
 /**
  * Arbitrary for generating collection schemas
+ * Ensures field names are unique within a collection
  */
 const collectionSchemaArb = fc.record({
   name: collectionNameArb,
   type: fc.constant("base" as const),
-  fields: fc.array(fieldDefinitionArb, { minLength: 0, maxLength: 5 }),
+  fields: fc.uniqueArray(fieldDefinitionArb, {
+    minLength: 0,
+    maxLength: 5,
+    selector: (field) => field.name,
+  }),
   indexes: fc.constant([] as string[]),
   permissions: fc.constant({
     listRule: null as string | null,
