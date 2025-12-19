@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PermissionSchema, PermissionTemplateConfig } from "./permissions";
+import type { PermissionSchema, PermissionTemplateConfig } from "../utils/permissions";
 
 /**
  * Base schema fields that PocketBase automatically adds to all records
@@ -148,26 +148,166 @@ export function filesField(options?: { min?: number; max?: number }) {
   return schema;
 }
 
+// ============================================================================
+// Relation Field Helpers - Explicit Relationship Definitions
+// ============================================================================
+
 /**
- * Creates a single relation field schema
- * Maps to PocketBase 'relation' field type with maxSelect=1
- * Field name should start with uppercase to be detected as relation
+ * Relation field configuration options
  */
-export function relationField() {
-  return z.string();
+export interface RelationConfig {
+  /**
+   * Target collection name (e.g., 'users', 'posts', 'tags')
+   * This is the PocketBase collection that the relation points to
+   */
+  collection: string;
+
+  /**
+   * Whether to cascade delete related records when this record is deleted
+   * @default false
+   */
+  cascadeDelete?: boolean;
 }
 
 /**
- * Creates a multiple relation field schema
- * Maps to PocketBase 'relation' field type with maxSelect>1
- * Field name should contain uppercase to be detected as relation
- * @param options - Optional constraints for the relation field
+ * Multiple relation field configuration options
  */
-export function relationsField(options?: { min?: number; max?: number }) {
+export interface RelationsConfig extends RelationConfig {
+  /**
+   * Minimum number of relations required
+   * @default 0
+   */
+  minSelect?: number;
+
+  /**
+   * Maximum number of relations allowed
+   * @default 999
+   */
+  maxSelect?: number;
+}
+
+/**
+ * Internal marker for relation metadata
+ * Used by the analyzer to detect explicit relation definitions
+ */
+const RELATION_METADATA_KEY = "__pocketbase_relation__";
+
+/**
+ * Creates a single relation field schema with explicit collection target
+ * Maps to PocketBase 'relation' field type with maxSelect=1
+ *
+ * This is the recommended way to define relations - it's explicit and doesn't
+ * rely on naming conventions.
+ *
+ * @param config - Relation configuration with target collection
+ * @returns Zod string schema with relation metadata
+ *
+ * @example
+ * // Single relation to users collection
+ * const PostSchema = z.object({
+ *   title: z.string(),
+ *   author: relationField({ collection: 'users' }),
+ * });
+ *
+ * @example
+ * // Relation with cascade delete
+ * const CommentSchema = z.object({
+ *   content: z.string(),
+ *   post: relationField({ collection: 'posts', cascadeDelete: true }),
+ * });
+ */
+export function relationField(config: RelationConfig) {
+  const metadata = {
+    [RELATION_METADATA_KEY]: {
+      type: "single",
+      collection: config.collection,
+      cascadeDelete: config.cascadeDelete ?? false,
+      maxSelect: 1,
+      minSelect: 0,
+    },
+  };
+
+  return z.string().describe(JSON.stringify(metadata));
+}
+
+/**
+ * Creates a multiple relation field schema with explicit collection target
+ * Maps to PocketBase 'relation' field type with maxSelect>1
+ *
+ * This is the recommended way to define multi-relations - it's explicit and
+ * doesn't rely on naming conventions.
+ *
+ * @param config - Relations configuration with target collection and limits
+ * @returns Zod array of strings schema with relation metadata
+ *
+ * @example
+ * // Multiple relations to tags collection
+ * const PostSchema = z.object({
+ *   title: z.string(),
+ *   tags: relationsField({ collection: 'tags' }),
+ * });
+ *
+ * @example
+ * // Relations with min/max constraints
+ * const ProjectSchema = z.object({
+ *   title: z.string(),
+ *   collaborators: relationsField({
+ *     collection: 'users',
+ *     minSelect: 1,
+ *     maxSelect: 10,
+ *   }),
+ * });
+ */
+export function relationsField(config: RelationsConfig) {
+  const metadata = {
+    [RELATION_METADATA_KEY]: {
+      type: "multiple",
+      collection: config.collection,
+      cascadeDelete: config.cascadeDelete ?? false,
+      maxSelect: config.maxSelect ?? 999,
+      minSelect: config.minSelect ?? 0,
+    },
+  };
+
   let schema = z.array(z.string());
-  if (options?.min !== undefined) schema = schema.min(options.min);
-  if (options?.max !== undefined) schema = schema.max(options.max);
-  return schema;
+
+  // Apply array constraints for Zod validation
+  if (config.minSelect !== undefined) {
+    schema = schema.min(config.minSelect);
+  }
+  if (config.maxSelect !== undefined) {
+    schema = schema.max(config.maxSelect);
+  }
+
+  return schema.describe(JSON.stringify(metadata));
+}
+
+/**
+ * Extracts relation metadata from a Zod type's description
+ * Used internally by the analyzer to detect explicit relation definitions
+ *
+ * @param description - The Zod type's description string
+ * @returns Relation metadata if present, null otherwise
+ */
+export function extractRelationMetadata(description: string | undefined): {
+  type: "single" | "multiple";
+  collection: string;
+  cascadeDelete: boolean;
+  maxSelect: number;
+  minSelect: number;
+} | null {
+  if (!description) return null;
+
+  try {
+    const parsed = JSON.parse(description);
+    if (parsed[RELATION_METADATA_KEY]) {
+      return parsed[RELATION_METADATA_KEY];
+    }
+  } catch {
+    // Not JSON, ignore
+  }
+
+  return null;
 }
 
 /**

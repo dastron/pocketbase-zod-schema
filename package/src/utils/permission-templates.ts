@@ -1,4 +1,4 @@
-import type { PermissionSchema, PermissionTemplateConfig, RuleExpression } from "./permissions";
+import type { PermissionSchema, PermissionTemplateConfig, RuleExpression } from "../utils/permissions";
 
 /**
  * Predefined permission templates for common access control patterns

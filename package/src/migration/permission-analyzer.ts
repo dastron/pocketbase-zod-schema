@@ -8,8 +8,8 @@
  * - Merge permissions with default values
  */
 
-import { resolveTemplate } from "../schema/permission-templates";
-import type { APIRuleType, PermissionSchema, PermissionTemplateConfig } from "../schema/permissions";
+import { resolveTemplate } from "../utils/permission-templates";
+import type { APIRuleType, PermissionSchema, PermissionTemplateConfig } from "../utils/permissions";
 import type { RuleValidationResult } from "./rule-validator";
 import { RuleValidator } from "./rule-validator";
 import type { FieldDefinition } from "./types";

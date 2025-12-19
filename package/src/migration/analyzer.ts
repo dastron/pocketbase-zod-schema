@@ -8,7 +8,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import { z } from "zod";
-import type { PermissionSchema } from "../schema/permissions";
+import { extractRelationMetadata } from "../schema/base";
+import type { PermissionSchema } from "../utils/permissions";
 import { FileSystemError, SchemaParsingError } from "./errors";
 import { PermissionAnalyzer } from "./permission-analyzer";
 import type { CollectionSchema, FieldDefinition, SchemaDefinition } from "./types";
@@ -201,18 +202,46 @@ export async function importSchemaModule(filePath: string, config?: SchemaAnalyz
       importPath = config.pathTransformer(filePath);
     }
 
-    // Add .js extension for ESM import
-    if (!importPath.endsWith(".js")) {
-      importPath = `${importPath}.js`;
+    // Determine the file extension to use
+    // Try .js first (for compiled files), then .ts (for source files)
+    let resolvedPath: string | null = null;
+    const jsPath = `${importPath}.js`;
+    const tsPath = `${importPath}.ts`;
+
+    if (fs.existsSync(jsPath)) {
+      resolvedPath = jsPath;
+    } else if (fs.existsSync(tsPath)) {
+      // Try to import TypeScript files directly
+      // This will work if tsx or another TypeScript loader is being used
+      // Otherwise, it will fail with a helpful error message
+      resolvedPath = tsPath;
+    } else {
+      // Default to .js extension for ESM import
+      resolvedPath = jsPath;
     }
 
     // Convert to file URL for proper ESM import
-    const fileUrl = new URL(`file://${path.resolve(importPath)}`);
+    const fileUrl = new URL(`file://${path.resolve(resolvedPath)}`);
 
     // Use dynamic import to load the module
     const module = await import(fileUrl.href);
     return module;
   } catch (error) {
+    // Check if we're trying to import a TypeScript file
+    const tsPath = `${filePath}.ts`;
+    const isTypeScriptFile = fs.existsSync(tsPath);
+
+    if (isTypeScriptFile) {
+      throw new SchemaParsingError(
+        `Failed to import TypeScript schema file. Node.js cannot import TypeScript files directly.\n` +
+          `Please either:\n` +
+          `  1. Compile your schema files to JavaScript first, or\n` +
+          `  2. Use tsx to run the migration tool (e.g., "npx tsx package/dist/cli/migrate.js status" or "tsx package/dist/cli/migrate.js status")`,
+        filePath,
+        error as Error
+      );
+    }
+
     throw new SchemaParsingError(
       `Failed to import schema module. Make sure the schema files are compiled to JavaScript.`,
       filePath,
@@ -358,8 +387,24 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     options,
   };
 
-  // Handle relation fields
-  if (isRelationField(fieldName, zodType)) {
+  // Check for explicit relation metadata first (from relation() or relations() helpers)
+  const relationMetadata = extractRelationMetadata(zodType.description);
+
+  if (relationMetadata) {
+    // Explicit relation definition found
+    fieldDef.type = "relation";
+    fieldDef.relation = {
+      collection: relationMetadata.collection,
+      maxSelect: relationMetadata.maxSelect,
+      minSelect: relationMetadata.minSelect,
+      cascadeDelete: relationMetadata.cascadeDelete,
+    };
+
+    // Clear out string-specific options that don't apply to relation fields
+    fieldDef.options = undefined;
+  }
+  // Fall back to naming convention detection for backward compatibility
+  else if (isRelationField(fieldName, zodType)) {
     // Override type to 'relation' for relation fields
     fieldDef.type = "relation";
 
@@ -373,6 +418,16 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
       minSelect,
       cascadeDelete: false, // Default to false, can be configured later
     };
+
+    // Clear out string-specific options that don't apply to relation fields
+    // Options like 'min', 'max', 'pattern' are from string validation and don't apply to relations
+    if (fieldDef.options) {
+      const { min, max, pattern, ...relationSafeOptions } = fieldDef.options;
+      console.log("min", min);
+      console.log("max", max);
+      console.log("pattern", pattern);
+      fieldDef.options = Object.keys(relationSafeOptions).length > 0 ? relationSafeOptions : undefined;
+    }
   }
 
   return fieldDef;
@@ -468,17 +523,19 @@ export function convertZodSchemaToCollectionSchema(
   }
 
   // Build collection schema
+  // Use extracted permissions for rules, falling back to nulls
   const collectionSchema: CollectionSchema = {
     name: collectionName,
     type: collectionType,
     fields,
     indexes,
     rules: {
-      listRule: null,
-      viewRule: null,
-      createRule: null,
-      updateRule: null,
-      deleteRule: null,
+      listRule: permissions?.listRule ?? null,
+      viewRule: permissions?.viewRule ?? null,
+      createRule: permissions?.createRule ?? null,
+      updateRule: permissions?.updateRule ?? null,
+      deleteRule: permissions?.deleteRule ?? null,
+      manageRule: permissions?.manageRule ?? null,
     },
     permissions,
   };
@@ -522,7 +579,15 @@ export async function buildSchemaDefinition(config: SchemaAnalyzerConfig | strin
       } else if (mergedConfig.useCompiledFiles) {
         // Default transformation: convert /src/ to /dist/ for compiled files
         // This is a common pattern but can be overridden with pathTransformer
-        importPath = filePath.replace(/\/src\//, "/dist/");
+        const distPath = filePath.replace(/\/src\//, "/dist/");
+        // Only use dist path if it actually exists (i.e., files are compiled)
+        // Otherwise, fall back to source path for TypeScript files
+        if (fs.existsSync(`${distPath}.js`) || fs.existsSync(`${distPath}.mjs`)) {
+          importPath = distPath;
+        } else {
+          // Files aren't compiled, use source path
+          importPath = filePath;
+        }
       }
 
       // Import the module

@@ -18,7 +18,7 @@ export type PocketBaseFieldType =
   | "autodate";
 
 // Import and re-export APIRuleType from schema/permissions to avoid duplication
-import type { APIRuleType } from "../schema/permissions.js";
+import type { APIRuleType } from "../utils/permissions.js";
 export type { APIRuleType };
 
 export interface FieldDefinition {

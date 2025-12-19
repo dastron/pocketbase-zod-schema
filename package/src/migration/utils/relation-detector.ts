@@ -148,31 +148,38 @@ export function getMaxSelect(fieldName: string, zodType: z.ZodTypeAny): number {
 
 /**
  * Gets the minimum number of relations required for a relation field
+ * Returns 0 as default for all relation fields (single or multiple)
+ * PocketBase always expects minSelect to be defined for relation fields
  */
-export function getMinSelect(fieldName: string, zodType: z.ZodTypeAny): number | undefined {
-  if (!isMultipleRelationField(fieldName, zodType)) {
-    return undefined;
+export function getMinSelect(fieldName: string, zodType: z.ZodTypeAny): number {
+  // For single relations, always return 0
+  if (isSingleRelationField(fieldName, zodType)) {
+    return 0;
   }
 
-  // Unwrap to get to the array type
-  let unwrappedType = zodType;
-  if (zodType instanceof z.ZodOptional) {
-    unwrappedType = zodType._def.innerType;
-  }
-  if (unwrappedType instanceof z.ZodNullable) {
-    unwrappedType = unwrappedType._def.innerType;
-  }
-  if (unwrappedType instanceof z.ZodDefault) {
-    unwrappedType = unwrappedType._def.innerType;
-  }
+  // For multiple relations, check for explicit min constraint
+  if (isMultipleRelationField(fieldName, zodType)) {
+    // Unwrap to get to the array type
+    let unwrappedType = zodType;
+    if (zodType instanceof z.ZodOptional) {
+      unwrappedType = zodType._def.innerType;
+    }
+    if (unwrappedType instanceof z.ZodNullable) {
+      unwrappedType = unwrappedType._def.innerType;
+    }
+    if (unwrappedType instanceof z.ZodDefault) {
+      unwrappedType = unwrappedType._def.innerType;
+    }
 
-  if (unwrappedType instanceof z.ZodArray) {
-    // Access the minLength from the array definition
-    const arrayDef = unwrappedType._def;
-    if (arrayDef.minLength) {
-      return arrayDef.minLength.value;
+    if (unwrappedType instanceof z.ZodArray) {
+      // Access the minLength from the array definition
+      const arrayDef = unwrappedType._def;
+      if (arrayDef.minLength) {
+        return arrayDef.minLength.value;
+      }
     }
   }
 
-  return undefined;
+  // Default to 0 for all relation fields
+  return 0;
 }

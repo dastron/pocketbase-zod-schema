@@ -7,11 +7,33 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
+import { readFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { createGenerateCommand } from "./commands/generate.js";
 import { createStatusCommand } from "./commands/status.js";
 
-// Package version - will be replaced during build
-const VERSION = "0.1.0";
+// Get package version from package.json
+function getVersion(): string {
+  try {
+    // Get the directory of the current file
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+
+    // Resolve path to package.json (works from both src and dist)
+    // From dist/cli/migrate.js -> ../../package.json
+    // From src/cli/migrate.ts -> ../../package.json
+    const packageJsonPath = join(__dirname, "../../package.json");
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+    return packageJson.version || "0.0.0";
+  } catch {
+    // Fallback version if package.json cannot be read
+    console.warn("Warning: Could not read version from package.json");
+    return "0.0.0";
+  }
+}
+
+const VERSION = getVersion();
 
 /**
  * Display banner with tool name and version

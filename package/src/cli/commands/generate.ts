@@ -133,8 +133,13 @@ export async function executeGenerate(options: any): Promise<void> {
 
     logSection("🔍 Analyzing Schema");
 
-    // Parse schema files
-    const currentSchema = await withProgress("Parsing Zod schemas...", () => parseSchemaFiles(schemaDir));
+    // Parse schema files with full config (including exclude patterns)
+    const analyzerConfig = {
+      schemaDir,
+      excludePatterns: config.schema.exclude,
+      useCompiledFiles: false, // Use source files since we're in development/testing
+    };
+    const currentSchema = await withProgress("Parsing Zod schemas...", () => parseSchemaFiles(analyzerConfig));
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s)`);
 

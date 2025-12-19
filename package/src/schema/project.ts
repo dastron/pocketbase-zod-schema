@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { StatusEnum } from "../enums";
-import { baseImageFileSchema, inputImageFileSchema, omitImageFilesSchema, withPermissions } from "./base";
+import {
+  baseImageFileSchema,
+  inputImageFileSchema,
+  omitImageFilesSchema,
+  relationField,
+  relationsField,
+  withPermissions,
+} from "./base";
 
 export const ProjectInputSchema = z
   .object({
@@ -10,8 +17,8 @@ export const ProjectInputSchema = z
     status: StatusEnum,
     summary: z.string().optional(),
 
-    User: z.string().nonempty("User ID is missing"),
-    SubscriberUsers: z.array(z.string()),
+    OwnerUser: relationField({ collection: "Users" }),
+    SubscriberUsers: relationsField({ collection: "Users" }),
   })
   .extend(inputImageFileSchema);
 
@@ -22,12 +29,10 @@ export const ProjectSchema = withPermissions(
   ProjectInputSchema.omit(omitImageFilesSchema).extend(baseImageFileSchema),
   {
     template: "owner-only",
-    ownerField: "User",
+    ownerField: "OwnerUser",
     customRules: {
-      // Override list rule to allow authenticated users to see all projects
       listRule: '@request.auth.id != ""',
-      // Allow viewing if user is owner OR a subscriber
-      viewRule: '@request.auth.id != "" && (User = @request.auth.id || SubscriberUsers ?= @request.auth.id)',
+      viewRule: '@request.auth.id != "" && (OwnerUser = @request.auth.id || SubscriberUsers ?= @request.auth.id)',
     },
   }
 );
