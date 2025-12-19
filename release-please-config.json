@@ -1,6 +1,6 @@
 {
   "packages": {
-    ".": {
+    "package": {
       "release-type": "node",
       "package-name": "pocketbase-zod-schema",
       "changelog-sections": [
@@ -54,11 +54,6 @@
           "section": "Miscellaneous",
           "hidden": true
         }
-      ],
-      "extra-files": [
-        "README.md",
-        "API.md"
-      ]
-    }
+      ]    }
   }
 }

@@ -82,12 +82,26 @@ ${chalk.bold("Documentation:")}
 
 // Custom error handling
 program.exitOverride((err) => {
-  if (err.code === "commander.help") {
+  /**
+   * Commander throws on help/version when exitOverride is enabled.
+   * The error codes differ by commander version (e.g. "commander.helpDisplayed").
+   * Respect the exitCode whenever it is provided.
+   */
+  const anyErr = err as any;
+
+  // Common help/version codes across commander versions
+  if (anyErr?.code === "commander.help" || anyErr?.code === "commander.helpDisplayed") {
     process.exit(0);
   }
-  if (err.code === "commander.version") {
+  if (anyErr?.code === "commander.version") {
     process.exit(0);
   }
+
+  // Prefer commander-provided exitCode if present
+  if (typeof anyErr?.exitCode === "number") {
+    process.exit(anyErr.exitCode);
+  }
+
   process.exit(1);
 });
 

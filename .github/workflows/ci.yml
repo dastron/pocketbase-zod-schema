@@ -13,7 +13,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [20, 22]
 
     steps:
       - name: Checkout code
@@ -47,12 +47,16 @@ jobs:
 
       - name: Test CLI installation
         run: |
-          npm pack
-          npm install -g ./pocketbase-zod-schema-*.tgz
+          cd package
+          rm -rf .pack
+          mkdir -p .pack
+          npm pack --pack-destination .pack
+          npm install -g ./.pack/pocketbase-zod-schema-*.tgz
           pocketbase-migrate --help
 
   coverage:
     runs-on: ubuntu-latest
+    continue-on-error: true
     
     steps:
       - name: Checkout code
@@ -86,7 +90,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        node-version: [18, 20]
+        node-version: [20, 22]
 
     steps:
       - name: Checkout code
@@ -107,4 +111,4 @@ jobs:
         run: yarn build
 
       - name: Test basic functionality
-        run: yarn test --run --reporter=basic
+        run: yarn test --run

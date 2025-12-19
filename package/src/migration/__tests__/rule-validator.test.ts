@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { RuleValidator } from "../rule-validator";
-import { FieldDefinition } from "../types";
+import type { FieldDefinition } from "../types";
 
 describe("RuleValidator", () => {
   const mockFields: FieldDefinition[] = [

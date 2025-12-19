@@ -18,26 +18,6 @@ Brief description of changes made.
 - [ ] Updated existing tests as needed
 - [ ] Manual testing completed
 
-## Documentation
-
-- [ ] Updated README.md
-- [ ] Updated API documentation
-- [ ] Updated CHANGELOG.md
-- [ ] Added JSDoc comments for new functions
-
-## Checklist
-
-- [ ] Code follows project style guidelines
-- [ ] Self-review of code completed
-- [ ] Tests added/updated and passing
-- [ ] Documentation updated
-- [ ] No breaking changes (or breaking changes documented)
-- [ ] Commit messages follow conventional commit format
-
 ## Related Issues
 
 Closes #(issue number)
-
-## Additional Notes
-
-Add any additional notes or context about the changes here.
