@@ -12,7 +12,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { generateCollectionPermissions } from "../../generator";
-import type { CollectionSchema, SchemaDefinition } from "../../types";
+import type { CollectionSchema } from "../../types";
 
 describe("Permission Handling Property Tests", () => {
   /**
@@ -40,15 +40,6 @@ describe("Permission Handling Property Tests", () => {
       primaryKey: fc.constant(false),
     }),
   });
-
-  /**
-   * Helper to create a schema definition from a collection schema
-   */
-  function createSchemaDefinition(collectionSchema: CollectionSchema): SchemaDefinition {
-    return {
-      collections: new Map([[collectionSchema.name, collectionSchema]]),
-    };
-  }
 
   // Feature: migration-test-suite, Property 11: Null permission translation
   describe("Property 11: Null permission translation", () => {

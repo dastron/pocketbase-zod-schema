@@ -3,9 +3,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { PermissionSchema, PermissionTemplateConfig } from "../../schema/permissions";
+import type { PermissionSchema, PermissionTemplateConfig } from "../../schema/permissions";
 import { PermissionAnalyzer } from "../permission-analyzer";
-import { FieldDefinition } from "../types";
+import type { FieldDefinition } from "../types";
 
 describe("PermissionAnalyzer", () => {
   const analyzer = new PermissionAnalyzer();

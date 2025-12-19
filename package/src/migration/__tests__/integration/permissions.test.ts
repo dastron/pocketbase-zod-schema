@@ -28,8 +28,6 @@ function createSchemaDefinition(collectionSchema: any): SchemaDefinition {
 }
 
 describe("Permission Handling Integration Tests", () => {
-  const fixturesDir = path.join(__dirname, "../fixtures");
-  const referenceMigrationsDir = path.join(fixturesDir, "reference-migrations");
   const tempDir = path.join(os.tmpdir(), "migration-test-permissions-" + Date.now());
 
   // Create temp directory for generated migrations
