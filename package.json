@@ -1,6 +1,6 @@
 {
   "name": "pocketbase-zod-schema-monorepo",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Monorepo for PocketBase Zod Schema library",
   "private": true,
   "type": "module",
