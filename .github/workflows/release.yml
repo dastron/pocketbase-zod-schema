@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 jobs:
   release-please:
@@ -66,5 +67,3 @@ jobs:
 
       - name: Publish to NPM
         run: yarn workspace pocketbase-zod-schema publish:npm
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

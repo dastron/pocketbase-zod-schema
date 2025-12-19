@@ -115,7 +115,7 @@
     "clean": "rm -rf dist",
     "bundle-size": "yarn build && du -sh dist/* | sort -hr",
     "prepublishOnly": "yarn clean && yarn build && yarn test",
-    "publish:npm": "npm publish",
+    "publish:npm": "npm publish --access public",
     "check-updates": "yarn outdated"
   },
   "bin": {
@@ -127,7 +127,6 @@
   "author": "dastron <erik.danford@gmail.com>",
   "license": "MIT",
   "sideEffects": false,
-  "bundleDependencies": false,
   "peerDependencies": {
     "zod": "^3.20.0"
   },
