@@ -28,7 +28,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   shims: true,
-  target: 'node18',
+  target: 'node20',
   treeshake: {
     preset: 'recommended',
     moduleSideEffects: false,

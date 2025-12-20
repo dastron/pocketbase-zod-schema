@@ -28,6 +28,7 @@ export {
   loadBaseMigration,
   loadSnapshot,
   loadSnapshotIfExists,
+  loadSnapshotWithMigrations,
   mergeSnapshots,
   saveSnapshot,
   snapshotExists,

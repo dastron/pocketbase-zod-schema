@@ -8,7 +8,7 @@ import { Command } from "commander";
 import { parseSchemaFiles } from "../../migration/analyzer.js";
 import { categorizeChangesBySeverity, compare } from "../../migration/diff.js";
 import { ConfigurationError, SchemaParsingError, SnapshotError } from "../../migration/errors.js";
-import { loadSnapshotIfExists } from "../../migration/snapshot.js";
+import { loadSnapshotWithMigrations } from "../../migration/snapshot.js";
 import type { SchemaDiff } from "../../migration/types.js";
 import { getMigrationsDirectory, getSchemaDirectory, loadConfig } from "../utils/config.js";
 import {
@@ -191,9 +191,9 @@ export async function executeStatus(options: any): Promise<void> {
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s) in schema`);
 
-    // Load previous snapshot from migrations directory
+    // Load previous snapshot from migrations directory and apply subsequent migrations
     logInfo("Loading previous snapshot...");
-    const previousSnapshot = loadSnapshotIfExists({
+    const previousSnapshot = loadSnapshotWithMigrations({
       migrationsPath: migrationsDir,
       workspaceRoot: process.cwd(),
     });
