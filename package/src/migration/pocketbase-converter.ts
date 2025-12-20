@@ -6,6 +6,7 @@
  * (as found in migration files and snapshots) and our internal schema representation.
  */
 
+import { SnapshotError } from "./errors";
 import type { CollectionSchema, SchemaSnapshot } from "./types";
 
 const SNAPSHOT_VERSION = "1.0.0";
@@ -19,6 +20,8 @@ const SNAPSHOT_VERSION = "1.0.0";
  */
 export function resolveCollectionIdToName(collectionId: string): string {
   // Known PocketBase constants
+  // Note: We return "Users" (title case) for consistency, but this should be
+  // normalized during comparison to handle case differences
   if (collectionId === "_pb_users_auth_") {
     return "Users";
   }
@@ -196,9 +199,6 @@ export function convertPocketBaseMigration(migrationContent: string): SchemaSnap
       collections,
     };
   } catch (error) {
-    // Dynamic import to avoid circular dependency
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { SnapshotError } = require("./errors");
     throw new SnapshotError(
       `Failed to convert PocketBase migration: ${error instanceof Error ? error.message : String(error)}`,
       undefined,
