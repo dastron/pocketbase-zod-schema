@@ -324,6 +324,31 @@ export function extractCollectionNameFromSchema(zodSchema: z.ZodTypeAny): string
 }
 
 /**
+ * Extracts the collection type from a Zod schema's metadata
+ * Checks if the schema was created with defineCollection() which stores
+ * the collection type in the schema description
+ *
+ * @param zodSchema - The Zod schema to extract collection type from
+ * @returns The collection type ("base" | "auth") if found in metadata, null otherwise
+ */
+export function extractCollectionTypeFromSchema(zodSchema: z.ZodTypeAny): "base" | "auth" | null {
+  if (!zodSchema.description) {
+    return null;
+  }
+
+  try {
+    const metadata = JSON.parse(zodSchema.description);
+    if (metadata.type === "base" || metadata.type === "auth") {
+      return metadata.type;
+    }
+  } catch {
+    // Not JSON or no type - this is expected for schemas without explicit type
+  }
+
+  return null;
+}
+
+/**
  * Extracts Zod schema definitions from a module
  *
  * Detection priority (highest to lowest):
@@ -566,10 +591,18 @@ export function convertZodSchemaToCollectionSchema(
   const rawFields = extractFieldDefinitions(zodSchema);
 
   // Determine collection type (auth or base)
-  const collectionType = isAuthCollection(rawFields) ? "auth" : "base";
+  // Prefer explicit type from metadata, fall back to field detection
+  const explicitType = extractCollectionTypeFromSchema(zodSchema);
+  const collectionType = explicitType ?? (isAuthCollection(rawFields) ? "auth" : "base");
 
   // Build field definitions with constraints
-  const fields: FieldDefinition[] = rawFields.map(({ name, zodType }) => buildFieldDefinition(name, zodType));
+  let fields: FieldDefinition[] = rawFields.map(({ name, zodType }) => buildFieldDefinition(name, zodType));
+
+  // Exclude auth system fields for auth collections (PocketBase adds them automatically)
+  if (collectionType === "auth") {
+    const authSystemFieldNames = ["email", "emailVisibility", "verified", "password", "tokenKey"];
+    fields = fields.filter((field) => !authSystemFieldNames.includes(field.name));
+  }
 
   // Extract indexes from schema
   const indexes = extractIndexes(zodSchema) || [];

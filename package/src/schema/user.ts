@@ -27,6 +27,7 @@ export const UserSchema = UserCollectionSchema.extend(baseSchema);
 // Using default export - the migration tool will automatically use this
 const UserCollection = defineCollection({
   collectionName: "users",
+  type: "auth",
   schema: UserSchema,
   permissions: {
     // Users can list their own profile

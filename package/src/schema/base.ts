@@ -464,6 +464,16 @@ export interface CollectionConfig {
   indexes?: string[];
 
   /**
+   * Optional collection type
+   * - "base": Standard collection (default)
+   * - "auth": Authentication collection with system auth fields
+   *
+   * If not specified, the type will be auto-detected based on field presence
+   * (collections with both email and password fields are detected as auth)
+   */
+  type?: "base" | "auth";
+
+  /**
    * Future extensibility - additional options can be added here
    */
   [key: string]: unknown;
@@ -547,12 +557,17 @@ export interface CollectionConfig {
  * });
  */
 export function defineCollection(config: CollectionConfig): z.ZodObject<any> {
-  const { collectionName, schema, permissions, indexes, ...futureOptions } = config;
+  const { collectionName, schema, permissions, indexes, type, ...futureOptions } = config;
 
   // Build metadata object
   const metadata: any = {
     collectionName,
   };
+
+  // Add type if provided
+  if (type) {
+    metadata.type = type;
+  }
 
   // Add permissions if provided
   if (permissions) {
