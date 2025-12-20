@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.1.4...pocketbase-zod-schema-v0.2.0) (2025-12-20)
+
+
+### Features
+
+* Add `defineCollection` to wrap schema definition ([8dbcbfa](https://github.com/dastron/pocketbase-zod-schema/commit/8dbcbfae1833509578a63e942847349cceea6cf3))
+
 ## [0.1.4](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.1.3...pocketbase-zod-schema-v0.1.4) (2025-12-20)
 
 
