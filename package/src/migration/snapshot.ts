@@ -1,14 +1,22 @@
 /**
- * Snapshot Manager component
- * Handles saving and loading schema snapshots
+ * Snapshot Manager
+ * Handles saving and loading schema snapshots from JSON files
  *
  * This module provides a standalone, configurable snapshot manager that can be used
- * by consumer projects to manage schema snapshots and convert PocketBase migrations.
+ * by consumer projects to manage schema snapshots. It focuses on JSON snapshot file
+ * management, delegating migration file parsing and PocketBase format conversion
+ * to specialized modules.
  */
 
 import * as fs from "fs";
 import * as path from "path";
 import { FileSystemError, SnapshotError } from "./errors";
+import {
+  extractTimestampFromFilename,
+  findMigrationsAfterSnapshot,
+  parseMigrationOperations,
+} from "./migration-parser";
+import { convertPocketBaseMigration } from "./pocketbase-converter";
 import type { CollectionSchema, SchemaDefinition, SchemaSnapshot } from "./types";
 
 const SNAPSHOT_VERSION = "1.0.0";
@@ -500,9 +508,107 @@ export function findLatestSnapshot(migrationsPath: string): string | null {
 }
 
 /**
+ * Applies migration operations to a snapshot state
+ * Creates new collections and deletes collections as specified
+ *
+ * @param snapshot - Base snapshot state
+ * @param operations - Migration operations to apply
+ * @returns Updated snapshot with operations applied
+ */
+function applyMigrationOperations(
+  snapshot: SchemaSnapshot,
+  operations: { collectionsToCreate: CollectionSchema[]; collectionsToDelete: string[] }
+): SchemaSnapshot {
+  const updatedCollections = new Map(snapshot.collections);
+
+  // Apply deletions first
+  for (const collectionName of operations.collectionsToDelete) {
+    updatedCollections.delete(collectionName);
+  }
+
+  // Apply creations/updates
+  for (const collection of operations.collectionsToCreate) {
+    updatedCollections.set(collection.name, collection);
+  }
+
+  return {
+    ...snapshot,
+    collections: updatedCollections,
+  };
+}
+
+/**
+ * Loads snapshot and applies all migrations that come after it
+ * This gives us the current state of the database schema
+ *
+ * @param config - Snapshot configuration (must include migrationsPath)
+ * @returns SchemaSnapshot object representing current state or null if snapshot doesn't exist
+ */
+export function loadSnapshotWithMigrations(config: SnapshotConfig = {}): SchemaSnapshot | null {
+  const migrationsPath = config.migrationsPath;
+
+  if (!migrationsPath) {
+    return null;
+  }
+
+  // Check if migrationsPath is actually a file (for backward compatibility with tests)
+  if (fs.existsSync(migrationsPath) && fs.statSync(migrationsPath).isFile()) {
+    try {
+      const migrationContent = fs.readFileSync(migrationsPath, "utf-8");
+      return convertPocketBaseMigration(migrationContent);
+    } catch (error) {
+      console.warn(`Failed to load snapshot from ${migrationsPath}: ${error}`);
+      return null;
+    }
+  }
+
+  // It's a directory, find the latest snapshot
+  const latestSnapshotPath = findLatestSnapshot(migrationsPath);
+
+  if (!latestSnapshotPath) {
+    // No snapshot found - return null (empty database)
+    return null;
+  }
+
+  try {
+    // Read and convert the PocketBase snapshot file
+    const migrationContent = fs.readFileSync(latestSnapshotPath, "utf-8");
+    let snapshot = convertPocketBaseMigration(migrationContent);
+
+    // Extract timestamp from snapshot filename
+    const snapshotFilename = path.basename(latestSnapshotPath);
+    const snapshotTimestamp = extractTimestampFromFilename(snapshotFilename);
+
+    if (snapshotTimestamp) {
+      // Find all migration files after the snapshot
+      const migrationFiles = findMigrationsAfterSnapshot(migrationsPath, snapshotTimestamp);
+
+      // Apply each migration in order
+      for (const migrationFile of migrationFiles) {
+        try {
+          const migrationContent = fs.readFileSync(migrationFile, "utf-8");
+          const operations = parseMigrationOperations(migrationContent);
+          snapshot = applyMigrationOperations(snapshot, operations);
+        } catch (error) {
+          console.warn(`Failed to apply migration ${migrationFile}: ${error}`);
+          // Continue with other migrations even if one fails
+        }
+      }
+    }
+
+    return snapshot;
+  } catch (error) {
+    console.warn(`Failed to load snapshot from ${latestSnapshotPath}: ${error}`);
+    return null;
+  }
+}
+
+/**
  * Loads snapshot if it exists, returns null for first run
  * Convenience method that handles missing snapshot gracefully
  * Finds the most recent snapshot file from migrations directory
+ * NOTE: This function only loads the snapshot, not migrations after it.
+ * Use loadSnapshotWithMigrations() if you need the current state including migrations.
  *
  * @param config - Snapshot configuration (must include migrationsPath)
  * @returns SchemaSnapshot object or null if snapshot doesn't exist
@@ -543,151 +649,6 @@ export function loadSnapshotIfExists(config: SnapshotConfig = {}): SchemaSnapsho
 
   // No snapshot found - return null (empty database)
   return null;
-}
-
-/**
- * Converts a PocketBase collection object to CollectionSchema format
- *
- * @param pbCollection - PocketBase collection object from migration file
- * @returns CollectionSchema object
- */
-function convertPocketBaseCollection(pbCollection: any): CollectionSchema {
-  const fields: any[] = [];
-
-  // System field names that should always be excluded
-  const systemFieldNames = ["id", "created", "updated", "collectionId", "collectionName", "expand"];
-
-  // Auth collection system field names
-  const authSystemFieldNames = ["email", "emailVisibility", "verified", "password", "tokenKey"];
-
-  // Convert PocketBase fields to our FieldDefinition format
-  if (pbCollection.fields && Array.isArray(pbCollection.fields)) {
-    for (const pbField of pbCollection.fields) {
-      // Skip system fields by checking both the system flag and field name
-      // Some PocketBase exports mark created/updated as system: false
-      if (pbField.system || systemFieldNames.includes(pbField.name)) {
-        continue;
-      }
-
-      // Skip auth system fields for auth collections
-      if (pbCollection.type === "auth" && authSystemFieldNames.includes(pbField.name)) {
-        continue;
-      }
-
-      const field: any = {
-        name: pbField.name,
-        type: pbField.type,
-        required: pbField.required || false,
-      };
-
-      // Add options if present
-      if (pbField.options) {
-        field.options = pbField.options;
-      }
-
-      // Handle relation fields
-      if (pbField.type === "relation") {
-        field.relation = {
-          collection: pbField.options?.collectionId || "",
-          cascadeDelete: pbField.options?.cascadeDelete || false,
-          maxSelect: pbField.options?.maxSelect,
-          minSelect: pbField.options?.minSelect,
-        };
-      }
-
-      fields.push(field);
-    }
-  }
-
-  const schema: CollectionSchema = {
-    name: pbCollection.name,
-    type: pbCollection.type || "base",
-    fields,
-  };
-
-  // Add indexes if present
-  if (pbCollection.indexes && Array.isArray(pbCollection.indexes)) {
-    schema.indexes = pbCollection.indexes;
-  }
-
-  // Add rules/permissions
-  const rules: any = {};
-  if (pbCollection.listRule !== undefined) rules.listRule = pbCollection.listRule;
-  if (pbCollection.viewRule !== undefined) rules.viewRule = pbCollection.viewRule;
-  if (pbCollection.createRule !== undefined) rules.createRule = pbCollection.createRule;
-  if (pbCollection.updateRule !== undefined) rules.updateRule = pbCollection.updateRule;
-  if (pbCollection.deleteRule !== undefined) rules.deleteRule = pbCollection.deleteRule;
-  if (pbCollection.manageRule !== undefined) rules.manageRule = pbCollection.manageRule;
-
-  if (Object.keys(rules).length > 0) {
-    schema.rules = rules;
-    // Also set permissions to match rules (they're the same thing)
-    schema.permissions = { ...rules };
-  }
-
-  return schema;
-}
-
-/**
- * Converts PocketBase migration format to SchemaSnapshot
- * Extracts the snapshot array from the migration file content
- *
- * @param migrationContent - Raw migration file content
- * @returns SchemaSnapshot with collections map
- */
-export function convertPocketBaseMigration(migrationContent: string): SchemaSnapshot {
-  try {
-    // Extract the snapshot array from the migration file
-    // The format is: migrate((app) => { const snapshot = [...]; ... })
-    const snapshotMatch = migrationContent.match(/const\s+snapshot\s*=\s*(\[[\s\S]*?\]);/);
-
-    if (!snapshotMatch) {
-      throw new Error("Could not find snapshot array in migration file");
-    }
-
-    // Parse the snapshot array as JSON
-    // We need to evaluate it as JavaScript since it's not pure JSON
-    const snapshotArrayStr = snapshotMatch[1];
-    let snapshotArray: any[];
-
-    try {
-      // Use Function constructor to safely evaluate the array
-      // This is safer than eval() and works for our use case
-      snapshotArray = new Function(`return ${snapshotArrayStr}`)();
-    } catch (parseError) {
-      throw new Error(`Failed to parse snapshot array: ${parseError}`);
-    }
-
-    if (!Array.isArray(snapshotArray)) {
-      throw new Error("Snapshot is not an array");
-    }
-
-    // Convert each collection to our format
-    const collections = new Map<string, CollectionSchema>();
-
-    for (const pbCollection of snapshotArray) {
-      if (!pbCollection.name) {
-        console.warn("Skipping collection without name");
-        continue;
-      }
-
-      const schema = convertPocketBaseCollection(pbCollection);
-      collections.set(pbCollection.name, schema);
-    }
-
-    return {
-      version: SNAPSHOT_VERSION,
-      timestamp: new Date().toISOString(),
-      collections,
-    };
-  } catch (error) {
-    throw new SnapshotError(
-      `Failed to convert PocketBase migration: ${error instanceof Error ? error.message : String(error)}`,
-      undefined,
-      "parse",
-      error instanceof Error ? error : undefined
-    );
-  }
 }
 
 /**
@@ -794,6 +755,11 @@ export function validateSnapshot(snapshot: SchemaSnapshot): { valid: boolean; is
     issues,
   };
 }
+
+/**
+ * Re-exports convertPocketBaseMigration for backward compatibility
+ */
+export { convertPocketBaseMigration } from "./pocketbase-converter";
 
 /**
  * SnapshotManager class for object-oriented usage

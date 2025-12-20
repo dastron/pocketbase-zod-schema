@@ -15,7 +15,7 @@ import {
   SnapshotError,
 } from "../../migration/errors.js";
 import { generate } from "../../migration/generator.js";
-import { loadSnapshotIfExists } from "../../migration/snapshot.js";
+import { loadSnapshotWithMigrations } from "../../migration/snapshot.js";
 import {
   detectDestructiveChanges,
   formatDestructiveChanges,
@@ -143,9 +143,9 @@ export async function executeGenerate(options: any): Promise<void> {
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s)`);
 
-    // Load previous snapshot from migrations directory
+    // Load previous snapshot from migrations directory and apply subsequent migrations
     logInfo("Loading previous snapshot...");
-    const previousSnapshot = loadSnapshotIfExists({
+    const previousSnapshot = loadSnapshotWithMigrations({
       migrationsPath: migrationsDir,
       workspaceRoot: process.cwd(),
     });

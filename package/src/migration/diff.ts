@@ -423,6 +423,12 @@ export function compareFieldOptions(currentField: FieldDefinition, previousField
     const currentValue = currentOptions[key];
     const previousValue = previousOptions[key];
 
+    // Handle undefined values - if one is undefined and the other is not, that's a change
+    // But if both are undefined, that's not a change
+    if (currentValue === undefined && previousValue === undefined) {
+      continue;
+    }
+
     if (!areValuesEqual(currentValue, previousValue)) {
       changes.push({
         property: `options.${key}`,
@@ -462,11 +468,33 @@ export function compareRelationConfigurations(
   }
 
   // Compare relation properties
-  if (currentRelation.collection !== previousRelation.collection) {
+  // Note: collectionId should already be resolved to collection name during parsing
+  // This normalization is just a safety net for edge cases
+  const normalizeCollection = (collection: string): string => {
+    if (!collection) return collection;
+
+    // Handle known PocketBase constants
+    if (collection === "_pb_users_auth_") {
+      return "Users";
+    }
+    // Handle expressions that might not have been parsed correctly
+    const nameMatch = collection.match(/app\.findCollectionByNameOrId\s*\(\s*["']([^"']+)["']\s*\)/);
+    if (nameMatch) {
+      return nameMatch[1];
+    }
+    return collection;
+  };
+
+  const normalizedCurrent = normalizeCollection(currentRelation.collection);
+  const normalizedPrevious = normalizeCollection(previousRelation.collection);
+
+  // Only report a change if the normalized values differ
+  // Use normalized values for comparison, but report original values in the change
+  if (normalizedCurrent !== normalizedPrevious) {
     changes.push({
       property: "relation.collection",
-      oldValue: previousRelation.collection,
-      newValue: currentRelation.collection,
+      oldValue: normalizedPrevious, // Use normalized value for clarity
+      newValue: normalizedCurrent, // Use normalized value for clarity
     });
   }
 

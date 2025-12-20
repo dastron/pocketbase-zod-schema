@@ -6,5 +6,5 @@ export * from "../utils/permission-templates";
 export * from "../utils/permissions";
 
 // Example schemas (for reference/testing)
-// export * from "./project";
+export * from "./project";
 export * from "./user";
