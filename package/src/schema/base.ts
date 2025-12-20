@@ -10,6 +10,8 @@ export const baseSchema = {
   collectionId: z.string().describe("collection id"),
   collectionName: z.string().describe("collection name"),
   expand: z.record(z.any()).describe("expandable fields"),
+  created: z.string().describe("creation timestamp").optional(),
+  updated: z.string().describe("last update timestamp").optional(),
 };
 
 /**
