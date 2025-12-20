@@ -17,6 +17,23 @@ import { toCollectionName } from "./utils/pluralize";
 import { getMaxSelect, getMinSelect, isRelationField, resolveTargetCollection } from "./utils/relation-detector";
 import { extractFieldOptions, isFieldRequired, mapZodTypeToPocketBase } from "./utils/type-mapper";
 
+// Register tsx loader for TypeScript file support
+// This allows dynamic imports of .ts files to work
+let tsxLoaderRegistered = false;
+async function ensureTsxLoader(): Promise<void> {
+  if (tsxLoaderRegistered) return;
+
+  try {
+    // Import tsx/esm to register the TypeScript loader hooks
+    // This enables dynamic imports of .ts files in Node.js ESM
+    await import("tsx/esm");
+    tsxLoaderRegistered = true;
+  } catch {
+    // tsx is not available - will handle in importSchemaModule
+    tsxLoaderRegistered = false;
+  }
+}
+
 /**
  * Configuration options for schema discovery and parsing
  */
@@ -188,6 +205,7 @@ export function discoverSchemaFiles(config: SchemaAnalyzerConfig | string): stri
 
 /**
  * Dynamically imports a schema module
+ * Supports both JavaScript and TypeScript files using tsx
  *
  * @param filePath - Path to the schema file (without extension)
  * @param config - Optional configuration for path transformation
@@ -211,19 +229,32 @@ export async function importSchemaModule(filePath: string, config?: SchemaAnalyz
     if (fs.existsSync(jsPath)) {
       resolvedPath = jsPath;
     } else if (fs.existsSync(tsPath)) {
-      // Try to import TypeScript files directly
-      // This will work if tsx or another TypeScript loader is being used
-      // Otherwise, it will fail with a helpful error message
       resolvedPath = tsPath;
     } else {
       // Default to .js extension for ESM import
       resolvedPath = jsPath;
     }
 
+    // If it's a TypeScript file, ensure tsx loader is registered
+    if (resolvedPath.endsWith(".ts")) {
+      await ensureTsxLoader();
+
+      // Check if tsx was successfully registered
+      if (!tsxLoaderRegistered) {
+        throw new SchemaParsingError(
+          `Failed to import TypeScript schema file. The 'tsx' package is required to load TypeScript files.\n` +
+            `Please install tsx: npm install tsx (or yarn add tsx, or pnpm add tsx)\n` +
+            `Alternatively, compile your schema files to JavaScript first.`,
+          filePath
+        );
+      }
+    }
+
     // Convert to file URL for proper ESM import
     const fileUrl = new URL(`file://${path.resolve(resolvedPath)}`);
 
     // Use dynamic import to load the module
+    // tsx/esm will handle TypeScript files automatically if registered
     const module = await import(fileUrl.href);
     return module;
   } catch (error) {
@@ -231,19 +262,23 @@ export async function importSchemaModule(filePath: string, config?: SchemaAnalyz
     const tsPath = `${filePath}.ts`;
     const isTypeScriptFile = fs.existsSync(tsPath);
 
+    if (isTypeScriptFile && error instanceof SchemaParsingError) {
+      // Re-throw SchemaParsingError as-is (already has helpful message)
+      throw error;
+    }
+
     if (isTypeScriptFile) {
       throw new SchemaParsingError(
-        `Failed to import TypeScript schema file. Node.js cannot import TypeScript files directly.\n` +
-          `Please either:\n` +
-          `  1. Compile your schema files to JavaScript first, or\n` +
-          `  2. Use tsx to run the migration tool (e.g., "npx tsx package/dist/cli/migrate.js status" or "tsx package/dist/cli/migrate.js status")`,
+        `Failed to import TypeScript schema file. The 'tsx' package is required to load TypeScript files.\n` +
+          `Please install tsx: npm install tsx (or yarn add tsx, or pnpm add tsx)\n` +
+          `Alternatively, compile your schema files to JavaScript first.`,
         filePath,
         error as Error
       );
     }
 
     throw new SchemaParsingError(
-      `Failed to import schema module. Make sure the schema files are compiled to JavaScript.`,
+      `Failed to import schema module. Make sure the schema files exist and are valid.`,
       filePath,
       error as Error
     );

@@ -4,8 +4,8 @@ import {
   baseImageFileSchema,
   inputImageFileSchema,
   omitImageFilesSchema,
-  relationField,
-  relationsField,
+  RelationField,
+  RelationsField,
   withPermissions,
 } from "./base";
 
@@ -17,8 +17,8 @@ export const ProjectInputSchema = z
     status: StatusEnum,
     summary: z.string().optional(),
 
-    OwnerUser: relationField({ collection: "Users" }),
-    SubscriberUsers: relationsField({ collection: "Users" }),
+    OwnerUser: RelationField({ collection: "Users" }),
+    SubscriberUsers: RelationsField({ collection: "Users" }),
   })
   .extend(inputImageFileSchema);
 

@@ -30,8 +30,8 @@ Create a schema file in your project (e.g., `src/schema/post.ts`):
 ```typescript
 import { z } from "zod";
 import {
-  relationField,
-  relationsField,
+  RelationField,
+  RelationsField,
   withPermissions,
 } from "pocketbase-zod-schema/schema";
 
@@ -42,10 +42,10 @@ export const PostSchema = withPermissions(
     published: z.boolean().default(false),
     
     // Single relation to users collection
-    author: relationField({ collection: "users" }),
+    author: RelationField({ collection: "users" }),
     
     // Multiple relations to tags collection
-    tags: relationsField({ collection: "tags", maxSelect: 10 }),
+    tags: RelationsField({ collection: "tags", maxSelect: 10 }),
   }),
   {
     listRule: '@request.auth.id != ""',
@@ -81,6 +81,8 @@ npx pocketbase-migrate generate
 
 This will create a migration file in your PocketBase migrations directory.
 
+**TypeScript Support:** You can use TypeScript (`.ts`) schema files directly - no compilation needed! The tool automatically handles TypeScript files using `tsx`.
+
 ---
 
 ## Schema Definition
@@ -99,33 +101,33 @@ The library maps Zod types to PocketBase field types automatically:
 | `z.date()` | date | `birthdate: z.date()` |
 | `z.enum([...])` | select | `status: z.enum(["draft", "published"])` |
 | `z.instanceof(File)` | file | `avatar: z.instanceof(File)` |
-| `relationField()` | relation | `author: relationField({ collection: "users" })` |
-| `relationsField()` | relation | `tags: relationsField({ collection: "tags" })` |
+| `RelationField()` | relation | `author: RelationField({ collection: "users" })` |
+| `RelationsField()` | relation | `tags: RelationsField({ collection: "tags" })` |
 
 ### Defining Relations
 
-Use `relationField()` for single relations and `relationsField()` for multiple relations:
+Use `RelationField()` for single relations and `RelationsField()` for multiple relations:
 
 ```typescript
-import { relationField, relationsField } from "pocketbase-zod-schema/schema";
+import { RelationField, RelationsField } from "pocketbase-zod-schema/schema";
 
 const ProjectSchema = z.object({
   name: z.string(),
   
   // Single relation (maxSelect: 1)
-  owner: relationField({ collection: "users" }),
+  owner: RelationField({ collection: "users" }),
   
   // Single relation with cascade delete
-  category: relationField({ 
+  category: RelationField({ 
     collection: "categories",
     cascadeDelete: true,
   }),
   
   // Multiple relations (maxSelect: 999 by default)
-  collaborators: relationsField({ collection: "users" }),
+  collaborators: RelationsField({ collection: "users" }),
   
   // Multiple relations with constraints
-  tags: relationsField({ 
+  tags: RelationsField({ 
     collection: "tags",
     minSelect: 1,
     maxSelect: 5,
@@ -135,11 +137,11 @@ const ProjectSchema = z.object({
 
 #### Relation Options
 
-**`relationField(config)`** - Single relation
+**`RelationField(config)`** - Single relation
 - `collection: string` - Target collection name (required)
 - `cascadeDelete?: boolean` - Delete related records when this record is deleted (default: `false`)
 
-**`relationsField(config)`** - Multiple relations
+**`RelationsField(config)`** - Multiple relations
 - `collection: string` - Target collection name (required)
 - `cascadeDelete?: boolean` - Delete related records when this record is deleted (default: `false`)
 - `minSelect?: number` - Minimum number of relations required (default: `0`)
@@ -166,7 +168,7 @@ const PostSchema = withPermissions(
 
 // Using templates
 const ProjectSchema = withPermissions(
-  z.object({ title: z.string(), owner: relationField({ collection: "users" }) }),
+  z.object({ title: z.string(), owner: RelationField({ collection: "users" }) }),
   {
     template: "owner-only",
     ownerField: "owner",
@@ -338,8 +340,8 @@ export const UserSchema = withIndexes(
 // src/schema/post.ts
 import { z } from "zod";
 import { 
-  relationField, 
-  relationsField, 
+  RelationField, 
+  RelationsField, 
   withPermissions 
 } from "pocketbase-zod-schema/schema";
 
@@ -353,9 +355,9 @@ export const PostSchema = withPermissions(
     publishedAt: z.date().optional(),
     
     // Relations
-    author: relationField({ collection: "users" }),
-    category: relationField({ collection: "categories" }),
-    tags: relationsField({ collection: "tags", maxSelect: 10 }),
+    author: RelationField({ collection: "users" }),
+    category: RelationField({ collection: "categories" }),
+    tags: RelationsField({ collection: "tags", maxSelect: 10 }),
   }),
   {
     listRule: 'published = true || author = @request.auth.id',
@@ -370,15 +372,15 @@ export const PostSchema = withPermissions(
 ```typescript
 // src/schema/comment.ts
 import { z } from "zod";
-import { relationField, withPermissions } from "pocketbase-zod-schema/schema";
+import { RelationField, withPermissions } from "pocketbase-zod-schema/schema";
 
 export const CommentSchema = withPermissions(
   z.object({
     content: z.string().min(1),
     
     // Relations with cascade delete
-    post: relationField({ collection: "posts", cascadeDelete: true }),
-    author: relationField({ collection: "users" }),
+    post: RelationField({ collection: "posts", cascadeDelete: true }),
+    author: RelationField({ collection: "users" }),
   }),
   {
     listRule: "",

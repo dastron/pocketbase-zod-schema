@@ -206,17 +206,17 @@ const RELATION_METADATA_KEY = "__pocketbase_relation__";
  * // Single relation to users collection
  * const PostSchema = z.object({
  *   title: z.string(),
- *   author: relationField({ collection: 'users' }),
+ *   author: RelationField({ collection: 'users' }),
  * });
  *
  * @example
  * // Relation with cascade delete
  * const CommentSchema = z.object({
  *   content: z.string(),
- *   post: relationField({ collection: 'posts', cascadeDelete: true }),
+ *   post: RelationField({ collection: 'posts', cascadeDelete: true }),
  * });
  */
-export function relationField(config: RelationConfig) {
+export function RelationField(config: RelationConfig) {
   const metadata = {
     [RELATION_METADATA_KEY]: {
       type: "single",
@@ -244,21 +244,21 @@ export function relationField(config: RelationConfig) {
  * // Multiple relations to tags collection
  * const PostSchema = z.object({
  *   title: z.string(),
- *   tags: relationsField({ collection: 'tags' }),
+ *   tags: RelationsField({ collection: 'tags' }),
  * });
  *
  * @example
  * // Relations with min/max constraints
  * const ProjectSchema = z.object({
  *   title: z.string(),
- *   collaborators: relationsField({
+ *   collaborators: RelationsField({
  *     collection: 'users',
  *     minSelect: 1,
  *     maxSelect: 10,
  *   }),
  * });
  */
-export function relationsField(config: RelationsConfig) {
+export function RelationsField(config: RelationsConfig) {
   const metadata = {
     [RELATION_METADATA_KEY]: {
       type: "multiple",

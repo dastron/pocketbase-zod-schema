@@ -92,7 +92,7 @@ describe("Project Schema Migration Generation", () => {
     expect(content).toContain("SubscriberUsers ?= @request.auth.id");
   });
 
-  it("should correctly identify relation fields using explicit relationField() helpers", () => {
+  it("should correctly identify relation fields using explicit RelationField() helpers", () => {
     const collectionName = "projects";
     const currentSchema = createSchemaDefinitionFromZod(collectionName, ProjectSchema);
     const collection = currentSchema.collections.get(collectionName);
@@ -100,7 +100,7 @@ describe("Project Schema Migration Generation", () => {
     expect(collection).toBeDefined();
     expect(collection?.fields).toBeDefined();
 
-    // Find relation fields (using explicit relationField() and relationsField() helpers)
+    // Find relation fields (using explicit RelationField() and RelationsField() helpers)
     const ownerField = collection?.fields.find((f) => f.name === "OwnerUser");
     const subscribersField = collection?.fields.find((f) => f.name === "SubscriberUsers");
 
