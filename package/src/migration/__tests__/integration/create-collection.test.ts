@@ -78,7 +78,12 @@ describe("Collection Creation Integration Tests", () => {
       expect(content).toContain("new Collection(");
       expect(content).toContain('name: "' + CreateCollectionBlankSchema.name + '"');
       expect(content).toContain('type: "base"');
-      expect(content).toContain("fields: []");
+
+      // System fields (id, created, updated) should be included even for blank collections
+      expect(content).toContain('name: "id"');
+      expect(content).toContain('name: "created"');
+      expect(content).toContain('name: "updated"');
+      expect(content).toContain('type: "autodate"'); // created and updated fields
     });
   });
 

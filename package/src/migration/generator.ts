@@ -492,6 +492,62 @@ export function generateIndexesArray(indexes?: string[]): string {
  * @param varName - Variable name to use for the collection (default: 'collection')
  * @returns JavaScript code for creating the collection
  */
+/**
+ * Generates system fields that are required for all PocketBase collections
+ * These fields (id, created, updated) must be explicitly included in migrations
+ *
+ * @returns Array of system field definitions
+ */
+function getSystemFields(): FieldDefinition[] {
+  return [
+    // id field - primary key, auto-generated
+    {
+      name: "id",
+      type: "text",
+      required: true,
+      options: {
+        autogeneratePattern: "[a-z0-9]{15}",
+        hidden: false,
+        id: "text3208210256",
+        max: 15,
+        min: 15,
+        pattern: "^[a-z0-9]+$",
+        presentable: false,
+        primaryKey: true,
+        system: true,
+      },
+    },
+    // created field - autodate, set on creation
+    {
+      name: "created",
+      type: "autodate",
+      required: true,
+      options: {
+        hidden: false,
+        id: "autodate2990389176",
+        onCreate: true,
+        onUpdate: false,
+        presentable: false,
+        system: false,
+      },
+    },
+    // updated field - autodate, set on creation and update
+    {
+      name: "updated",
+      type: "autodate",
+      required: true,
+      options: {
+        hidden: false,
+        id: "autodate3332085495",
+        onCreate: true,
+        onUpdate: true,
+        presentable: false,
+        system: false,
+      },
+    },
+  ];
+}
+
 export function generateCollectionCreation(
   collection: CollectionSchema,
   varName: string = "collection",
@@ -514,8 +570,13 @@ export function generateCollectionCreation(
     lines.push(`    ${rulesCode},`);
   }
 
+  // Prepend system fields (id, created, updated) to user-defined fields
+  // These fields are required by PocketBase and must be explicitly included in migrations
+  const systemFields = getSystemFields();
+  const allFields = [...systemFields, ...collection.fields];
+
   // Add fields
-  lines.push(`    fields: ${generateFieldsArray(collection.fields)},`);
+  lines.push(`    fields: ${generateFieldsArray(allFields)},`);
 
   // Add indexes
   lines.push(`    indexes: ${generateIndexesArray(collection.indexes)},`);
