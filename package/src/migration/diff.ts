@@ -233,11 +233,18 @@ export function matchCollectionsByName(
     return matches;
   }
 
-  // Find collections that exist in both current and previous
-  for (const [collectionName, currentCollection] of currentSchema.collections) {
-    const previousCollection = previousSnapshot.collections.get(collectionName);
+  // Create a case-insensitive lookup map for previous collections
+  const previousCollectionsLower = new Map<string, [string, CollectionSchema]>();
+  for (const [name, collection] of previousSnapshot.collections) {
+    previousCollectionsLower.set(name.toLowerCase(), [name, collection]);
+  }
 
-    if (previousCollection) {
+  // Find collections that exist in both current and previous (case-insensitive)
+  for (const [collectionName, currentCollection] of currentSchema.collections) {
+    const previousEntry = previousCollectionsLower.get(collectionName.toLowerCase());
+
+    if (previousEntry) {
+      const [, previousCollection] = previousEntry;
       matches.push([currentCollection, previousCollection]);
     }
   }

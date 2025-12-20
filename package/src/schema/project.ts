@@ -27,7 +27,7 @@ export const ProjectSchema = ProjectInputSchema.omit(omitImageFilesSchema).exten
 // Define collection with permissions using template and custom overrides
 // Uses 'owner-only' template but allows all authenticated users to list projects
 // This allows users to see all projects but only manage their own
-export const ProjectCollection = defineCollection({
+const ProjectCollection = defineCollection({
   collectionName: "Projects",
   schema: ProjectSchema,
   permissions: {
@@ -39,3 +39,10 @@ export const ProjectCollection = defineCollection({
     },
   },
 });
+
+// Default export - preferred pattern for schema files
+// The migration tool will automatically detect and use this
+export default ProjectCollection;
+
+// Named export kept for backward compatibility and type inference
+export { ProjectCollection };

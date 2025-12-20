@@ -24,8 +24,9 @@ export const UserCollectionSchema = z.object({
 export const UserSchema = UserCollectionSchema.extend(baseSchema);
 
 // Matches PocketBase's default users collection configuration
-export const UserCollection = defineCollection({
-  collectionName: "Users",
+// Using default export - the migration tool will automatically use this
+const UserCollection = defineCollection({
+  collectionName: "users",
   schema: UserSchema,
   permissions: {
     // Users can list their own profile
@@ -46,3 +47,10 @@ export const UserCollection = defineCollection({
     "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''",
   ],
 });
+
+// Default export - preferred pattern for schema files
+// The migration tool will automatically detect and use this
+export default UserCollection;
+
+// Named export kept for backward compatibility and type inference
+export { UserCollection };

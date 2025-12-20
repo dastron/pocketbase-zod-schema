@@ -99,7 +99,7 @@ const DEFAULT_CONFIG: Required<Omit<SchemaAnalyzerConfig, "schemaDir" | "pathTra
     "permission-templates.js",
   ],
   includeExtensions: [".ts", ".js"],
-  schemaPatterns: ["Schema", "InputSchema"],
+  schemaPatterns: ["Schema", "InputSchema", "Collection"],
   useCompiledFiles: true,
 };
 
@@ -325,27 +325,59 @@ export function extractCollectionNameFromSchema(zodSchema: z.ZodTypeAny): string
 
 /**
  * Extracts Zod schema definitions from a module
- * Looks for schemas ending with configured patterns (default: "Schema" or "InputSchema")
+ *
+ * Detection priority (highest to lowest):
+ * 1. Default export - recommended pattern for clarity and explicitness
+ * 2. Named exports ending with "Collection" - contains metadata (indexes, permissions)
+ * 3. Named exports ending with "Schema" - basic schema definitions
+ * 4. Named exports ending with "InputSchema" - form input schemas
  *
  * @param module - The imported schema module
- * @param patterns - Schema name patterns to look for (default: ['Schema', 'InputSchema'])
+ * @param patterns - Schema name patterns to look for (default: ['Schema', 'InputSchema', 'Collection'])
  * @returns Object containing found schemas
+ *
+ * @example
+ * // Recommended: Use default export
+ * const UserCollection = defineCollection({ ... });
+ * export default UserCollection;
+ *
+ * @example
+ * // Also supported: Named export with pattern
+ * export const UserCollection = defineCollection({ ... });
  */
 export function extractSchemaDefinitions(
   module: any,
-  patterns: string[] = ["Schema", "InputSchema"]
+  patterns: string[] = ["Schema", "InputSchema", "Collection"]
 ): { inputSchema?: z.ZodObject<any>; schema?: z.ZodObject<any> } {
   const result: { inputSchema?: z.ZodObject<any>; schema?: z.ZodObject<any> } = {};
 
-  // Look for InputSchema and Schema exports
+  // Priority 1: Check for default export (highest priority, most explicit)
+  // This allows each file to have one clear schema definition
+  if (module.default instanceof z.ZodObject) {
+    // Default export is always the primary schema
+    result.schema = module.default as z.ZodObject<any>;
+    // If we have a default export, we can return early as it takes precedence
+    // But we still check for InputSchema for backward compatibility
+  }
+
+  // Priority 2: Look for named exports matching patterns (for backward compatibility)
   for (const [key, value] of Object.entries(module)) {
+    // Skip default export as we already handled it
+    if (key === "default") continue;
+
     // Check if it's a Zod schema
     if (value instanceof z.ZodObject) {
-      // Check for InputSchema pattern first (more specific)
+      // Check for InputSchema pattern (used for form validation)
       if (patterns.includes("InputSchema") && key.endsWith("InputSchema")) {
         result.inputSchema = value as z.ZodObject<any>;
-      } else if (patterns.includes("Schema") && key.endsWith("Schema") && !key.endsWith("InputSchema")) {
-        result.schema = value as z.ZodObject<any>;
+      } else if (!result.schema) {
+        // Only set schema if we haven't found one via default export
+        if (patterns.includes("Collection") && key.endsWith("Collection")) {
+          // Prefer Collection over Schema as it has metadata (indexes, permissions)
+          result.schema = value as z.ZodObject<any>;
+        } else if (patterns.includes("Schema") && key.endsWith("Schema") && !key.endsWith("InputSchema")) {
+          result.schema = value as z.ZodObject<any>;
+        }
       }
     }
   }

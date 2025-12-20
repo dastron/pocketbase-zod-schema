@@ -10,8 +10,8 @@ export const baseSchema = {
   collectionId: z.string().describe("collection id"),
   collectionName: z.string().describe("collection name"),
   expand: z.record(z.any()).describe("expandable fields"),
-  created: z.string().describe("creation timestamp").optional(),
-  updated: z.string().describe("last update timestamp").optional(),
+  created: z.string().describe("creation timestamp"),
+  updated: z.string().describe("last update timestamp"),
 };
 
 /**
@@ -479,8 +479,24 @@ export interface CollectionConfig {
  * @returns The schema with all metadata attached
  *
  * @example
- * // Basic collection with permissions
- * export const PostSchema = defineCollection({
+ * // Recommended: Use default export for clarity
+ * const PostCollection = defineCollection({
+ *   collectionName: "posts",
+ *   schema: z.object({
+ *     title: z.string(),
+ *     content: z.string(),
+ *     author: RelationField({ collection: "users" }),
+ *   }),
+ *   permissions: {
+ *     template: "owner-only",
+ *     ownerField: "author",
+ *   },
+ * });
+ * export default PostCollection;
+ *
+ * @example
+ * // Also supported: Named export (backward compatible)
+ * export const PostCollection = defineCollection({
  *   collectionName: "posts",
  *   schema: z.object({
  *     title: z.string(),
