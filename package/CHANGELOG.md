@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.2.1...pocketbase-zod-schema-v0.2.2) (2025-12-20)
+
+
+### Bug Fixes
+
+* update base schema ([98aaaef](https://github.com/dastron/pocketbase-zod-schema/commit/98aaaef365f3de350837c2390adb6870758781a2))
+
 ## [0.2.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.2.0...pocketbase-zod-schema-v0.2.1) (2025-12-20)
 
 
