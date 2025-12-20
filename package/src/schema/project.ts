@@ -2,11 +2,11 @@ import { z } from "zod";
 import { StatusEnum } from "../enums";
 import {
   baseImageFileSchema,
+  defineCollection,
   inputImageFileSchema,
   omitImageFilesSchema,
   RelationField,
   RelationsField,
-  withPermissions,
 } from "./base";
 
 export const ProjectInputSchema = z
@@ -22,17 +22,20 @@ export const ProjectInputSchema = z
   })
   .extend(inputImageFileSchema);
 
-// Apply permissions using template with custom overrides
+export const ProjectSchema = ProjectInputSchema.omit(omitImageFilesSchema).extend(baseImageFileSchema);
+
+// Define collection with permissions using template and custom overrides
 // Uses 'owner-only' template but allows all authenticated users to list projects
 // This allows users to see all projects but only manage their own
-export const ProjectSchema = withPermissions(
-  ProjectInputSchema.omit(omitImageFilesSchema).extend(baseImageFileSchema),
-  {
+export const ProjectCollection = defineCollection({
+  collectionName: "Projects",
+  schema: ProjectSchema,
+  permissions: {
     template: "owner-only",
     ownerField: "OwnerUser",
     customRules: {
       listRule: '@request.auth.id != ""',
       viewRule: '@request.auth.id != "" && (OwnerUser = @request.auth.id || SubscriberUsers ?= @request.auth.id)',
     },
-  }
-);
+  },
+});

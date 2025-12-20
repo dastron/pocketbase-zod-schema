@@ -9,16 +9,18 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { convertZodSchemaToCollectionSchema } from "../../migration/analyzer";
+import { convertZodSchemaToCollectionSchema, extractCollectionNameFromSchema } from "../../migration/analyzer";
 import { compare } from "../../migration/diff";
 import { generate } from "../../migration/generator";
 import type { SchemaDefinition } from "../../migration/types";
-import { ProjectSchema } from "../project";
+import { ProjectCollection } from "../project";
 
 /**
  * Helper function to create a schema definition from a Zod schema
+ * Extracts collection name from schema metadata if available
  */
-function createSchemaDefinitionFromZod(collectionName: string, zodSchema: any): SchemaDefinition {
+function createSchemaDefinitionFromZod(zodSchema: any): SchemaDefinition {
+  const collectionName = extractCollectionNameFromSchema(zodSchema) || "projects";
   const collectionSchema = convertZodSchemaToCollectionSchema(collectionName, zodSchema);
   return {
     collections: new Map([[collectionName, collectionSchema]]),
@@ -41,8 +43,8 @@ describe("Project Schema Migration Generation", () => {
   });
 
   it("should generate migration for project collection with all fields", () => {
-    const collectionName = "projects";
-    const currentSchema = createSchemaDefinitionFromZod(collectionName, ProjectSchema);
+    const currentSchema = createSchemaDefinitionFromZod(ProjectCollection);
+    const collectionName = Array.from(currentSchema.collections.keys())[0];
     const diff = compare(currentSchema, null);
 
     // Should have one collection to create
@@ -93,8 +95,8 @@ describe("Project Schema Migration Generation", () => {
   });
 
   it("should correctly identify relation fields using explicit RelationField() helpers", () => {
-    const collectionName = "projects";
-    const currentSchema = createSchemaDefinitionFromZod(collectionName, ProjectSchema);
+    const currentSchema = createSchemaDefinitionFromZod(ProjectCollection);
+    const collectionName = Array.from(currentSchema.collections.keys())[0];
     const collection = currentSchema.collections.get(collectionName);
 
     expect(collection).toBeDefined();
@@ -118,8 +120,8 @@ describe("Project Schema Migration Generation", () => {
   });
 
   it("should correctly apply permissions with template and custom rules", () => {
-    const collectionName = "projects";
-    const currentSchema = createSchemaDefinitionFromZod(collectionName, ProjectSchema);
+    const currentSchema = createSchemaDefinitionFromZod(ProjectCollection);
+    const collectionName = Array.from(currentSchema.collections.keys())[0];
     const collection = currentSchema.collections.get(collectionName);
 
     expect(collection).toBeDefined();
@@ -142,8 +144,8 @@ describe("Project Schema Migration Generation", () => {
   });
 
   it("should correctly handle select field for status enum", () => {
-    const collectionName = "projects";
-    const currentSchema = createSchemaDefinitionFromZod(collectionName, ProjectSchema);
+    const currentSchema = createSchemaDefinitionFromZod(ProjectCollection);
+    const collectionName = Array.from(currentSchema.collections.keys())[0];
     const collection = currentSchema.collections.get(collectionName);
 
     expect(collection).toBeDefined();
@@ -160,8 +162,8 @@ describe("Project Schema Migration Generation", () => {
   });
 
   it("should correctly handle optional fields", () => {
-    const collectionName = "projects";
-    const currentSchema = createSchemaDefinitionFromZod(collectionName, ProjectSchema);
+    const currentSchema = createSchemaDefinitionFromZod(ProjectCollection);
+    const collectionName = Array.from(currentSchema.collections.keys())[0];
     const collection = currentSchema.collections.get(collectionName);
 
     expect(collection).toBeDefined();

@@ -299,6 +299,31 @@ export function getCollectionNameFromFile(filePath: string): string {
 }
 
 /**
+ * Extracts the collection name from a Zod schema's metadata
+ * Checks if the schema was created with defineCollection() which stores
+ * the collection name in the schema description
+ *
+ * @param zodSchema - The Zod schema to extract collection name from
+ * @returns The collection name if found in metadata, null otherwise
+ */
+export function extractCollectionNameFromSchema(zodSchema: z.ZodTypeAny): string | null {
+  if (!zodSchema.description) {
+    return null;
+  }
+
+  try {
+    const metadata = JSON.parse(zodSchema.description);
+    if (metadata.collectionName && typeof metadata.collectionName === "string") {
+      return metadata.collectionName;
+    }
+  } catch {
+    // Not JSON or no collectionName - this is expected for schemas without defineCollection
+  }
+
+  return null;
+}
+
+/**
  * Extracts Zod schema definitions from a module
  * Looks for schemas ending with configured patterns (default: "Schema" or "InputSchema")
  *
@@ -639,8 +664,9 @@ export async function buildSchemaDefinition(config: SchemaAnalyzerConfig | strin
         continue;
       }
 
-      // Get collection name from file
-      const collectionName = getCollectionNameFromFile(filePath);
+      // Get collection name - prefer metadata from defineCollection(), fall back to filename
+      const collectionNameFromSchema = extractCollectionNameFromSchema(zodSchema);
+      const collectionName = collectionNameFromSchema ?? getCollectionNameFromFile(filePath);
 
       // Convert to CollectionSchema
       const collectionSchema = convertZodSchemaToCollectionSchema(collectionName, zodSchema);

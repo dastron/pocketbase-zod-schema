@@ -30,31 +30,36 @@ Create a schema file in your project (e.g., `src/schema/post.ts`):
 ```typescript
 import { z } from "zod";
 import {
+  defineCollection,
   RelationField,
   RelationsField,
-  withPermissions,
 } from "pocketbase-zod-schema/schema";
 
-export const PostSchema = withPermissions(
-  z.object({
-    title: z.string().min(1).max(200),
-    content: z.string(),
-    published: z.boolean().default(false),
-    
-    // Single relation to users collection
-    author: RelationField({ collection: "users" }),
-    
-    // Multiple relations to tags collection
-    tags: RelationsField({ collection: "tags", maxSelect: 10 }),
-  }),
-  {
+// Define the Zod schema
+export const PostSchema = z.object({
+  title: z.string().min(1).max(200),
+  content: z.string(),
+  published: z.boolean().default(false),
+  
+  // Single relation to users collection
+  author: RelationField({ collection: "users" }),
+  
+  // Multiple relations to tags collection
+  tags: RelationsField({ collection: "tags", maxSelect: 10 }),
+});
+
+// Define the collection with permissions
+export const PostCollection = defineCollection({
+  collectionName: "posts",
+  schema: PostSchema,
+  permissions: {
     listRule: '@request.auth.id != ""',
     viewRule: "",
     createRule: '@request.auth.id != ""',
     updateRule: "author = @request.auth.id",
     deleteRule: "author = @request.auth.id",
-  }
-);
+  },
+});
 ```
 
 ### 2. Configure the CLI
@@ -86,6 +91,63 @@ This will create a migration file in your PocketBase migrations directory.
 ---
 
 ## Schema Definition
+
+### High-Level Collection Definition
+
+The recommended way to define collections is using `defineCollection()`, which provides a single entry point for collection name, schema, permissions, indexes, and future features:
+
+```typescript
+import { z } from "zod";
+import { defineCollection, RelationField } from "pocketbase-zod-schema/schema";
+
+export const PostCollectionSchema = z.object({
+  title: z.string(),
+  content: z.string(),
+  author: RelationField({ collection: "users" }),
+});
+
+export const PostCollection = defineCollection({
+  collectionName: "posts",
+  schema: PostCollectionSchema,
+  permissions: {
+    template: "owner-only",
+    ownerField: "author",
+  },
+  indexes: [
+    "CREATE INDEX idx_posts_author ON posts (author)",
+  ],
+});
+```
+
+**Benefits of `defineCollection()`:**
+- **Explicit collection name** - No need to rely on filename conventions
+- **All metadata in one place** - Schema, permissions, indexes together
+- **Future-proof** - Easy to extend with new features
+- **Cleaner syntax** - No nested function calls
+
+**Export Pattern:** It's recommended to export both the schema and collection definition:
+
+```typescript
+// Define the Zod schema (for type inference and validation)
+export const PostSchema = z.object({
+  title: z.string(),
+  content: z.string(),
+  author: RelationField({ collection: "users" }),
+});
+
+// Define the collection (used by migration generator, includes metadata)
+export const PostCollection = defineCollection({
+  collectionName: "posts",
+  schema: PostSchema,
+  permissions: { /* ... */ },
+});
+```
+
+This pattern allows:
+- `PostSchema` - Used for type inference (`z.infer<typeof PostSchema>`) and validation
+- `PostCollection` - Used by the migration generator (has collection metadata)
+
+**Note:** You can still use `withPermissions()` and `withIndexes()` separately if you prefer, but `defineCollection()` is recommended for new code.
 
 ### Field Types
 
@@ -149,29 +211,43 @@ const ProjectSchema = z.object({
 
 ### Defining Permissions
 
-Use `withPermissions()` to attach API rules to your schema:
+Use `defineCollection()` with permissions, or `withPermissions()` to attach API rules to your schema:
 
 ```typescript
-import { withPermissions } from "pocketbase-zod-schema/schema";
+import { defineCollection, withPermissions } from "pocketbase-zod-schema/schema";
 
-// Using direct rules
-const PostSchema = withPermissions(
-  z.object({ title: z.string() }),
-  {
+// Using defineCollection (recommended)
+const PostCollection = defineCollection({
+  collectionName: "posts",
+  schema: z.object({ title: z.string() }),
+  permissions: {
     listRule: '@request.auth.id != ""',     // Authenticated users can list
     viewRule: "",                            // Anyone can view (public)
     createRule: '@request.auth.id != ""',   // Authenticated users can create
     updateRule: "author = @request.auth.id", // Only author can update
     deleteRule: "author = @request.auth.id", // Only author can delete
-  }
-);
+  },
+});
 
-// Using templates
-const ProjectSchema = withPermissions(
-  z.object({ title: z.string(), owner: RelationField({ collection: "users" }) }),
-  {
+// Using templates with defineCollection
+const ProjectCollection = defineCollection({
+  collectionName: "projects",
+  schema: z.object({ title: z.string(), owner: RelationField({ collection: "users" }) }),
+  permissions: {
     template: "owner-only",
     ownerField: "owner",
+  },
+});
+
+// Using withPermissions (alternative approach)
+const PostSchemaAlt = withPermissions(
+  z.object({ title: z.string() }),
+  {
+    listRule: '@request.auth.id != ""',
+    viewRule: "",
+    createRule: '@request.auth.id != ""',
+    updateRule: "author = @request.auth.id",
+    deleteRule: "author = @request.auth.id",
   }
 );
 ```
@@ -187,24 +263,56 @@ const ProjectSchema = withPermissions(
 #### Template with Custom Overrides
 
 ```typescript
-const PostSchema = withPermissions(schema, {
+// Using defineCollection (recommended)
+const PostCollection = defineCollection({
+  collectionName: "posts",
+  schema: z.object({ title: z.string(), author: RelationField({ collection: "users" }) }),
+  permissions: {
+    template: "owner-only",
+    ownerField: "author",
+    customRules: {
+      listRule: '@request.auth.id != ""',  // Override just the list rule
+      viewRule: "",                         // Make viewing public
+    },
+  },
+});
+
+// Using withPermissions (alternative)
+const PostSchemaAlt = withPermissions(schema, {
   template: "owner-only",
   ownerField: "author",
   customRules: {
-    listRule: '@request.auth.id != ""',  // Override just the list rule
-    viewRule: "",                         // Make viewing public
+    listRule: '@request.auth.id != ""',
+    viewRule: "",
   },
 });
 ```
 
 ### Defining Indexes
 
-Use `withIndexes()` to define database indexes:
+Use `defineCollection()` with indexes, or `withIndexes()` to define database indexes:
 
 ```typescript
-import { withIndexes, withPermissions } from "pocketbase-zod-schema/schema";
+import { defineCollection, withIndexes, withPermissions } from "pocketbase-zod-schema/schema";
 
-const UserSchema = withIndexes(
+// Using defineCollection (recommended)
+const UserCollection = defineCollection({
+  collectionName: "users",
+  schema: z.object({
+    email: z.string().email(),
+    username: z.string(),
+  }),
+  permissions: {
+    template: "authenticated",
+  },
+  indexes: [
+    'CREATE UNIQUE INDEX idx_users_email ON users (email)',
+    'CREATE INDEX idx_users_username ON users (username)',
+  ],
+});
+
+// Using withIndexes (alternative)
+const UserSchemaAlt = withIndexes(
   withPermissions(
     z.object({
       email: z.string().email(),
@@ -312,84 +420,109 @@ Here's a complete example of a blog schema with users, posts, and comments:
 ```typescript
 // src/schema/user.ts
 import { z } from "zod";
-import { withPermissions, withIndexes } from "pocketbase-zod-schema/schema";
+import { baseSchema, defineCollection } from "pocketbase-zod-schema/schema";
 
-export const UserSchema = withIndexes(
-  withPermissions(
-    z.object({
-      name: z.string().optional(),
-      email: z.string().email(),
-      password: z.string().min(8),
-      avatar: z.instanceof(File).optional(),
-    }),
-    {
-      listRule: "id = @request.auth.id",
-      viewRule: "id = @request.auth.id",
-      createRule: "",
-      updateRule: "id = @request.auth.id",
-      deleteRule: "id = @request.auth.id",
-    }
-  ),
-  [
+// Input schema for forms (includes passwordConfirm for validation)
+export const UserInputSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().email(),
+  password: z.string().min(8),
+  passwordConfirm: z.string(),
+  avatar: z.instanceof(File).optional(),
+});
+
+// Database schema (excludes passwordConfirm)
+const UserCollectionSchema = z.object({
+  name: z.string().optional(),
+  email: z.string().email(),
+  password: z.string().min(8),
+  avatar: z.instanceof(File).optional(),
+});
+
+// Full schema with base fields for type inference (includes id, collectionId, etc.)
+export const UserSchema = UserCollectionSchema.extend(baseSchema);
+
+// Collection definition with permissions and indexes
+export const UserCollection = defineCollection({
+  collectionName: "Users",
+  schema: UserSchema,
+  permissions: {
+    listRule: "id = @request.auth.id",
+    viewRule: "id = @request.auth.id",
+    createRule: "",
+    updateRule: "id = @request.auth.id",
+    deleteRule: "id = @request.auth.id",
+  },
+  indexes: [
     'CREATE UNIQUE INDEX idx_users_email ON users (email)',
-  ]
-);
+  ],
+});
 ```
 
 ```typescript
 // src/schema/post.ts
 import { z } from "zod";
 import { 
+  defineCollection,
   RelationField, 
   RelationsField, 
-  withPermissions 
 } from "pocketbase-zod-schema/schema";
 
-export const PostSchema = withPermissions(
-  z.object({
-    title: z.string().min(1).max(200),
-    slug: z.string(),
-    content: z.string(),
-    excerpt: z.string().optional(),
-    published: z.boolean().default(false),
-    publishedAt: z.date().optional(),
-    
-    // Relations
-    author: RelationField({ collection: "users" }),
-    category: RelationField({ collection: "categories" }),
-    tags: RelationsField({ collection: "tags", maxSelect: 10 }),
-  }),
-  {
+// Define the Zod schema
+export const PostSchema = z.object({
+  title: z.string().min(1).max(200),
+  slug: z.string(),
+  content: z.string(),
+  excerpt: z.string().optional(),
+  published: z.boolean().default(false),
+  publishedAt: z.date().optional(),
+  
+  // Relations
+  author: RelationField({ collection: "users" }),
+  category: RelationField({ collection: "categories" }),
+  tags: RelationsField({ collection: "tags", maxSelect: 10 }),
+});
+
+// Define the collection with permissions
+export const PostCollection = defineCollection({
+  collectionName: "posts",
+  schema: PostSchema,
+  permissions: {
     listRule: 'published = true || author = @request.auth.id',
     viewRule: 'published = true || author = @request.auth.id',
     createRule: '@request.auth.id != ""',
     updateRule: "author = @request.auth.id",
     deleteRule: "author = @request.auth.id",
-  }
-);
+  },
+});
 ```
 
 ```typescript
 // src/schema/comment.ts
 import { z } from "zod";
-import { RelationField, withPermissions } from "pocketbase-zod-schema/schema";
+import { defineCollection, RelationField } from "pocketbase-zod-schema/schema";
 
-export const CommentSchema = withPermissions(
-  z.object({
-    content: z.string().min(1),
-    
-    // Relations with cascade delete
-    post: RelationField({ collection: "posts", cascadeDelete: true }),
-    author: RelationField({ collection: "users" }),
-  }),
-  {
+// Define the Zod schema
+export const CommentSchema = z.object({
+  content: z.string().min(1),
+  
+  // Relations with cascade delete
+  post: RelationField({ collection: "posts", cascadeDelete: true }),
+  author: RelationField({ collection: "users" }),
+});
+
+// Define the collection with permissions
+export const CommentCollection = defineCollection({
+  collectionName: "comments",
+  schema: CommentSchema,
+  permissions: {
     listRule: "",
     viewRule: "",
     createRule: '@request.auth.id != ""',
     updateRule: "author = @request.auth.id",
     deleteRule: "author = @request.auth.id || @request.auth.role = 'admin'",
-  }
-);
+  },
+});
 ```
 
 ---
