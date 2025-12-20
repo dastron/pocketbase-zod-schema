@@ -482,11 +482,8 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     // Clear out string-specific options that don't apply to relation fields
     // Options like 'min', 'max', 'pattern' are from string validation and don't apply to relations
     if (fieldDef.options) {
-      const { min, max, pattern, ...relationSafeOptions } = fieldDef.options;
-      console.log("min", min);
-      console.log("max", max);
-      console.log("pattern", pattern);
-      fieldDef.options = Object.keys(relationSafeOptions).length > 0 ? relationSafeOptions : undefined;
+      const { min: _min, max: _max, pattern: _pattern, ...relationSafeOptions } = fieldDef.options;
+      fieldDef.options = Object.keys(relationSafeOptions).length ? relationSafeOptions : undefined;
     }
   }
 
