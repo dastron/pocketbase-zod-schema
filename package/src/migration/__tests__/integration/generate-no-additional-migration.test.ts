@@ -256,7 +256,14 @@ describe("Generate Migration - No Additional Migration Needed", () => {
         collections: snapshotFromMigration.collections,
       };
       const normalizedOriginal = normalizeSchemaForComparison(originalSchema);
-      const normalizedSnapshot = normalizeSchemaForComparison(snapshotAsSchema);
+      const normalizedSnapshotSchema = normalizeSchemaForComparison(snapshotAsSchema);
+
+      // Convert normalized schema back to SchemaSnapshot format for compare()
+      const normalizedSnapshot: SchemaSnapshot = {
+        version: snapshotFromMigration.version,
+        timestamp: snapshotFromMigration.timestamp,
+        collections: normalizedSnapshotSchema.collections,
+      };
 
       const diffAfterGeneration = compare(normalizedOriginal, normalizedSnapshot);
 
