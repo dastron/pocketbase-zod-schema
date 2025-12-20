@@ -1,0 +1,23 @@
+# E2E Test Generated Files
+
+# Test workspaces (temporary PocketBase instances)
+workspaces/
+
+# Coverage reports
+coverage/
+
+# Downloaded PocketBase executables
+downloads/
+
+# Environment configuration (copy from .env.example)
+.env
+
+# Test artifacts
+*.log
+*.tmp
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+dist/
