@@ -1,7 +1,7 @@
 /**
  * Tests for explicit relation field definition
  *
- * Tests the relationField() and relationsField() helper functions that provide
+ * Tests the RelationField() and RelationsField() helper functions that provide
  * an explicit, declarative way to define PocketBase relation fields.
  */
 
@@ -9,14 +9,14 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { convertZodSchemaToCollectionSchema } from "../../migration/analyzer";
 import { generateFieldDefinitionObject } from "../../migration/generator";
-import { extractRelationMetadata, relationField, relationsField, withPermissions } from "../base";
+import { extractRelationMetadata, RelationField, RelationsField, withPermissions } from "../base";
 
 describe("Explicit Relation Definition", () => {
-  describe("relationField() helper", () => {
+  describe("RelationField() helper", () => {
     it("should create a single relation with explicit collection target", () => {
       const schema = z.object({
         title: z.string(),
-        author: relationField({ collection: "users" }),
+        author: RelationField({ collection: "users" }),
       });
 
       const collection = convertZodSchemaToCollectionSchema("posts", schema);
@@ -33,7 +33,7 @@ describe("Explicit Relation Definition", () => {
 
     it("should support cascadeDelete option", () => {
       const schema = z.object({
-        post: relationField({ collection: "posts", cascadeDelete: true }),
+        post: RelationField({ collection: "posts", cascadeDelete: true }),
       });
 
       const collection = convertZodSchemaToCollectionSchema("comments", schema);
@@ -44,7 +44,7 @@ describe("Explicit Relation Definition", () => {
 
     it("should generate correct migration output for explicit relation", () => {
       const schema = z.object({
-        owner: relationField({ collection: "users" }),
+        owner: RelationField({ collection: "users" }),
       });
 
       const collection = convertZodSchemaToCollectionSchema("projects", schema);
@@ -62,7 +62,7 @@ describe("Explicit Relation Definition", () => {
 
     it("should use findCollectionByNameOrId for non-users collections", () => {
       const schema = z.object({
-        category: relationField({ collection: "categories" }),
+        category: RelationField({ collection: "categories" }),
       });
 
       const collection = convertZodSchemaToCollectionSchema("posts", schema);
@@ -75,11 +75,11 @@ describe("Explicit Relation Definition", () => {
     });
   });
 
-  describe("relationsField() helper", () => {
+  describe("RelationsField() helper", () => {
     it("should create a multiple relation with explicit collection target", () => {
       const schema = z.object({
         title: z.string(),
-        tags: relationsField({ collection: "tags" }),
+        tags: RelationsField({ collection: "tags" }),
       });
 
       const collection = convertZodSchemaToCollectionSchema("posts", schema);
@@ -95,7 +95,7 @@ describe("Explicit Relation Definition", () => {
 
     it("should support minSelect and maxSelect options", () => {
       const schema = z.object({
-        collaborators: relationsField({
+        collaborators: RelationsField({
           collection: "users",
           minSelect: 1,
           maxSelect: 10,
@@ -111,7 +111,7 @@ describe("Explicit Relation Definition", () => {
 
     it("should generate correct migration output for multiple relations", () => {
       const schema = z.object({
-        subscribers: relationsField({ collection: "users" }),
+        subscribers: RelationsField({ collection: "users" }),
       });
 
       const collection = convertZodSchemaToCollectionSchema("projects", schema);
@@ -128,8 +128,8 @@ describe("Explicit Relation Definition", () => {
   });
 
   describe("extractRelationMetadata()", () => {
-    it("should extract metadata from relationField() output", () => {
-      const field = relationField({ collection: "users" });
+    it("should extract metadata from RelationField() output", () => {
+      const field = RelationField({ collection: "users" });
       const metadata = extractRelationMetadata(field.description);
 
       expect(metadata).not.toBeNull();
@@ -140,8 +140,8 @@ describe("Explicit Relation Definition", () => {
       expect(metadata?.cascadeDelete).toBe(false);
     });
 
-    it("should extract metadata from relationsField() output", () => {
-      const field = relationsField({
+    it("should extract metadata from RelationsField() output", () => {
+      const field = RelationsField({
         collection: "tags",
         minSelect: 2,
         maxSelect: 5,
@@ -174,7 +174,7 @@ describe("Explicit Relation Definition", () => {
     it("should prefer explicit relation metadata over naming convention", () => {
       // Even with lowercase field name, explicit relation should work
       const schema = z.object({
-        owner: relationField({ collection: "users" }),
+        owner: RelationField({ collection: "users" }),
       });
 
       const collection = convertZodSchemaToCollectionSchema("projects", schema);
@@ -201,7 +201,7 @@ describe("Explicit Relation Definition", () => {
       const schema = withPermissions(
         z.object({
           title: z.string(),
-          author: relationField({ collection: "users" }),
+          author: RelationField({ collection: "users" }),
         }),
         { template: "authenticated" }
       );
@@ -220,10 +220,10 @@ describe("Explicit Relation Definition", () => {
       const BlogPostSchema = z.object({
         title: z.string(),
         content: z.string(),
-        author: relationField({ collection: "users" }),
-        category: relationField({ collection: "categories" }),
-        tags: relationsField({ collection: "tags", maxSelect: 10 }),
-        reviewers: relationsField({
+        author: RelationField({ collection: "users" }),
+        category: RelationField({ collection: "categories" }),
+        tags: RelationsField({ collection: "tags", maxSelect: 10 }),
+        reviewers: RelationsField({
           collection: "users",
           minSelect: 1,
           maxSelect: 3,

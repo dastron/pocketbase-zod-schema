@@ -547,10 +547,10 @@ describe("pocketbase-converter", () => {
       if (migrationContent.includes("const snapshot =")) {
         const result = convertPocketBaseMigration(migrationContent);
         const collection = Array.from(result.collections.values())[0];
-        const relationField = collection.fields.find((f) => f.type === "relation");
+        const RelationField = collection.fields.find((f) => f.type === "relation");
 
-        expect(relationField).toBeDefined();
-        expect(relationField?.relation?.collection).toBe("Users");
+        expect(RelationField).toBeDefined();
+        expect(RelationField?.relation?.collection).toBe("Users");
       } else {
         // Skip if not snapshot format - that's expected for reference migrations
         expect(migrationContent).toContain("new Collection");

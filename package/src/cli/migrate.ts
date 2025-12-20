@@ -5,6 +5,11 @@
  * Schema-driven PocketBase migration generator
  */
 
+// Register tsx loader for TypeScript file support
+// This must be imported first to enable TypeScript file loading via dynamic imports
+// tsx/esm registers hooks that allow Node.js to handle .ts files in dynamic imports
+import "tsx/esm";
+
 import chalk from "chalk";
 import { Command } from "commander";
 import { readFileSync } from "fs";

@@ -206,17 +206,17 @@ const RELATION_METADATA_KEY = "__pocketbase_relation__";
  * // Single relation to users collection
  * const PostSchema = z.object({
  *   title: z.string(),
- *   author: relationField({ collection: 'users' }),
+ *   author: RelationField({ collection: 'users' }),
  * });
  *
  * @example
  * // Relation with cascade delete
  * const CommentSchema = z.object({
  *   content: z.string(),
- *   post: relationField({ collection: 'posts', cascadeDelete: true }),
+ *   post: RelationField({ collection: 'posts', cascadeDelete: true }),
  * });
  */
-export function relationField(config: RelationConfig) {
+export function RelationField(config: RelationConfig) {
   const metadata = {
     [RELATION_METADATA_KEY]: {
       type: "single",
@@ -244,21 +244,21 @@ export function relationField(config: RelationConfig) {
  * // Multiple relations to tags collection
  * const PostSchema = z.object({
  *   title: z.string(),
- *   tags: relationsField({ collection: 'tags' }),
+ *   tags: RelationsField({ collection: 'tags' }),
  * });
  *
  * @example
  * // Relations with min/max constraints
  * const ProjectSchema = z.object({
  *   title: z.string(),
- *   collaborators: relationsField({
+ *   collaborators: RelationsField({
  *     collection: 'users',
  *     minSelect: 1,
  *     maxSelect: 10,
  *   }),
  * });
  */
-export function relationsField(config: RelationsConfig) {
+export function RelationsField(config: RelationsConfig) {
   const metadata = {
     [RELATION_METADATA_KEY]: {
       type: "multiple",
@@ -432,4 +432,125 @@ export function withIndexes<T extends z.ZodTypeAny>(schema: T, indexes: string[]
 
   // Attach metadata to schema using Zod's describe() method
   return schema.describe(JSON.stringify(metadata)) as T;
+}
+
+/**
+ * Configuration options for defining a collection
+ */
+export interface CollectionConfig {
+  /**
+   * The name of the PocketBase collection
+   * This will be used when generating migrations
+   */
+  collectionName: string;
+
+  /**
+   * The Zod schema definition for the collection
+   */
+  schema: z.ZodObject<any>;
+
+  /**
+   * Optional permission configuration
+   * Can be a template-based config or custom permission rules
+   */
+  permissions?: PermissionTemplateConfig | PermissionSchema;
+
+  /**
+   * Optional array of index SQL statements
+   * Example: ['CREATE UNIQUE INDEX idx_users_email ON users (email)']
+   */
+  indexes?: string[];
+
+  /**
+   * Future extensibility - additional options can be added here
+   */
+  [key: string]: unknown;
+}
+
+/**
+ * High-level wrapper for defining a PocketBase collection with all metadata
+ *
+ * This is the recommended way to define collections as it provides a single
+ * entry point for collection name, schema, permissions, indexes, and future features.
+ *
+ * @param config - Collection configuration object
+ * @returns The schema with all metadata attached
+ *
+ * @example
+ * // Basic collection with permissions
+ * export const PostSchema = defineCollection({
+ *   collectionName: "posts",
+ *   schema: z.object({
+ *     title: z.string(),
+ *     content: z.string(),
+ *     author: RelationField({ collection: "users" }),
+ *   }),
+ *   permissions: {
+ *     template: "owner-only",
+ *     ownerField: "author",
+ *   },
+ * });
+ *
+ * @example
+ * // Collection with permissions and indexes
+ * export const UserSchema = defineCollection({
+ *   collectionName: "users",
+ *   schema: z.object({
+ *     name: z.string(),
+ *     email: z.string().email(),
+ *   }),
+ *   permissions: {
+ *     listRule: "id = @request.auth.id",
+ *     viewRule: "id = @request.auth.id",
+ *     createRule: "",
+ *     updateRule: "id = @request.auth.id",
+ *     deleteRule: "id = @request.auth.id",
+ *   },
+ *   indexes: [
+ *     "CREATE UNIQUE INDEX idx_users_email ON users (email)",
+ *   ],
+ * });
+ *
+ * @example
+ * // Collection with template and custom rule overrides
+ * export const ProjectSchema = defineCollection({
+ *   collectionName: "projects",
+ *   schema: z.object({
+ *     title: z.string(),
+ *     owner: RelationField({ collection: "users" }),
+ *   }),
+ *   permissions: {
+ *     template: "owner-only",
+ *     ownerField: "owner",
+ *     customRules: {
+ *       listRule: '@request.auth.id != ""',
+ *     },
+ *   },
+ * });
+ */
+export function defineCollection(config: CollectionConfig): z.ZodObject<any> {
+  const { collectionName, schema, permissions, indexes, ...futureOptions } = config;
+
+  // Build metadata object
+  const metadata: any = {
+    collectionName,
+  };
+
+  // Add permissions if provided
+  if (permissions) {
+    metadata.permissions = permissions;
+  }
+
+  // Add indexes if provided
+  if (indexes) {
+    metadata.indexes = indexes;
+  }
+
+  // Add any future options
+  if (Object.keys(futureOptions).length > 0) {
+    Object.assign(metadata, futureOptions);
+  }
+
+  // Attach all metadata to schema using Zod's describe() method
+  return schema.describe(JSON.stringify(metadata)) as z.ZodObject<any>;
 }
