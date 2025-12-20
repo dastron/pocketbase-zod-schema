@@ -86,6 +86,8 @@ jobs:
 
   build-matrix:
     runs-on: ${{ matrix.os }}
+    # Only run on non-draft PRs (not on push to main since release workflow already builds)
+    if: (github.event_name == 'pull_request' && github.event.pull_request.draft == false) || github.event_name == 'workflow_call'
     
     strategy:
       matrix:
