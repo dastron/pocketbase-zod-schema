@@ -58,6 +58,7 @@ async function generateExampleReports() {
               {
                 fieldName: 'title',
                 nativeField: {
+                  id: 'field_title',
                   name: 'title',
                   type: 'text',
                   required: true,
@@ -65,6 +66,7 @@ async function generateExampleReports() {
                   options: { max: 255 },
                 },
                 libraryField: {
+                  id: 'field_title',
                   name: 'title',
                   type: 'text',
                   required: true,
@@ -155,6 +157,7 @@ async function generateExampleReports() {
               {
                 fieldName: 'price',
                 nativeField: {
+                  id: 'field_price',
                   name: 'price',
                   type: 'number',
                   required: true,
@@ -162,6 +165,7 @@ async function generateExampleReports() {
                   options: { min: 0, onlyInt: false },
                 },
                 libraryField: {
+                  id: 'field_price',
                   name: 'price',
                   type: 'number',
                   required: true,

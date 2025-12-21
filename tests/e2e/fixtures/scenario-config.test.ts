@@ -257,7 +257,7 @@ describe('Test Scenario Configuration System', () => {
       const usedFieldTypes = new Set(allFields.map(f => f.type));
 
       requiredFieldTypes.forEach(fieldType => {
-        expect(usedFieldTypes.has(fieldType)).toBe(true);
+        expect(usedFieldTypes.has(fieldType as any)).toBe(true);
       });
     });
 

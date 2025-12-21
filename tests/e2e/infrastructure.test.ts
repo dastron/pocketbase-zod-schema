@@ -4,6 +4,9 @@
 
 import { describe, it, expect } from 'vitest';
 import { env, logger, generateTestId, createTempDir, cleanupTempDir } from './utils/test-helpers.js';
+import { updateTestResult, getResultsSummary } from './utils/results-tracker.js';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 describe('E2E Infrastructure', () => {
   it('should have correct environment configuration', () => {
@@ -50,5 +53,24 @@ describe('E2E Infrastructure', () => {
       logger.warn('Test warn message');
       logger.error('Test error message');
     }).not.toThrow();
+  });
+
+  it('should write results to results directory', () => {
+    // Write a test result
+    const testScenarioName = 'infrastructure-test';
+    const testScore = 100;
+    updateTestResult(testScenarioName, testScore, true, {
+      score: testScore,
+      differences: []
+    });
+
+    // Verify results file exists
+    const resultsPath = join(process.cwd(), 'tests/e2e/results/test-results.json');
+    expect(existsSync(resultsPath)).toBe(true);
+
+    // Verify we can get the summary
+    const summary = getResultsSummary();
+    expect(summary.totalTests).toBeGreaterThan(0);
+    expect(summary.averageDiffPercentage).toBeGreaterThanOrEqual(0);
   });
 });

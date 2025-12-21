@@ -80,8 +80,5 @@ export default defineConfig({
     
     // Setup files for E2E tests
     setupFiles: ['tests/e2e/setup.ts'],
-    
-    // Teardown files for cleanup
-    globalTeardown: ['tests/e2e/teardown.ts'],
   },
 });

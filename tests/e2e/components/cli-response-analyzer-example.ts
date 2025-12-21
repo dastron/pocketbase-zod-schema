@@ -186,6 +186,3 @@ export function analyzeFieldDifferencesExample(): void {
     logger.info(`   Library: ${JSON.stringify(diff.libraryValue)}`);
   });
 }
-
-// Export for use in integration tests
-export { runComparisonExample, analyzeFieldDifferencesExample };
