@@ -13,6 +13,10 @@
     "test": "yarn workspace pocketbase-zod-schema test",
     "test:watch": "yarn workspace pocketbase-zod-schema test:watch",
     "test:coverage": "yarn workspace pocketbase-zod-schema test:coverage",
+    "test:e2e": "vitest run --config tests/e2e/vitest.config.ts",
+    "test:e2e:watch": "vitest --config tests/e2e/vitest.config.ts",
+    "test:e2e:verbose": "E2E_LOG_LEVEL=debug vitest run --config tests/e2e/vitest.config.ts",
+    "test:e2e:coverage": "vitest run --coverage --config tests/e2e/vitest.config.ts",
     "typecheck": "yarn workspace pocketbase-zod-schema typecheck",
     "format": "yarn workspace pocketbase-zod-schema format",
     "lint": "yarn workspace pocketbase-zod-schema lint",
@@ -32,7 +36,9 @@
   "license": "MIT",
   "packageManager": "yarn@4.8.1",
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.16",
     "husky": "^9.0.0",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "vitest": "^4.0.16"
   }
 }

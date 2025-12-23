@@ -1,0 +1,29 @@
+{
+  "lastUpdated": "2025-12-21T00:04:47.569Z",
+  "totalTests": 3,
+  "averageDiffPercentage": 93.33333333333333,
+  "tests": {
+    "quick-test": {
+      "scenarioName": "quick-test",
+      "diffPercentage": 88,
+      "timestamp": "2025-12-20T23:52:52.282Z",
+      "passed": true
+    },
+    "export-test": {
+      "scenarioName": "export-test",
+      "diffPercentage": 92,
+      "timestamp": "2025-12-20T23:52:52.282Z",
+      "passed": true
+    },
+    "infrastructure-test": {
+      "scenarioName": "infrastructure-test",
+      "diffPercentage": 100,
+      "timestamp": "2025-12-21T00:04:47.569Z",
+      "passed": true,
+      "details": {
+        "score": 100,
+        "differences": []
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "enabledCategories": ["basic", "field-types", "indexes", "rules", "auth", "relations"],
+  "disabledScenarios": [],
+  "tags": [],
+  "excludeTags": [],
+  "minimumScore": 70
+}

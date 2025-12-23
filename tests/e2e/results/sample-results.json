@@ -1,0 +1,120 @@
+{
+  "lastUpdated": "2024-01-15T10:30:00.000Z",
+  "totalTests": 8,
+  "averageDiffPercentage": 87.25,
+  "tests": {
+    "basic-collection": {
+      "scenarioName": "basic-collection",
+      "diffPercentage": 95.2,
+      "timestamp": "2024-01-15T10:25:00.000Z",
+      "passed": true,
+      "details": {
+        "nativeFile": "1705312500_created_basic_test.js",
+        "libraryFile": "1705312500_created_basic_test.js",
+        "differences": [],
+        "score": 95
+      }
+    },
+    "blank-collection": {
+      "scenarioName": "blank-collection",
+      "diffPercentage": 98.5,
+      "timestamp": "2024-01-15T10:25:30.000Z",
+      "passed": true,
+      "details": {
+        "nativeFile": "1705312530_created_blank_test.js",
+        "libraryFile": "1705312530_created_blank_test.js",
+        "differences": [],
+        "score": 98
+      }
+    },
+    "all-field-types": {
+      "scenarioName": "all-field-types",
+      "diffPercentage": 82.3,
+      "timestamp": "2024-01-15T10:26:00.000Z",
+      "passed": true,
+      "details": {
+        "nativeFile": "1705312560_created_field_types_test.js",
+        "libraryFile": "1705312560_created_field_types_test.js",
+        "differences": [
+          "Field option format difference in number_field",
+          "Select field values ordering difference"
+        ],
+        "score": 82
+      }
+    },
+    "file-field-types": {
+      "scenarioName": "file-field-types",
+      "diffPercentage": 78.9,
+      "timestamp": "2024-01-15T10:26:30.000Z",
+      "passed": true,
+      "details": {
+        "nativeFile": "1705312590_created_file_test.js",
+        "libraryFile": "1705312590_created_file_test.js",
+        "differences": [
+          "File field maxSize format difference",
+          "MIME types array structure difference"
+        ],
+        "score": 79
+      }
+    },
+    "unique-indexes": {
+      "scenarioName": "unique-indexes",
+      "diffPercentage": 91.7,
+      "timestamp": "2024-01-15T10:27:00.000Z",
+      "passed": true,
+      "details": {
+        "nativeFile": "1705312620_created_unique_test.js",
+        "libraryFile": "1705312620_created_unique_test.js",
+        "differences": [
+          "Index naming convention difference"
+        ],
+        "score": 92
+      }
+    },
+    "api-rules-restricted": {
+      "scenarioName": "api-rules-restricted",
+      "diffPercentage": 88.4,
+      "timestamp": "2024-01-15T10:27:30.000Z",
+      "passed": true,
+      "details": {
+        "nativeFile": "1705312650_created_private_test.js",
+        "libraryFile": "1705312650_created_private_test.js",
+        "differences": [
+          "Rule formatting whitespace difference"
+        ],
+        "score": 88
+      }
+    },
+    "auth-collection": {
+      "scenarioName": "auth-collection",
+      "diffPercentage": 85.1,
+      "timestamp": "2024-01-15T10:28:00.000Z",
+      "passed": true,
+      "details": {
+        "nativeFile": "1705312680_created_users.js",
+        "libraryFile": "1705312680_created_users.js",
+        "differences": [
+          "Auth field configuration order difference",
+          "System field handling difference"
+        ],
+        "score": 85
+      }
+    },
+    "single-relation": {
+      "scenarioName": "single-relation",
+      "diffPercentage": 76.9,
+      "timestamp": "2024-01-15T10:28:30.000Z",
+      "passed": false,
+      "details": {
+        "nativeFile": "1705312710_created_posts.js",
+        "libraryFile": "1705312710_created_posts.js",
+        "differences": [
+          "Relation field configuration structure difference",
+          "Display fields format difference",
+          "Cascade delete option missing"
+        ],
+        "score": 77
+      }
+    }
+  }
+}
