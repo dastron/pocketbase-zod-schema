@@ -68,8 +68,6 @@ export function sleep(ms: number): Promise<void> {
  * Get available port in the specified range
  */
 export async function getAvailablePort(startPort: number = 8090, endPort: number = 8190): Promise<number> {
-  const { createServer } = await import('net');
-  
   for (let port = startPort; port <= endPort; port++) {
     if (await isPortAvailable(port)) {
       return port;
@@ -82,7 +80,7 @@ export async function getAvailablePort(startPort: number = 8090, endPort: number
 /**
  * Check if a port is available
  */
-function isPortAvailable(port: number): Promise<boolean> {
+export async function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const { createServer } = require('net');
     const server = createServer();

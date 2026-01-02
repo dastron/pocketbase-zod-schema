@@ -14,7 +14,7 @@ import {
   generateTestId, 
   createTempDir, 
   cleanupTempDir, 
-  getAvailablePort, 
+  isPortAvailable, 
   waitFor, 
   sleep,
   env, 
@@ -276,12 +276,16 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
    */
   private async allocatePort(startPort: number, endPort: number): Promise<number> {
     for (let port = startPort; port <= endPort; port++) {
-      if (!this.allocatedPorts.has(port)) {
-        const availablePort = await getAvailablePort(port, port);
-        if (availablePort === port) {
-          this.allocatedPorts.add(port);
-          return port;
-        }
+      // Skip ports already allocated in this instance
+      if (this.allocatedPorts.has(port)) {
+        continue;
+      }
+      
+      // Check if port is actually available on the system
+      const available = await isPortAvailable(port);
+      if (available) {
+        this.allocatedPorts.add(port);
+        return port;
       }
     }
     

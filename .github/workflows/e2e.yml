@@ -40,6 +40,8 @@ jobs:
         env:
           E2E_LOG_LEVEL: info
           PB_VERSION: 0.34.2
+          E2E_PORT_START: 8090
+          E2E_PORT_END: 8290
         continue-on-error: true
 
       - name: Get test output summary

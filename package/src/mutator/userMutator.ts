@@ -1,6 +1,10 @@
-import { UserInputSchema } from "../schema";
-import type { UserInputType, UserType } from "../types";
+import { UserInputSchema, UserSchema } from "../schema/user";
 import { BaseMutator, type MutatorOptions } from "./baseMutator";
+import type { z } from "zod";
+
+// Internal types for this testing fixture (not exported)
+type UserInputType = z.infer<typeof UserInputSchema>;
+type UserType = z.infer<typeof UserSchema>;
 
 export class UserMutator extends BaseMutator<UserType, UserInputType> {
   protected setDefaults(): MutatorOptions {
