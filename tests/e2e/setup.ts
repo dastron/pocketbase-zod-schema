@@ -1,12 +1,11 @@
 /**
  * Global setup for E2E tests
  * This file runs before all E2E tests
+ * Returns a teardown function that runs after all tests complete
  */
 
-import { mkdir } from 'fs/promises';
-import { afterAll } from 'vitest';
+import { mkdir, rm } from 'fs/promises';
 import { env, logger } from './utils/test-helpers.js';
-import { rm } from 'fs/promises';
 
 export default async function setup() {
   logger.info('Setting up E2E test environment...');
@@ -32,9 +31,9 @@ export default async function setup() {
     logger.error('Failed to setup E2E test environment:', error);
     throw error;
   }
-  
-  // Register teardown
-  afterAll(async () => {
+
+  // Return teardown function that runs after all tests
+  return async function teardown() {
     logger.info('Cleaning up E2E test environment...');
     
     try {
@@ -53,5 +52,5 @@ export default async function setup() {
       logger.error('Failed to cleanup E2E test environment:', error);
       // Don't throw here - we don't want cleanup failures to fail the test run
     }
-  });
+  };
 }

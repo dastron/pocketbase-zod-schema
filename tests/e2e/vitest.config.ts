@@ -54,9 +54,11 @@ export default defineConfig({
       shuffle: false,
     },
     
-    // Pool configuration - use forks for isolation (Vitest 4+ syntax)
+    // Run tests serially (no concurrency) - one test file at a time
+    fileParallelism: false,
+    
+    // Pool configuration - use forks for isolation
     pool: 'forks',
-    isolate: true,
     
     // Environment variables for E2E tests
     env: {
@@ -78,7 +80,7 @@ export default defineConfig({
       E2E_PORT_END: process.env.E2E_PORT_END || '8190',
     },
     
-    // Setup files for E2E tests
-    setupFiles: ['tests/e2e/setup.ts'],
+    // Global setup for E2E tests (can return teardown function)
+    globalSetup: 'tests/e2e/setup.ts',
   },
 });
