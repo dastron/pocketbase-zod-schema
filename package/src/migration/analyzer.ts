@@ -9,6 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { z } from "zod";
 import { extractRelationMetadata } from "../schema/base";
+import { extractFieldMetadata } from "../schema/fields";
 import type { PermissionSchema } from "../utils/permissions";
 import { FileSystemError, SchemaParsingError } from "./errors";
 import { PermissionAnalyzer } from "./permission-analyzer";
@@ -493,6 +494,37 @@ export function isAuthCollection(fields: Array<{ name: string; zodType: z.ZodTyp
  * @returns Field definition with constraints
  */
 export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): FieldDefinition {
+  // Check for explicit field metadata first (from field helper functions)
+  const fieldMetadata = extractFieldMetadata(zodType.description);
+
+  if (fieldMetadata) {
+    // Use explicit metadata from field helpers
+    const required = isFieldRequired(zodType);
+
+    const fieldDef: FieldDefinition = {
+      name: fieldName,
+      type: fieldMetadata.type,
+      required,
+      options: fieldMetadata.options,
+    };
+
+    // If it's a relation type from metadata, we still need to extract relation config
+    if (fieldMetadata.type === "relation") {
+      const relationMetadata = extractRelationMetadata(zodType.description);
+      if (relationMetadata) {
+        fieldDef.relation = {
+          collection: relationMetadata.collection,
+          maxSelect: relationMetadata.maxSelect,
+          minSelect: relationMetadata.minSelect,
+          cascadeDelete: relationMetadata.cascadeDelete,
+        };
+      }
+    }
+
+    return fieldDef;
+  }
+
+  // Fall back to existing type inference logic
   const fieldType = mapZodTypeToPocketBase(zodType, fieldName);
   const required = isFieldRequired(zodType);
   const options = extractFieldOptions(zodType);

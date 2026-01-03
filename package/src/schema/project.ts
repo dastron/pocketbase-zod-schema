@@ -8,14 +8,15 @@ import {
   RelationField,
   RelationsField,
 } from "./base";
+import { EditorField, TextField } from "./fields";
 
 export const ProjectInputSchema = z
   .object({
-    // Required fields
-    title: z.string(),
-    content: z.string(),
+    // Required fields - using field helpers for explicit type definitions
+    title: TextField({ min: 1, max: 200 }),
+    content: EditorField(),
     status: StatusEnum,
-    summary: z.string().optional(),
+    summary: TextField({ max: 500 }).optional(),
 
     OwnerUser: RelationField({ collection: "Users" }),
     SubscriberUsers: RelationsField({ collection: "Users" }),

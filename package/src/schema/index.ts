@@ -1,6 +1,9 @@
 // Base schema utilities and field type helpers
 export * from "./base";
 
+// Field type helpers with metadata
+export * from "./fields";
+
 // Permission system
 export * from "../utils/permission-templates";
 export * from "../utils/permissions";

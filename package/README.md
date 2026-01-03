@@ -31,15 +31,18 @@ Create a schema file in your project (e.g., `src/schema/post.ts`):
 import { z } from "zod";
 import {
   defineCollection,
+  TextField,
+  EditorField,
+  BoolField,
   RelationField,
   RelationsField,
 } from "pocketbase-zod-schema/schema";
 
 // Define the Zod schema
 export const PostSchema = z.object({
-  title: z.string().min(1).max(200),
-  content: z.string(),
-  published: z.boolean().default(false),
+  title: TextField({ min: 1, max: 200 }),
+  content: EditorField(),
+  published: BoolField(),
   
   // Single relation to users collection
   author: RelationField({ collection: "users" }),
@@ -98,11 +101,11 @@ The recommended way to define collections is using `defineCollection()`, which p
 
 ```typescript
 import { z } from "zod";
-import { defineCollection, RelationField } from "pocketbase-zod-schema/schema";
+import { defineCollection, TextField, EditorField, RelationField } from "pocketbase-zod-schema/schema";
 
 export const PostCollectionSchema = z.object({
-  title: z.string(),
-  content: z.string(),
+  title: TextField({ min: 1, max: 200 }),
+  content: EditorField(),
   author: RelationField({ collection: "users" }),
 });
 
@@ -151,7 +154,185 @@ This pattern allows:
 
 ### Field Types
 
-The library maps Zod types to PocketBase field types automatically:
+The library provides explicit field helper functions for all PocketBase field types. These helpers embed PocketBase-specific metadata and provide type-safe configuration options.
+
+#### Field Helper Functions
+
+| Field Helper | PocketBase Type | Description | Example |
+|--------------|-----------------|-------------|---------|
+| `BoolField()` | bool | Boolean field | `active: BoolField()` |
+| `NumberField(options?)` | number | Number field with optional constraints | `price: NumberField({ min: 0 })` |
+| `TextField(options?)` | text | Text field with optional constraints | `name: TextField({ min: 1, max: 200 })` |
+| `EmailField()` | email | Email field with validation | `email: EmailField()` |
+| `URLField()` | url | URL field with validation | `website: URLField()` |
+| `EditorField()` | editor | Rich text editor field | `content: EditorField()` |
+| `DateField(options?)` | date | Date field with optional constraints | `birthdate: DateField()` |
+| `AutodateField(options?)` | autodate | Auto-managed timestamp field | `createdAt: AutodateField({ onCreate: true })` |
+| `SelectField(values, options?)` | select | Single or multiple select field | `status: SelectField(["draft", "published"])` |
+| `FileField(options?)` | file | Single file upload field | `avatar: FileField({ mimeTypes: ["image/*"] })` |
+| `FilesField(options?)` | file | Multiple file upload field | `images: FilesField({ maxSelect: 5 })` |
+| `JSONField(schema?)` | json | JSON field with optional schema | `metadata: JSONField()` |
+| `GeoPointField()` | geoPoint | Geographic coordinates field | `location: GeoPointField()` |
+| `RelationField(config)` | relation | Single relation field | `author: RelationField({ collection: "users" })` |
+| `RelationsField(config)` | relation | Multiple relation field | `tags: RelationsField({ collection: "tags" })` |
+
+#### Field Options
+
+**BoolField()**
+- No options
+- Returns: `z.ZodBoolean`
+
+**NumberField(options?)**
+- `min?: number` - Minimum value constraint
+- `max?: number` - Maximum value constraint
+- `noDecimal?: boolean` - Disallow decimal values (integers only)
+- Returns: `z.ZodNumber`
+
+**TextField(options?)**
+- `min?: number` - Minimum length constraint
+- `max?: number` - Maximum length constraint
+- `pattern?: RegExp | string` - Pattern constraint (regex)
+- `autogeneratePattern?: string` - Auto-generate pattern (e.g., `"[A-Z]{3}-[0-9]{6}"`)
+- Returns: `z.ZodString`
+
+**EmailField()**
+- No options (includes email validation)
+- Returns: `z.ZodString`
+
+**URLField()**
+- No options (includes URL validation)
+- Returns: `z.ZodString`
+
+**EditorField()**
+- No options
+- Returns: `z.ZodString`
+
+**DateField(options?)**
+- `min?: Date | string` - Minimum date constraint
+- `max?: Date | string` - Maximum date constraint
+- Returns: `z.ZodString`
+
+**AutodateField(options?)**
+- `onCreate?: boolean` - Set date automatically on record creation
+- `onUpdate?: boolean` - Update date automatically on record update
+- Returns: `z.ZodString`
+
+**SelectField(values, options?)**
+- `values: [string, ...string[]]` - Array of allowed values (required)
+- `maxSelect?: number` - Maximum selections (default: 1, >1 enables multiple selection)
+- Returns: `z.ZodEnum<T>` or `z.ZodArray<z.ZodEnum<T>>`
+
+**FileField(options?)**
+- `mimeTypes?: string[]` - Allowed MIME types (e.g., `["image/*", "application/pdf"]`)
+- `maxSize?: number` - Maximum file size in bytes
+- `thumbs?: string[]` - Thumbnail sizes to generate (e.g., `["100x100", "200x200"]`)
+- `protected?: boolean` - Whether file requires auth to access
+- Returns: `z.ZodType<File>`
+
+**FilesField(options?)**
+- All `FileField` options plus:
+- `minSelect?: number` - Minimum number of files required
+- `maxSelect?: number` - Maximum number of files allowed
+- Returns: `z.ZodArray<z.ZodType<File>>`
+
+**JSONField(schema?)**
+- `schema?: z.ZodTypeAny` - Optional Zod schema for JSON structure validation
+- Returns: `T | z.ZodRecord<z.ZodString, z.ZodAny>`
+
+**GeoPointField()**
+- No options
+- Returns: `z.ZodObject<{ lon: z.ZodNumber; lat: z.ZodNumber }>`
+
+#### Field Helper Examples
+
+```typescript
+import { z } from "zod";
+import {
+  defineCollection,
+  BoolField,
+  NumberField,
+  TextField,
+  EmailField,
+  URLField,
+  EditorField,
+  DateField,
+  AutodateField,
+  SelectField,
+  FileField,
+  FilesField,
+  JSONField,
+  GeoPointField,
+  RelationField,
+  RelationsField,
+} from "pocketbase-zod-schema/schema";
+
+const ProductSchema = z.object({
+  // Text fields
+  name: TextField({ min: 1, max: 200 }),
+  sku: TextField({ autogeneratePattern: "[A-Z]{3}-[0-9]{6}" }),
+  description: EditorField(),
+  website: URLField().optional(),
+  
+  // Number fields
+  price: NumberField({ min: 0 }),
+  quantity: NumberField({ min: 0, noDecimal: true }),
+  rating: NumberField({ min: 0, max: 5 }).optional(),
+  
+  // Boolean field
+  active: BoolField(),
+  featured: BoolField().optional(),
+  
+  // Date fields
+  releaseDate: DateField().optional(),
+  createdAt: AutodateField({ onCreate: true }),
+  updatedAt: AutodateField({ onUpdate: true }),
+  
+  // Select fields
+  status: SelectField(["draft", "published", "archived"]),
+  categories: SelectField(["electronics", "clothing", "food"], { maxSelect: 3 }),
+  
+  // File fields
+  thumbnail: FileField({ 
+    mimeTypes: ["image/*"], 
+    maxSize: 5242880, // 5MB
+    thumbs: ["100x100", "200x200"],
+  }),
+  images: FilesField({ 
+    mimeTypes: ["image/*"], 
+    maxSelect: 5,
+  }),
+  
+  // JSON field
+  metadata: JSONField(),
+  settings: JSONField(z.object({
+    theme: z.string(),
+    notifications: z.boolean(),
+  })).optional(),
+  
+  // GeoPoint field
+  location: GeoPointField().optional(),
+  
+  // Relation fields
+  vendor: RelationField({ collection: "vendors" }),
+  tags: RelationsField({ collection: "tags", maxSelect: 10 }),
+});
+
+export const ProductCollection = defineCollection({
+  collectionName: "products",
+  schema: ProductSchema,
+  permissions: {
+    listRule: "",
+    viewRule: "",
+    createRule: '@request.auth.id != ""',
+    updateRule: "vendor.owner = @request.auth.id",
+    deleteRule: "vendor.owner = @request.auth.id",
+  },
+});
+```
+
+#### Backward Compatibility
+
+The library still supports plain Zod types for backward compatibility. The migration generator will infer PocketBase field types from Zod types when field helpers are not used:
 
 | Zod Type | PocketBase Type | Example |
 |----------|-----------------|---------|
@@ -163,8 +344,8 @@ The library maps Zod types to PocketBase field types automatically:
 | `z.date()` | date | `birthdate: z.date()` |
 | `z.enum([...])` | select | `status: z.enum(["draft", "published"])` |
 | `z.instanceof(File)` | file | `avatar: z.instanceof(File)` |
-| `RelationField()` | relation | `author: RelationField({ collection: "users" })` |
-| `RelationsField()` | relation | `tags: RelationsField({ collection: "tags" })` |
+
+**Recommendation:** Use field helpers for new schemas to get explicit field type declarations and access to PocketBase-specific options.
 
 ### Defining Relations
 
@@ -420,22 +601,22 @@ Here's a complete example of a blog schema with users, posts, and comments:
 ```typescript
 // src/schema/user.ts
 import { z } from "zod";
-import { baseSchema, defineCollection } from "pocketbase-zod-schema/schema";
+import { baseSchema, defineCollection, TextField, EmailField } from "pocketbase-zod-schema/schema";
 
 // Input schema for forms (includes passwordConfirm for validation)
 export const UserInputSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().email(),
-  password: z.string().min(8),
+  name: TextField({ max: 100 }).optional(),
+  email: EmailField(),
+  password: TextField({ min: 8 }),
   passwordConfirm: z.string(),
   avatar: z.instanceof(File).optional(),
 });
 
 // Database schema (excludes passwordConfirm)
 const UserCollectionSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().email(),
-  password: z.string().min(8),
+  name: TextField({ max: 100 }).optional(),
+  email: EmailField(),
+  password: TextField({ min: 8 }),
   avatar: z.instanceof(File).optional(),
 });
 
@@ -464,18 +645,22 @@ export const UserCollection = defineCollection({
 import { z } from "zod";
 import { 
   defineCollection,
+  TextField,
+  EditorField,
+  BoolField,
+  DateField,
   RelationField, 
   RelationsField, 
 } from "pocketbase-zod-schema/schema";
 
 // Define the Zod schema
 export const PostSchema = z.object({
-  title: z.string().min(1).max(200),
-  slug: z.string(),
-  content: z.string(),
-  excerpt: z.string().optional(),
-  published: z.boolean().default(false),
-  publishedAt: z.date().optional(),
+  title: TextField({ min: 1, max: 200 }),
+  slug: TextField({ pattern: /^[a-z0-9-]+$/ }),
+  content: EditorField(),
+  excerpt: TextField({ max: 500 }).optional(),
+  published: BoolField(),
+  publishedAt: DateField().optional(),
   
   // Relations
   author: RelationField({ collection: "users" }),
@@ -500,11 +685,11 @@ export const PostCollection = defineCollection({
 ```typescript
 // src/schema/comment.ts
 import { z } from "zod";
-import { defineCollection, RelationField } from "pocketbase-zod-schema/schema";
+import { defineCollection, TextField, RelationField } from "pocketbase-zod-schema/schema";
 
 // Define the Zod schema
 export const CommentSchema = z.object({
-  content: z.string().min(1),
+  content: TextField({ min: 1 }),
   
   // Relations with cascade delete
   post: RelationField({ collection: "posts", cascadeDelete: true }),
