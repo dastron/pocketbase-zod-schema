@@ -6,7 +6,6 @@ export default defineConfig({
     index: 'src/index.ts',
     schema: 'src/schema.ts',
     enums: 'src/enums.ts',
-    types: 'src/types.ts',
     mutator: 'src/mutator.ts',
     
     // CLI entry points

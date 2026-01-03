@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@/utils/*": ["./utils/*"],
+      "@/fixtures/*": ["./fixtures/*"],
+      "@/components/*": ["./components/*"]
+    },
+    "types": ["vitest/globals", "node"],
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.test.ts",
+    "**/*.e2e.test.ts",
+    "**/*.property.test.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "workspaces"
+  ]
+}

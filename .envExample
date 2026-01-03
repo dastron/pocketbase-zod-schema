@@ -1,2 +1,11 @@
 # PocketBase
 PB_VERSION=0.34.2
+
+# E2E Test Configuration
+# E2E_ENABLED_CATEGORIES=basic,field-types,indexes,rules,auth,relations,updates
+# E2E_DISABLED_CATEGORIES=
+# E2E_ENABLED_SCENARIOS=
+# E2E_DISABLED_SCENARIOS=
+# E2E_TAGS=
+# E2E_EXCLUDE_TAGS=
+# E2E_MINIMUM_SCORE=70

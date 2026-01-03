@@ -1,4 +1,4 @@
-import {
+import PocketBase, {
   RecordService,
   type ListResult,
   type RecordListOptions,
@@ -8,7 +8,6 @@ import {
   type RecordSubscription,
   type UnsubscribeFunc,
 } from "pocketbase";
-import type { TypedPocketBase } from "../types";
 
 export interface MutatorOptions {
   expand: string[];
@@ -19,7 +18,7 @@ export interface MutatorOptions {
 // T represents the output model type that extends RecordModel
 // InputType represents the input type for creation operations
 export abstract class BaseMutator<T extends RecordModel, InputType> {
-  protected pb: TypedPocketBase;
+  protected pb: PocketBase;
 
   // Define a default property that subclasses will override
   protected options: MutatorOptions = {
@@ -28,7 +27,7 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
     sort: [],
   };
 
-  constructor(pb: TypedPocketBase, options?: Partial<MutatorOptions>) {
+  constructor(pb: PocketBase, options?: Partial<MutatorOptions>) {
     this.pb = pb;
 
     // Initialize with default options first

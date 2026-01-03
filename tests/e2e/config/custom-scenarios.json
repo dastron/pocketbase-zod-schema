@@ -1,0 +1,71 @@
+[
+  {
+    "name": "custom-blog-post",
+    "description": "Custom blog post collection with rich content",
+    "category": "basic",
+    "collectionDefinition": {
+      "name": "blog_posts",
+      "type": "base",
+      "fields": [
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "options": { "min": 5, "max": 200 }
+        },
+        {
+          "name": "slug",
+          "type": "text",
+          "required": true,
+          "unique": true,
+          "options": { "min": 5, "max": 100 }
+        },
+        {
+          "name": "content",
+          "type": "editor",
+          "required": true,
+          "options": { "convertUrls": true }
+        },
+        {
+          "name": "published",
+          "type": "bool",
+          "required": false
+        },
+        {
+          "name": "publish_date",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "featured_image",
+          "type": "file",
+          "required": false,
+          "options": {
+            "maxSelect": 1,
+            "maxSize": 5242880,
+            "mimeTypes": ["image/jpeg", "image/png", "image/webp"]
+          }
+        }
+      ],
+      "rules": {
+        "listRule": "published = true || @request.auth.id != \"\"",
+        "viewRule": "published = true || @request.auth.id != \"\"",
+        "createRule": "@request.auth.id != \"\"",
+        "updateRule": "@request.auth.id != \"\"",
+        "deleteRule": "@request.auth.id != \"\""
+      }
+    },
+    "expectedFeatures": [
+      "text_fields",
+      "editor_field",
+      "bool_field",
+      "date_field",
+      "file_field",
+      "unique_constraints",
+      "conditional_rules"
+    ],
+    "minimumScore": 75,
+    "enabled": true,
+    "tags": ["custom", "blog", "content-management"]
+  }
+]

@@ -5,6 +5,4 @@ export * from "./base";
 export * from "../utils/permission-templates";
 export * from "../utils/permissions";
 
-// Example schemas (for reference/testing)
-export * from "./project";
-export * from "./user";
+// Note: Example schemas (user.ts, project.ts) are not exported as they are local testing fixtures
