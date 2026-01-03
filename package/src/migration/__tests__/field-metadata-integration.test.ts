@@ -427,7 +427,7 @@ describe("Field Metadata Integration", () => {
     });
 
     it("should handle SelectField with default value", () => {
-      const field = SelectField(["draft", "published", "archived"]).default("draft");
+      const field = (SelectField(["draft", "published", "archived"]) as z.ZodEnum<["draft", "published", "archived"]>).default("draft");
       const definition = buildFieldDefinition("status", field);
 
       expect(definition.type).toBe("select");
