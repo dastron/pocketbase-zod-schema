@@ -30,27 +30,43 @@ pnpm add pocketbase-zod-schema
 ### 1. Define Your Schemas
 
 ```typescript
-// src/schema/user.ts
+// src/schema/post.ts
 import { z } from 'zod';
-import { baseSchema, withPermissions } from 'pocketbase-zod-schema/schema';
+import {
+  defineCollection,
+  TextField,
+  EditorField,
+  BoolField,
+  SelectField,
+  RelationField,
+  RelationsField,
+} from 'pocketbase-zod-schema/schema';
 
-export const UserInputSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().email("Invalid email format"),
-  avatar: z.string().optional(),
-  role: z.enum(['user', 'admin']).default('user'),
+// Define the Zod schema with field helpers
+const PostSchema = z.object({
+  title: TextField({ min: 1, max: 200 }),
+  slug: TextField({ pattern: /^[a-z0-9-]+$/ }),
+  content: EditorField(),
+  published: BoolField(),
+  status: SelectField(['draft', 'published', 'archived']),
+  
+  // Relations
+  author: RelationField({ collection: 'users' }),
+  tags: RelationsField({ collection: 'tags', maxSelect: 10 }),
 });
 
-export const UserSchema = withPermissions(
-  baseSchema.extend(UserInputSchema.shape),
-  {
-    listRule: '@request.auth.id != ""',
-    viewRule: '@request.auth.id != ""',
-    createRule: '',
-    updateRule: '@request.auth.id = id',
-    deleteRule: '@request.auth.id = id',
-  }
-);
+// Define the collection with permissions
+export const PostCollection = defineCollection({
+  collectionName: 'posts',
+  schema: PostSchema,
+  permissions: {
+    listRule: 'published = true || author = @request.auth.id',
+    viewRule: 'published = true || author = @request.auth.id',
+    createRule: '@request.auth.id != ""',
+    updateRule: 'author = @request.auth.id',
+    deleteRule: 'author = @request.auth.id',
+  },
+});
 ```
 
 ### 2. Generate Migrations
@@ -123,49 +139,120 @@ export default {
 
 Snapshots are automatically managed within the migrations directory - no separate configuration needed.
 
-## Schema Utilities
+## Schema Definition
 
-### Base Schema Patterns
+### Field Helpers
+
+The library provides explicit field helper functions for all PocketBase field types:
 
 ```typescript
-import { baseSchema, baseImageFileSchema } from 'pocketbase-zod-schema/schema';
+import {
+  BoolField,
+  NumberField,
+  TextField,
+  EmailField,
+  URLField,
+  EditorField,
+  DateField,
+  AutodateField,
+  SelectField,
+  FileField,
+  FilesField,
+  JSONField,
+  GeoPointField,
+  RelationField,
+  RelationsField,
+} from 'pocketbase-zod-schema/schema';
+```
 
-// Basic collection with standard PocketBase fields
-const MySchema = baseSchema.extend({
-  title: z.string(),
-  content: z.string(),
+**Available Field Helpers:**
+
+| Field Helper | PocketBase Type | Example |
+|--------------|-----------------|---------|
+| `BoolField()` | bool | `active: BoolField()` |
+| `NumberField(options?)` | number | `price: NumberField({ min: 0 })` |
+| `TextField(options?)` | text | `name: TextField({ min: 1, max: 200 })` |
+| `EmailField()` | email | `email: EmailField()` |
+| `URLField()` | url | `website: URLField()` |
+| `EditorField()` | editor | `content: EditorField()` |
+| `DateField(options?)` | date | `birthdate: DateField()` |
+| `AutodateField(options?)` | autodate | `createdAt: AutodateField({ onCreate: true })` |
+| `SelectField(values, options?)` | select | `status: SelectField(['draft', 'published'])` |
+| `FileField(options?)` | file | `avatar: FileField({ mimeTypes: ['image/*'] })` |
+| `FilesField(options?)` | file | `images: FilesField({ maxSelect: 5 })` |
+| `JSONField(schema?)` | json | `metadata: JSONField()` |
+| `GeoPointField()` | geoPoint | `location: GeoPointField()` |
+| `RelationField(config)` | relation | `author: RelationField({ collection: 'users' })` |
+| `RelationsField(config)` | relation | `tags: RelationsField({ collection: 'tags' })` |
+
+### Defining Collections
+
+Use `defineCollection()` to create collections with schema, permissions, and indexes:
+
+```typescript
+import { z } from 'zod';
+import {
+  defineCollection,
+  TextField,
+  NumberField,
+  BoolField,
+  FileField,
+  RelationField,
+} from 'pocketbase-zod-schema/schema';
+
+const ProductSchema = z.object({
+  name: TextField({ min: 1, max: 200 }),
+  sku: TextField({ autogeneratePattern: '[A-Z]{3}-[0-9]{6}' }),
+  price: NumberField({ min: 0 }),
+  quantity: NumberField({ min: 0, noDecimal: true }),
+  active: BoolField(),
+  thumbnail: FileField({ 
+    mimeTypes: ['image/*'], 
+    maxSize: 5242880 // 5MB
+  }),
+  vendor: RelationField({ collection: 'vendors' }),
+});
+
+export const ProductCollection = defineCollection({
+  collectionName: 'products',
+  schema: ProductSchema,
+  permissions: {
+    listRule: '',
+    viewRule: '',
+    createRule: '@request.auth.id != ""',
+    updateRule: 'vendor.owner = @request.auth.id',
+    deleteRule: 'vendor.owner = @request.auth.id',
+  },
+  indexes: [
+    'CREATE INDEX idx_products_vendor ON products (vendor)',
+    'CREATE INDEX idx_products_sku ON products (sku)',
+  ],
 });
 ```
 
 ### Permission Templates
 
-```typescript
-import { withPermissions } from 'pocketbase-zod-schema/schema';
+Use permission templates for common access patterns:
 
-const PrivateSchema = withPermissions(MySchema, {
-  listRule: '@request.auth.id != "" && author = @request.auth.id',
-  viewRule: '@request.auth.id != "" && author = @request.auth.id',
-  createRule: '@request.auth.id != ""',
-  updateRule: '@request.auth.id != "" && author = @request.auth.id',
-  deleteRule: '@request.auth.id != "" && author = @request.auth.id',
+```typescript
+export const PostCollection = defineCollection({
+  collectionName: 'posts',
+  schema: PostSchema,
+  permissions: {
+    template: 'owner-only',
+    ownerField: 'author',
+    customRules: {
+      listRule: 'published = true || author = @request.auth.id',
+      viewRule: 'published = true || author = @request.auth.id',
+    },
+  },
 });
 ```
 
-### Relation Fields
-
-```typescript
-// Single relation
-const PostSchema = z.object({
-  title: z.string(),
-  author: z.string(), // Single relation to users collection
-});
-
-// Multiple relations
-const PostSchema = z.object({
-  title: z.string(),
-  tags: z.array(z.string()), // Multiple relation to tags collection
-});
-```
+**Available Templates:**
+- `"public"` - All operations are public
+- `"authenticated"` - All operations require authentication
+- `"owner-only"` - Only the owner can perform operations
 
 ## Programmatic Usage
 
@@ -192,6 +279,94 @@ const diff = compare(currentSchema, previousSnapshot);
 
 // Generate migration (includes snapshot)
 const migrationPath = generate(diff, migrationsDir);
+```
+
+## Complete Example
+
+Here's a complete example showing all major features:
+
+```typescript
+// src/schema/blog.ts
+import { z } from 'zod';
+import {
+  defineCollection,
+  TextField,
+  EditorField,
+  BoolField,
+  DateField,
+  AutodateField,
+  SelectField,
+  FileField,
+  RelationField,
+  RelationsField,
+} from 'pocketbase-zod-schema/schema';
+
+// Blog post collection
+const PostSchema = z.object({
+  // Text fields
+  title: TextField({ min: 1, max: 200 }),
+  slug: TextField({ pattern: /^[a-z0-9-]+$/ }),
+  excerpt: TextField({ max: 500 }).optional(),
+  content: EditorField(),
+  
+  // Boolean and select fields
+  published: BoolField(),
+  status: SelectField(['draft', 'review', 'published', 'archived']),
+  
+  // Date fields
+  publishedAt: DateField().optional(),
+  createdAt: AutodateField({ onCreate: true }),
+  updatedAt: AutodateField({ onUpdate: true }),
+  
+  // File field
+  featuredImage: FileField({ 
+    mimeTypes: ['image/*'],
+    maxSize: 5242880, // 5MB
+    thumbs: ['100x100', '400x300'],
+  }).optional(),
+  
+  // Relations
+  author: RelationField({ collection: 'users' }),
+  category: RelationField({ collection: 'categories' }),
+  tags: RelationsField({ collection: 'tags', maxSelect: 10 }),
+});
+
+export const PostCollection = defineCollection({
+  collectionName: 'posts',
+  schema: PostSchema,
+  permissions: {
+    listRule: 'published = true || author = @request.auth.id',
+    viewRule: 'published = true || author = @request.auth.id',
+    createRule: '@request.auth.id != ""',
+    updateRule: 'author = @request.auth.id',
+    deleteRule: 'author = @request.auth.id',
+  },
+  indexes: [
+    'CREATE INDEX idx_posts_author ON posts (author)',
+    'CREATE INDEX idx_posts_published ON posts (published)',
+    'CREATE INDEX idx_posts_slug ON posts (slug)',
+  ],
+});
+
+// Category collection
+const CategorySchema = z.object({
+  name: TextField({ min: 1, max: 100 }),
+  slug: TextField({ pattern: /^[a-z0-9-]+$/ }),
+  description: TextField({ max: 500 }).optional(),
+});
+
+export const CategoryCollection = defineCollection({
+  collectionName: 'categories',
+  schema: CategorySchema,
+  permissions: {
+    template: 'public',
+    customRules: {
+      createRule: '@request.auth.role = "admin"',
+      updateRule: '@request.auth.role = "admin"',
+      deleteRule: '@request.auth.role = "admin"',
+    },
+  },
+});
 ```
 
 ## Documentation
