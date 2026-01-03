@@ -1,22 +1,23 @@
 import { z } from "zod";
 import { baseSchema, defineCollection } from "./base";
+import { EmailField, FileField, TextField } from "./fields";
 
 /** -- User Collections -- */
 // Input schema for forms (includes passwordConfirm for validation)
 export const UserInputSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  name: TextField().optional(),
+  email: EmailField(),
+  password: TextField({ min: 8 }),
   passwordConfirm: z.string(),
-  avatar: z.instanceof(File).optional(),
+  avatar: FileField().optional(),
 });
 
 // Database schema (excludes passwordConfirm, includes avatar as file field)
 export const UserCollectionSchema = z.object({
-  name: z.string().optional(),
-  email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  avatar: z.instanceof(File).optional(),
+  name: TextField().optional(),
+  email: EmailField(),
+  password: TextField({ min: 8 }),
+  avatar: FileField().optional(),
 });
 
 // Full schema with base fields for type inference (used in types.ts)

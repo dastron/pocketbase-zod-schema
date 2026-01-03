@@ -16,6 +16,10 @@
 import { z } from "zod";
 import type { PocketBaseFieldType } from "../types";
 
+// Re-export extractFieldMetadata from fields.ts for backward compatibility
+export { extractFieldMetadata, FIELD_METADATA_KEY } from "../../schema/fields";
+export type { FieldMetadata } from "../../schema/fields";
+
 /**
  * All supported PocketBase field types
  */

@@ -349,5 +349,3 @@ export function parseMigrationOperations(migrationContent: string): {
     return { collectionsToCreate: [], collectionsToDelete: [] };
   }
 }
-
-

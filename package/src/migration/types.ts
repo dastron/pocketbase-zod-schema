@@ -2,20 +2,9 @@
  * Shared types for migration tool
  */
 
-export type PocketBaseFieldType =
-  | "text"
-  | "email"
-  | "url"
-  | "number"
-  | "bool"
-  | "date"
-  | "select"
-  | "relation"
-  | "file"
-  | "json"
-  | "editor"
-  | "geoPoint"
-  | "autodate";
+// Import and re-export PocketBaseFieldType from schema/fields to avoid duplication
+import type { PocketBaseFieldType } from "../schema/fields.js";
+export type { PocketBaseFieldType };
 
 // Import and re-export APIRuleType from schema/permissions to avoid duplication
 import type { APIRuleType } from "../utils/permissions.js";

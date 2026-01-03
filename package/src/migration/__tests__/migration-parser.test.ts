@@ -483,5 +483,3 @@ describe("migration-parser", () => {
     });
   });
 });
-
-
