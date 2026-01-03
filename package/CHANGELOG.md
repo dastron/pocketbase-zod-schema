@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.2.4...pocketbase-zod-schema-v0.2.5) (2026-01-03)
+
+
+### Bug Fixes
+
+* Add Field Helpers ([bbe8185](https://github.com/dastron/pocketbase-zod-schema/commit/bbe81850a9fd6eba9c73d08cb0b21c7f944a6673))
+
 ## [0.2.4](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.2.3...pocketbase-zod-schema-v0.2.4) (2026-01-03)
 
 
