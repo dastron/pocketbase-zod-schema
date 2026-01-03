@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.2.3...pocketbase-zod-schema-v0.2.4) (2026-01-03)
+
+
+### Bug Fixes
+
+* Create E2E test for Package ([8b554df](https://github.com/dastron/pocketbase-zod-schema/commit/8b554dfebb8b360cf4d482e0bb789ddee1541f0e))
+
 ## [0.2.3](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.2.2...pocketbase-zod-schema-v0.2.3) (2025-12-20)
 
 
