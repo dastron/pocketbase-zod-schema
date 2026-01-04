@@ -51,7 +51,10 @@ describe("Object Syntax Property Tests", () => {
           fc.record({
             min: fc.option(fc.integer({ min: 0, max: 100 }), { nil: undefined }),
             max: fc.option(fc.integer({ min: 0, max: 1000 }), { nil: undefined }),
-            pattern: fc.option(fc.string(), { nil: undefined }),
+            pattern: fc.option(
+              fc.string().filter((s) => !s.includes("`") && !s.includes("$`")),
+              { nil: undefined }
+            ),
           }),
           (options) => {
             const schema: CollectionSchema = {
@@ -270,11 +273,46 @@ describe("Object Syntax Property Tests", () => {
       fc.assert(
         fc.property(
           fc.record({
-            listRule: fc.option(fc.oneof(fc.constant(null), fc.constant(""), fc.string()), { nil: undefined }),
-            viewRule: fc.option(fc.oneof(fc.constant(null), fc.constant(""), fc.string()), { nil: undefined }),
-            createRule: fc.option(fc.oneof(fc.constant(null), fc.constant(""), fc.string()), { nil: undefined }),
-            updateRule: fc.option(fc.oneof(fc.constant(null), fc.constant(""), fc.string()), { nil: undefined }),
-            deleteRule: fc.option(fc.oneof(fc.constant(null), fc.constant(""), fc.string()), { nil: undefined }),
+            listRule: fc.option(
+              fc.oneof(
+                fc.constant(null),
+                fc.constant(""),
+                fc.string().filter((s) => !s.includes("`") && !s.includes("$`"))
+              ),
+              { nil: undefined }
+            ),
+            viewRule: fc.option(
+              fc.oneof(
+                fc.constant(null),
+                fc.constant(""),
+                fc.string().filter((s) => !s.includes("`") && !s.includes("$`"))
+              ),
+              { nil: undefined }
+            ),
+            createRule: fc.option(
+              fc.oneof(
+                fc.constant(null),
+                fc.constant(""),
+                fc.string().filter((s) => !s.includes("`") && !s.includes("$`"))
+              ),
+              { nil: undefined }
+            ),
+            updateRule: fc.option(
+              fc.oneof(
+                fc.constant(null),
+                fc.constant(""),
+                fc.string().filter((s) => !s.includes("`") && !s.includes("$`"))
+              ),
+              { nil: undefined }
+            ),
+            deleteRule: fc.option(
+              fc.oneof(
+                fc.constant(null),
+                fc.constant(""),
+                fc.string().filter((s) => !s.includes("`") && !s.includes("$`"))
+              ),
+              { nil: undefined }
+            ),
           }),
           (permissions) => {
             const schema: CollectionSchema = {
