@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.2.5...pocketbase-zod-schema-v0.3.0) (2026-01-04)
+
+
+### Features
+
+* create multiple migration files ([999a109](https://github.com/dastron/pocketbase-zod-schema/commit/999a109046ce33e0df609d9cacb61dbabd4876e3))
+* create multiple migration files ([00fac04](https://github.com/dastron/pocketbase-zod-schema/commit/00fac046d8899466d940a0d974ee1b2edb3fa598))
+
 ## [0.2.5](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.2.4...pocketbase-zod-schema-v0.2.5) (2026-01-03)
 
 
