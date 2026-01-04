@@ -19,6 +19,7 @@ import type {
   SchemaDiff,
   SchemaSnapshot,
 } from "./types";
+import { CollectionIdRegistry } from "./utils/collection-id-generator.js";
 
 /**
  * Configuration options for the diff engine
@@ -785,6 +786,23 @@ export function aggregateChanges(
     (collection) => !isSystemCollection(collection.name, config)
   );
 
+  // Generate and assign collection IDs for new collections
+  const registry = new CollectionIdRegistry();
+  const collectionsWithIds = filteredCollectionsToCreate.map((collection) => {
+    // If the collection already has an ID, register it and use it
+    if (collection.id) {
+      registry.register(collection.id);
+      return collection;
+    }
+
+    // Generate a new ID for the collection
+    const id = registry.generate(collection.name);
+    return {
+      ...collection,
+      id,
+    };
+  });
+
   // Find modified collections
   const collectionsToModify: CollectionModification[] = [];
   const matchedCollections = matchCollectionsByName(currentSchema, previousSnapshot);
@@ -800,7 +818,7 @@ export function aggregateChanges(
   }
 
   return {
-    collectionsToCreate: filteredCollectionsToCreate,
+    collectionsToCreate: collectionsWithIds,
     collectionsToDelete: filteredCollectionsToDelete,
     collectionsToModify,
   };

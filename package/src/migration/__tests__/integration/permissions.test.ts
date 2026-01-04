@@ -57,7 +57,9 @@ describe("Permission Handling Integration Tests", () => {
       expect(diff.collectionsToCreate[0].name).toBe(CreateCollectionWithNullPermissionsSchema.name);
 
       // Run generator to create migration
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       // Parse generated migration
@@ -96,7 +98,9 @@ describe("Permission Handling Integration Tests", () => {
       expect(diff.collectionsToCreate[0].type).toBe("auth");
 
       // Run generator to create migration
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       // Parse generated migration

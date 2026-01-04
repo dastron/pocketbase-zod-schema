@@ -15,3 +15,5 @@ export * from "./edit-collection-add-field-after";
 export * from "./edit-collection-add-field-before";
 export * from "./edit-collection-add-index-after";
 export * from "./edit-collection-add-index-before";
+export * from "./special-characters-schema";
+export * from "./unicode-schema";

@@ -49,7 +49,9 @@ describe("Generator Return Statements", () => {
 
       expect(diff.collectionsToCreate).toHaveLength(1);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       const content = fs.readFileSync(generatedPath, "utf-8");
@@ -77,7 +79,9 @@ describe("Generator Return Statements", () => {
 
       expect(diff.collectionsToCreate).toHaveLength(1);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       const content = fs.readFileSync(generatedPath, "utf-8");
@@ -155,7 +159,9 @@ describe("Generator Return Statements", () => {
 
       expect(diff.collectionsToModify.length).toBeGreaterThan(0);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       const content = fs.readFileSync(generatedPath, "utf-8");
@@ -229,7 +235,9 @@ describe("Generator Return Statements", () => {
       const currentSchema = createSchemaDefinition(CreateCollectionBlankSchema);
       const diff = compare(currentSchema, null);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       const content = fs.readFileSync(generatedPath, "utf-8");
 
       // Extract up and down function bodies

@@ -9,7 +9,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { FileSystemError, MigrationGenerationError } from "./errors";
-import type { CollectionSchema, FieldDefinition, FieldModification, SchemaDiff } from "./types";
+import type { CollectionOperation, CollectionSchema, FieldDefinition, FieldModification, SchemaDiff } from "./types";
 
 /**
  * Configuration options for the migration generator
@@ -108,6 +108,89 @@ export function generateTimestamp(config?: MigrationGeneratorConfig): string {
     return config.timestampGenerator();
   }
   return Math.floor(Date.now() / 1000).toString();
+}
+
+/**
+ * Splits a SchemaDiff into individual collection operations
+ * Each operation will generate a separate migration file
+ *
+ * @param diff - Schema diff containing all changes
+ * @param baseTimestamp - Base timestamp for the first operation
+ * @returns Array of collection operations
+ */
+export function splitDiffByCollection(diff: SchemaDiff, baseTimestamp: string): CollectionOperation[] {
+  const operations: CollectionOperation[] = [];
+  let currentTimestamp = parseInt(baseTimestamp, 10);
+
+  // Split collectionsToCreate into individual operations
+  for (const collection of diff.collectionsToCreate) {
+    operations.push({
+      type: "create",
+      collection: collection,
+      timestamp: currentTimestamp.toString(),
+    });
+    currentTimestamp += 1; // Increment by 1 second
+  }
+
+  // Split collectionsToModify into individual operations
+  for (const modification of diff.collectionsToModify) {
+    operations.push({
+      type: "modify",
+      collection: modification.collection,
+      modifications: modification,
+      timestamp: currentTimestamp.toString(),
+    });
+    currentTimestamp += 1; // Increment by 1 second
+  }
+
+  // Split collectionsToDelete into individual operations
+  for (const collection of diff.collectionsToDelete) {
+    operations.push({
+      type: "delete",
+      collection: collection.name || collection, // Handle both object and string
+      timestamp: currentTimestamp.toString(),
+    });
+    currentTimestamp += 1; // Increment by 1 second
+  }
+
+  return operations;
+}
+
+/**
+ * Generates migration filename for a collection operation
+ * Format: {timestamp}_{operation}_{collection_name}.js
+ *
+ * @param operation - Collection operation
+ * @returns Migration filename
+ */
+export function generateCollectionMigrationFilename(operation: CollectionOperation): string {
+  const timestamp = operation.timestamp;
+  const operationType = operation.type === "modify" ? "updated" : operation.type === "create" ? "created" : "deleted";
+
+  // Get collection name
+  let collectionName: string;
+  if (typeof operation.collection === "string") {
+    collectionName = operation.collection;
+  } else {
+    collectionName = operation.collection.name;
+  }
+
+  // Sanitize collection name for filename (replace spaces and special chars with underscores)
+  const sanitizedName = collectionName.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
+
+  return `${timestamp}_${operationType}_${sanitizedName}.js`;
+}
+
+/**
+ * Increments a timestamp by 1 second
+ * Ensures sequential ordering of migration files
+ *
+ * @param timestamp - Current timestamp string
+ * @returns Incremented timestamp string
+ */
+export function incrementTimestamp(timestamp: string): string {
+  const currentTimestamp = parseInt(timestamp, 10);
+  return (currentTimestamp + 1).toString();
 }
 
 /**
@@ -292,8 +375,8 @@ function formatValue(value: any): string {
   }
 
   if (typeof value === "string") {
-    // Escape quotes and special characters
-    return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
+    // Use JSON.stringify to properly escape all special characters
+    return JSON.stringify(value);
   }
 
   if (typeof value === "number" || typeof value === "boolean") {
@@ -320,9 +403,10 @@ function formatValue(value: any): string {
  * Creates the field configuration object used in Collection constructor
  *
  * @param field - Field definition
+ * @param collectionIdMap - Map of collection names to their pre-generated IDs
  * @returns Field definition object as string
  */
-export function generateFieldDefinitionObject(field: FieldDefinition): string {
+export function generateFieldDefinitionObject(field: FieldDefinition, collectionIdMap?: Map<string, string>): string {
   const parts: string[] = [];
 
   // Add field name
@@ -339,36 +423,59 @@ export function generateFieldDefinitionObject(field: FieldDefinition): string {
     parts.push(`      unique: ${field.unique}`);
   }
 
-  // Add options if present
+  // Add explicit defaults for select fields
+  if (field.type === "select") {
+    // Always include maxSelect (default: 1)
+    const maxSelect = field.options?.maxSelect ?? 1;
+    parts.push(`      maxSelect: ${maxSelect}`);
+
+    // Always include values array (default: [])
+    const values = field.options?.values ?? [];
+    parts.push(`      values: ${formatValue(values)}`);
+  }
+
+  // Add options if present (excluding select-specific options already handled)
   if (field.options && Object.keys(field.options).length > 0) {
     for (const [key, value] of Object.entries(field.options)) {
+      // Skip select-specific options as they're handled above
+      if (field.type === "select" && (key === "maxSelect" || key === "values")) {
+        continue;
+      }
       parts.push(`      ${key}: ${formatValue(value)}`);
     }
   }
 
   // Add relation configuration if present
   if (field.relation) {
-    // For relation fields, we need to resolve the collection ID
-    // For now, we'll use a placeholder that needs to be resolved at runtime
-    // Use case-insensitive check for "users" to handle both explicit and implicit relation definitions
+    // Use pre-generated collection ID from map if available
+    // Otherwise fall back to runtime lookup (for existing collections not in the current diff)
     const isUsersCollection = field.relation.collection.toLowerCase() === "users";
-    const collectionIdPlaceholder = isUsersCollection
-      ? '"_pb_users_auth_"'
-      : `app.findCollectionByNameOrId("${field.relation.collection}").id`;
+    let collectionIdValue: string;
 
-    parts.push(`      collectionId: ${collectionIdPlaceholder}`);
-
-    if (field.relation.maxSelect !== undefined) {
-      parts.push(`      maxSelect: ${field.relation.maxSelect}`);
+    if (isUsersCollection) {
+      // Special case: users collection always uses the constant
+      collectionIdValue = '"_pb_users_auth_"';
+    } else if (collectionIdMap && collectionIdMap.has(field.relation.collection)) {
+      // Use pre-generated ID from map
+      collectionIdValue = `"${collectionIdMap.get(field.relation.collection)}"`;
+    } else {
+      // Fall back to runtime lookup for existing collections
+      collectionIdValue = `app.findCollectionByNameOrId("${field.relation.collection}").id`;
     }
 
-    if (field.relation.minSelect !== undefined) {
-      parts.push(`      minSelect: ${field.relation.minSelect}`);
-    }
+    parts.push(`      collectionId: ${collectionIdValue}`);
 
-    if (field.relation.cascadeDelete !== undefined) {
-      parts.push(`      cascadeDelete: ${field.relation.cascadeDelete}`);
-    }
+    // Always include maxSelect (default: 1)
+    const maxSelect = field.relation.maxSelect ?? 1;
+    parts.push(`      maxSelect: ${maxSelect}`);
+
+    // Always include minSelect (default: null)
+    const minSelect = field.relation.minSelect ?? null;
+    parts.push(`      minSelect: ${minSelect}`);
+
+    // Always include cascadeDelete (default: false)
+    const cascadeDelete = field.relation.cascadeDelete ?? false;
+    parts.push(`      cascadeDelete: ${cascadeDelete}`);
   }
 
   return `    {\n${parts.join(",\n")},\n    }`;
@@ -378,14 +485,15 @@ export function generateFieldDefinitionObject(field: FieldDefinition): string {
  * Generates fields array for collection creation
  *
  * @param fields - Array of field definitions
+ * @param collectionIdMap - Map of collection names to their pre-generated IDs
  * @returns Fields array as string
  */
-export function generateFieldsArray(fields: FieldDefinition[]): string {
+export function generateFieldsArray(fields: FieldDefinition[], collectionIdMap?: Map<string, string>): string {
   if (fields.length === 0) {
     return "[]";
   }
 
-  const fieldObjects = fields.map((field) => generateFieldDefinitionObject(field));
+  const fieldObjects = fields.map((field) => generateFieldDefinitionObject(field, collectionIdMap));
   return `[\n${fieldObjects.join(",\n")},\n  ]`;
 }
 
@@ -481,7 +589,7 @@ export function generateIndexesArray(indexes?: string[]): string {
     return "[]";
   }
 
-  const indexStrings = indexes.map((idx) => `"${idx}"`);
+  const indexStrings = indexes.map((idx) => JSON.stringify(idx));
   return `[\n    ${indexStrings.join(",\n    ")},\n  ]`;
 }
 
@@ -551,7 +659,8 @@ function getSystemFields(): FieldDefinition[] {
 export function generateCollectionCreation(
   collection: CollectionSchema,
   varName: string = "collection",
-  isLast: boolean = false
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
 ): string {
   const lines: string[] = [];
 
@@ -576,7 +685,7 @@ export function generateCollectionCreation(
   const allFields = [...systemFields, ...collection.fields];
 
   // Add fields
-  lines.push(`    fields: ${generateFieldsArray(allFields)},`);
+  lines.push(`    fields: ${generateFieldsArray(allFields, collectionIdMap)},`);
 
   // Add indexes
   lines.push(`    indexes: ${generateIndexesArray(collection.indexes)},`);
@@ -615,9 +724,10 @@ function getFieldConstructorName(fieldType: string): string {
  * Generates field constructor options object
  *
  * @param field - Field definition
+ * @param collectionIdMap - Map of collection names to their pre-generated IDs
  * @returns Options object as string
  */
-function generateFieldConstructorOptions(field: FieldDefinition): string {
+function generateFieldConstructorOptions(field: FieldDefinition, collectionIdMap?: Map<string, string>): string {
   const parts: string[] = [];
 
   // Add field name
@@ -631,34 +741,59 @@ function generateFieldConstructorOptions(field: FieldDefinition): string {
     parts.push(`    unique: ${field.unique}`);
   }
 
-  // Add options if present
+  // Add explicit defaults for select fields
+  if (field.type === "select") {
+    // Always include maxSelect (default: 1)
+    const maxSelect = field.options?.maxSelect ?? 1;
+    parts.push(`    maxSelect: ${maxSelect}`);
+
+    // Always include values array (default: [])
+    const values = field.options?.values ?? [];
+    parts.push(`    values: ${formatValue(values)}`);
+  }
+
+  // Add options if present (excluding select-specific options already handled)
   if (field.options && Object.keys(field.options).length > 0) {
     for (const [key, value] of Object.entries(field.options)) {
+      // Skip select-specific options as they're handled above
+      if (field.type === "select" && (key === "maxSelect" || key === "values")) {
+        continue;
+      }
       parts.push(`    ${key}: ${formatValue(value)}`);
     }
   }
 
   // Add relation-specific options
   if (field.relation && field.type === "relation") {
-    // Use case-insensitive check for "users" to handle both explicit and implicit relation definitions
+    // Use pre-generated collection ID from map if available
+    // Otherwise fall back to runtime lookup (for existing collections not in the current diff)
     const isUsersCollection = field.relation.collection.toLowerCase() === "users";
-    const collectionIdPlaceholder = isUsersCollection
-      ? '"_pb_users_auth_"'
-      : `app.findCollectionByNameOrId("${field.relation.collection}").id`;
+    let collectionIdValue: string;
 
-    parts.push(`    collectionId: ${collectionIdPlaceholder}`);
-
-    if (field.relation.maxSelect !== undefined) {
-      parts.push(`    maxSelect: ${field.relation.maxSelect}`);
+    if (isUsersCollection) {
+      // Special case: users collection always uses the constant
+      collectionIdValue = '"_pb_users_auth_"';
+    } else if (collectionIdMap && collectionIdMap.has(field.relation.collection)) {
+      // Use pre-generated ID from map
+      collectionIdValue = `"${collectionIdMap.get(field.relation.collection)}"`;
+    } else {
+      // Fall back to runtime lookup for existing collections
+      collectionIdValue = `app.findCollectionByNameOrId("${field.relation.collection}").id`;
     }
 
-    if (field.relation.minSelect !== undefined) {
-      parts.push(`    minSelect: ${field.relation.minSelect}`);
-    }
+    parts.push(`    collectionId: ${collectionIdValue}`);
 
-    if (field.relation.cascadeDelete !== undefined) {
-      parts.push(`    cascadeDelete: ${field.relation.cascadeDelete}`);
-    }
+    // Always include maxSelect (default: 1)
+    const maxSelect = field.relation.maxSelect ?? 1;
+    parts.push(`    maxSelect: ${maxSelect}`);
+
+    // Always include minSelect (default: null)
+    const minSelect = field.relation.minSelect ?? null;
+    parts.push(`    minSelect: ${minSelect}`);
+
+    // Always include cascadeDelete (default: false)
+    const cascadeDelete = field.relation.cascadeDelete ?? false;
+    parts.push(`    cascadeDelete: ${cascadeDelete}`);
   }
 
   return parts.join(",\n");
@@ -672,13 +807,15 @@ function generateFieldConstructorOptions(field: FieldDefinition): string {
  * @param field - Field definition to add
  * @param varName - Variable name to use for the collection (default: auto-generated)
  * @param isLast - Whether this is the last operation (will return the result)
+ * @param collectionIdMap - Map of collection names to their pre-generated IDs
  * @returns JavaScript code for adding the field
  */
 export function generateFieldAddition(
   collectionName: string,
   field: FieldDefinition,
   varName?: string,
-  isLast: boolean = false
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
 ): string {
   const lines: string[] = [];
   const constructorName = getFieldConstructorName(field.type);
@@ -687,7 +824,7 @@ export function generateFieldAddition(
   lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
   lines.push(``);
   lines.push(`  ${collectionVar}.fields.add(new ${constructorName}({`);
-  lines.push(generateFieldConstructorOptions(field));
+  lines.push(generateFieldConstructorOptions(field, collectionIdMap));
   lines.push(`  }));`);
   lines.push(``);
   lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
@@ -801,7 +938,7 @@ function generateIndexAddition(
   const collectionVar = varName || `collection_${collectionName}_idx`;
 
   lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
-  lines.push(`  ${collectionVar}.indexes.push("${index}");`);
+  lines.push(`  ${collectionVar}.indexes.push(${JSON.stringify(index)});`);
   lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
   return lines.join("\n");
@@ -827,7 +964,7 @@ function generateIndexRemoval(
   const indexVar = `${collectionVar}_indexToRemove`;
 
   lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
-  lines.push(`  const ${indexVar} = ${collectionVar}.indexes.findIndex(idx => idx === "${index}");`);
+  lines.push(`  const ${indexVar} = ${collectionVar}.indexes.findIndex(idx => idx === ${JSON.stringify(index)});`);
   lines.push(`  if (${indexVar} !== -1) {`);
   lines.push(`    ${collectionVar}.indexes.splice(${indexVar}, 1);`);
   lines.push(`  }`);
@@ -913,6 +1050,246 @@ function generateCollectionDeletion(
 }
 
 /**
+ * Generates the up migration code for a single collection operation
+ * Handles create, modify, and delete operations
+ *
+ * @param operation - Collection operation to generate migration for
+ * @param collectionIdMap - Map of collection names to their pre-generated IDs
+ * @returns JavaScript code for up migration
+ */
+export function generateOperationUpMigration(
+  operation: CollectionOperation,
+  collectionIdMap: Map<string, string>
+): string {
+  const lines: string[] = [];
+
+  if (operation.type === "create") {
+    // Handle collection creation
+    const collection = operation.collection as CollectionSchema;
+    const varName = `collection_${collection.name}`;
+    lines.push(generateCollectionCreation(collection, varName, true, collectionIdMap));
+  } else if (operation.type === "modify") {
+    // Handle collection modification
+    const modification = operation.modifications!;
+    const collectionName =
+      typeof operation.collection === "string"
+        ? operation.collection
+        : (operation.collection?.name ?? modification.collection);
+
+    let operationCount = 0;
+    const totalOperations =
+      modification.fieldsToAdd.length +
+      modification.fieldsToModify.length +
+      modification.fieldsToRemove.length +
+      modification.indexesToAdd.length +
+      modification.indexesToRemove.length +
+      modification.rulesToUpdate.length +
+      modification.permissionsToUpdate.length;
+
+    // Add new fields
+    for (const field of modification.fieldsToAdd) {
+      operationCount++;
+      const varName = `collection_${collectionName}_add_${field.name}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateFieldAddition(collectionName, field, varName, isLast, collectionIdMap));
+      if (!isLast) lines.push("");
+    }
+
+    // Modify existing fields
+    for (const fieldMod of modification.fieldsToModify) {
+      operationCount++;
+      const varName = `collection_${collectionName}_modify_${fieldMod.fieldName}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateFieldModification(collectionName, fieldMod, varName, isLast));
+      if (!isLast) lines.push("");
+    }
+
+    // Remove fields
+    for (const field of modification.fieldsToRemove) {
+      operationCount++;
+      const varName = `collection_${collectionName}_remove_${field.name}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateFieldDeletion(collectionName, field.name, varName, isLast));
+      if (!isLast) lines.push("");
+    }
+
+    // Add indexes
+    for (let i = 0; i < modification.indexesToAdd.length; i++) {
+      operationCount++;
+      const index = modification.indexesToAdd[i];
+      const varName = `collection_${collectionName}_addidx_${i}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateIndexAddition(collectionName, index, varName, isLast));
+      if (!isLast) lines.push("");
+    }
+
+    // Remove indexes
+    for (let i = 0; i < modification.indexesToRemove.length; i++) {
+      operationCount++;
+      const index = modification.indexesToRemove[i];
+      const varName = `collection_${collectionName}_rmidx_${i}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateIndexRemoval(collectionName, index, varName, isLast));
+      if (!isLast) lines.push("");
+    }
+
+    // Update permissions (preferred) or rules (fallback)
+    if (modification.permissionsToUpdate && modification.permissionsToUpdate.length > 0) {
+      for (const permission of modification.permissionsToUpdate) {
+        operationCount++;
+        const varName = `collection_${collectionName}_perm_${permission.ruleType}`;
+        const isLast = operationCount === totalOperations;
+        lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName, isLast));
+        if (!isLast) lines.push("");
+      }
+    } else if (modification.rulesToUpdate.length > 0) {
+      for (const rule of modification.rulesToUpdate) {
+        operationCount++;
+        const varName = `collection_${collectionName}_rule_${rule.ruleType}`;
+        const isLast = operationCount === totalOperations;
+        lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.newValue, varName, isLast));
+        if (!isLast) lines.push("");
+      }
+    }
+  } else if (operation.type === "delete") {
+    // Handle collection deletion
+    const collectionName = typeof operation.collection === "string" ? operation.collection : operation.collection.name;
+    const varName = `collection_${collectionName}`;
+    lines.push(generateCollectionDeletion(collectionName, varName, true));
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Generates the down migration code for a single collection operation
+ * Reverts the operation (inverse of up migration)
+ *
+ * @param operation - Collection operation to generate rollback for
+ * @param collectionIdMap - Map of collection names to their pre-generated IDs
+ * @returns JavaScript code for down migration
+ */
+export function generateOperationDownMigration(
+  operation: CollectionOperation,
+  collectionIdMap: Map<string, string>
+): string {
+  const lines: string[] = [];
+
+  if (operation.type === "create") {
+    // Rollback: delete the created collection
+    const collection = operation.collection as CollectionSchema;
+    const varName = `collection_${collection.name}`;
+    lines.push(generateCollectionDeletion(collection.name, varName, true));
+  } else if (operation.type === "modify") {
+    // Rollback: revert all modifications
+    const modification = operation.modifications!;
+    const collectionName =
+      typeof operation.collection === "string"
+        ? operation.collection
+        : (operation.collection?.name ?? modification.collection);
+
+    let operationCount = 0;
+    const totalOperations =
+      modification.fieldsToAdd.length +
+      modification.fieldsToModify.length +
+      modification.fieldsToRemove.length +
+      modification.indexesToAdd.length +
+      modification.indexesToRemove.length +
+      modification.rulesToUpdate.length +
+      modification.permissionsToUpdate.length;
+
+    // Revert permissions (preferred) or rules (fallback)
+    if (modification.permissionsToUpdate && modification.permissionsToUpdate.length > 0) {
+      for (const permission of modification.permissionsToUpdate) {
+        operationCount++;
+        const varName = `collection_${collectionName}_revert_perm_${permission.ruleType}`;
+        const isLast = operationCount === totalOperations;
+        lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName, isLast));
+        if (!isLast) lines.push("");
+      }
+    } else if (modification.rulesToUpdate.length > 0) {
+      for (const rule of modification.rulesToUpdate) {
+        operationCount++;
+        const varName = `collection_${collectionName}_revert_rule_${rule.ruleType}`;
+        const isLast = operationCount === totalOperations;
+        lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.oldValue, varName, isLast));
+        if (!isLast) lines.push("");
+      }
+    }
+
+    // Revert index removals (add them back)
+    for (let i = 0; i < modification.indexesToRemove.length; i++) {
+      operationCount++;
+      const index = modification.indexesToRemove[i];
+      const varName = `collection_${collectionName}_restore_idx_${i}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateIndexAddition(collectionName, index, varName, isLast));
+      if (!isLast) lines.push("");
+    }
+
+    // Revert index additions (remove them)
+    for (let i = 0; i < modification.indexesToAdd.length; i++) {
+      operationCount++;
+      const index = modification.indexesToAdd[i];
+      const varName = `collection_${collectionName}_revert_idx_${i}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateIndexRemoval(collectionName, index, varName, isLast));
+      if (!isLast) lines.push("");
+    }
+
+    // Revert field removals (add them back)
+    for (const field of modification.fieldsToRemove) {
+      operationCount++;
+      const varName = `collection_${collectionName}_restore_${field.name}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateFieldAddition(collectionName, field, varName, isLast, collectionIdMap));
+      if (!isLast) lines.push("");
+    }
+
+    // Revert field modifications
+    for (const fieldMod of modification.fieldsToModify) {
+      operationCount++;
+      // Create a reverse modification
+      const reverseChanges = fieldMod.changes.map((change) => ({
+        property: change.property,
+        oldValue: change.newValue,
+        newValue: change.oldValue,
+      }));
+
+      const reverseMod: FieldModification = {
+        fieldName: fieldMod.fieldName,
+        currentDefinition: fieldMod.newDefinition,
+        newDefinition: fieldMod.currentDefinition,
+        changes: reverseChanges,
+      };
+
+      const varName = `collection_${collectionName}_revert_${fieldMod.fieldName}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateFieldModification(collectionName, reverseMod, varName, isLast));
+      if (!isLast) lines.push("");
+    }
+
+    // Revert field additions (remove them)
+    for (const field of modification.fieldsToAdd) {
+      operationCount++;
+      const varName = `collection_${collectionName}_revert_add_${field.name}`;
+      const isLast = operationCount === totalOperations;
+      lines.push(generateFieldDeletion(collectionName, field.name, varName, isLast));
+      if (!isLast) lines.push("");
+    }
+  } else if (operation.type === "delete") {
+    // Rollback: recreate the deleted collection
+    const collection = operation.collection;
+    if (typeof collection !== "string") {
+      const varName = `collection_${collection.name}`;
+      lines.push(generateCollectionCreation(collection, varName, true, collectionIdMap));
+    }
+  }
+
+  return lines.join("\n");
+}
+
+/**
  * Generates the up migration function code
  * Applies all changes from the diff in the correct order
  *
@@ -926,13 +1303,22 @@ export function generateUpMigration(diff: SchemaDiff): string {
   lines.push(`  // UP MIGRATION`);
   lines.push(``);
 
+  // Build collection ID map from collections being created
+  // This map will be used to resolve relation field references
+  const collectionIdMap = new Map<string, string>();
+  for (const collection of diff.collectionsToCreate) {
+    if (collection.id) {
+      collectionIdMap.set(collection.name, collection.id);
+    }
+  }
+
   // 1. Create new collections
   if (diff.collectionsToCreate.length > 0) {
     lines.push(`  // Create new collections`);
     for (let i = 0; i < diff.collectionsToCreate.length; i++) {
       const collection = diff.collectionsToCreate[i];
       const varName = `collection_${collection.name}_create`;
-      lines.push(generateCollectionCreation(collection, varName));
+      lines.push(generateCollectionCreation(collection, varName, false, collectionIdMap));
       lines.push(``);
     }
   }
@@ -947,7 +1333,7 @@ export function generateUpMigration(diff: SchemaDiff): string {
         lines.push(`  // Add fields to ${collectionName}`);
         for (const field of modification.fieldsToAdd) {
           const varName = `collection_${collectionName}_add_${field.name}`;
-          lines.push(generateFieldAddition(collectionName, field, varName));
+          lines.push(generateFieldAddition(collectionName, field, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1084,6 +1470,21 @@ export function generateDownMigration(diff: SchemaDiff): string {
   lines.push(`  // DOWN MIGRATION (ROLLBACK)`);
   lines.push(``);
 
+  // Build collection ID map from collections being created (for rollback)
+  // This map will be used to resolve relation field references
+  const collectionIdMap = new Map<string, string>();
+  for (const collection of diff.collectionsToCreate) {
+    if (collection.id) {
+      collectionIdMap.set(collection.name, collection.id);
+    }
+  }
+  // Also include deleted collections that might have IDs
+  for (const collection of diff.collectionsToDelete) {
+    if (collection.id) {
+      collectionIdMap.set(collection.name, collection.id);
+    }
+  }
+
   // Reverse order: delete -> modify -> create
 
   // 1. Recreate deleted collections
@@ -1092,7 +1493,7 @@ export function generateDownMigration(diff: SchemaDiff): string {
     for (let i = 0; i < diff.collectionsToDelete.length; i++) {
       const collection = diff.collectionsToDelete[i];
       const varName = `collection_${collection.name}_recreate`;
-      lines.push(generateCollectionCreation(collection, varName));
+      lines.push(generateCollectionCreation(collection, varName, false, collectionIdMap));
       lines.push(``);
     }
   }
@@ -1146,7 +1547,7 @@ export function generateDownMigration(diff: SchemaDiff): string {
         lines.push(`  // Restore fields to ${collectionName}`);
         for (const field of modification.fieldsToRemove) {
           const varName = `collection_${collectionName}_restore_${field.name}`;
-          lines.push(generateFieldAddition(collectionName, field, varName));
+          lines.push(generateFieldAddition(collectionName, field, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1246,33 +1647,69 @@ export function generateDownMigration(diff: SchemaDiff): string {
 
 /**
  * Main generation function
- * Generates complete migration file from schema diff
+ * Generates migration files from schema diff (one file per collection operation)
  *
  * @param diff - Schema diff containing all changes
  * @param config - Migration generator configuration
- * @returns Path to the generated migration file
+ * @returns Array of paths to the generated migration files
  */
-export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | string): string {
+export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | string): string[] {
   // Support legacy string-only parameter (migration directory)
   const normalizedConfig: MigrationGeneratorConfig = typeof config === "string" ? { migrationDir: config } : config;
 
   try {
     const migrationDir = resolveMigrationDir(normalizedConfig);
 
-    // Generate up and down migration code
-    const upCode = generateUpMigration(diff);
-    const downCode = generateDownMigration(diff);
+    // Check if there are any changes
+    const hasChanges =
+      diff.collectionsToCreate.length > 0 || diff.collectionsToModify.length > 0 || diff.collectionsToDelete.length > 0;
 
-    // Create migration file structure
-    const content = createMigrationFileStructure(upCode, downCode, normalizedConfig);
+    // If no changes, return empty array
+    if (!hasChanges) {
+      return [];
+    }
 
-    // Generate filename
-    const filename = generateMigrationFilename(diff, normalizedConfig);
+    // Build collection ID map from collections being created
+    const collectionIdMap = new Map<string, string>();
+    for (const collection of diff.collectionsToCreate) {
+      if (collection.id) {
+        collectionIdMap.set(collection.name, collection.id);
+      }
+    }
+    // Also include deleted collections that might have IDs (for rollback)
+    for (const collection of diff.collectionsToDelete) {
+      if (collection.id) {
+        collectionIdMap.set(collection.name, collection.id);
+      }
+    }
 
-    // Write migration file
-    const filePath = writeMigrationFile(migrationDir, filename, content);
+    // Generate base timestamp
+    const baseTimestamp = generateTimestamp(normalizedConfig);
 
-    return filePath;
+    // Split diff into individual collection operations
+    const operations = splitDiffByCollection(diff, baseTimestamp);
+
+    // Generate migration file for each operation
+    const filePaths: string[] = [];
+
+    for (const operation of operations) {
+      // Generate up and down migration code for this operation
+      const upCode = generateOperationUpMigration(operation, collectionIdMap);
+      const downCode = generateOperationDownMigration(operation, collectionIdMap);
+
+      // Create migration file structure
+      const content = createMigrationFileStructure(upCode, downCode, normalizedConfig);
+
+      // Generate filename for this operation
+      const filename = generateCollectionMigrationFilename(operation);
+
+      // Write migration file
+      const filePath = writeMigrationFile(migrationDir, filename, content);
+
+      filePaths.push(filePath);
+    }
+
+    return filePaths;
   } catch (error) {
     // If it's already a MigrationGenerationError or FileSystemError, re-throw it
     if (error instanceof MigrationGenerationError || error instanceof FileSystemError) {
@@ -1300,9 +1737,10 @@ export class MigrationGenerator {
   }
 
   /**
-   * Generates a migration file from a schema diff
+   * Generates migration files from a schema diff
+   * Returns array of file paths (one per collection operation)
    */
-  generate(diff: SchemaDiff): string {
+  generate(diff: SchemaDiff): string[] {
     return generate(diff, this.config);
   }
 

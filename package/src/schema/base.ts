@@ -54,101 +54,8 @@ export const omitImageFilesSchema = {
 // ============================================================================
 // Common PocketBase Field Type Patterns
 // ============================================================================
-
-/**
- * Creates a text field schema with optional constraints
- * @param options - Optional constraints for the text field
- */
-export function textField(options?: { min?: number; max?: number; pattern?: RegExp }) {
-  let schema = z.string();
-  if (options?.min !== undefined) schema = schema.min(options.min);
-  if (options?.max !== undefined) schema = schema.max(options.max);
-  if (options?.pattern !== undefined) schema = schema.regex(options.pattern);
-  return schema;
-}
-
-/**
- * Creates an email field schema
- * Maps to PocketBase 'email' field type
- */
-export function emailField() {
-  return z.string().email();
-}
-
-/**
- * Creates a URL field schema
- * Maps to PocketBase 'url' field type
- */
-export function urlField() {
-  return z.string().url();
-}
-
-/**
- * Creates a number field schema with optional constraints
- * @param options - Optional constraints for the number field
- */
-export function numberField(options?: { min?: number; max?: number }) {
-  let schema = z.number();
-  if (options?.min !== undefined) schema = schema.min(options.min);
-  if (options?.max !== undefined) schema = schema.max(options.max);
-  return schema;
-}
-
-/**
- * Creates a boolean field schema
- * Maps to PocketBase 'bool' field type
- */
-export function boolField() {
-  return z.boolean();
-}
-
-/**
- * Creates a date field schema
- * Maps to PocketBase 'date' field type
- */
-export function dateField() {
-  return z.date();
-}
-
-/**
- * Creates a select field schema from enum values
- * Maps to PocketBase 'select' field type
- * @param values - Array of allowed string values
- */
-export function selectField<T extends [string, ...string[]]>(values: T) {
-  return z.enum(values);
-}
-
-/**
- * Creates a JSON field schema
- * Maps to PocketBase 'json' field type
- * @param schema - Optional Zod schema for the JSON structure
- */
-export function jsonField<T extends z.ZodTypeAny>(schema?: T) {
-  return schema ?? z.record(z.any());
-}
-
-/**
- * Creates a single file field schema for form input
- * Maps to PocketBase 'file' field type with maxSelect=1
- * Requires Node.js 20+ or browser environment with File API
- */
-export function fileField() {
-  return z.instanceof(File);
-}
-
-/**
- * Creates a multiple file field schema for form input
- * Maps to PocketBase 'file' field type with maxSelect>1
- * Requires Node.js 20+ or browser environment with File API
- * @param options - Optional constraints for the file field
- */
-export function filesField(options?: { min?: number; max?: number }) {
-  let schema = z.array(z.instanceof(File));
-  if (options?.min !== undefined) schema = schema.min(options.min);
-  if (options?.max !== undefined) schema = schema.max(options.max);
-  return schema;
-}
+// Note: Field type helpers are now exported from ./fields.ts with PascalCase names
+// (e.g., TextField, EmailField, JSONField, etc.) to ensure consistent naming.
 
 // ============================================================================
 // Relation Field Helpers - Explicit Relationship Definitions
@@ -310,25 +217,6 @@ export function extractRelationMetadata(description: string | undefined): {
   }
 
   return null;
-}
-
-/**
- * Creates an editor field schema (rich text)
- * Maps to PocketBase 'editor' field type
- */
-export function editorField() {
-  return z.string();
-}
-
-/**
- * Creates a geo point field schema
- * Maps to PocketBase 'geoPoint' field type
- */
-export function geoPointField() {
-  return z.object({
-    lon: z.number(),
-    lat: z.number(),
-  });
 }
 
 /**
