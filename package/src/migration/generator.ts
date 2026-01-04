@@ -385,7 +385,8 @@ function formatValue(value: any): string {
 
   if (Array.isArray(value)) {
     // Use JSON.stringify for arrays to properly handle all special characters
-    return JSON.stringify(value);
+    // Then format with spaces after commas to match expected test output
+    return JSON.stringify(value).replace(/","/g, '", "');
   }
 
   if (typeof value === "object") {
