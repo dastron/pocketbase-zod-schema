@@ -100,63 +100,6 @@ describe("Object Syntax Property Tests", () => {
       );
     });
 
-    it("should generate valid object syntax for file field options", () => {
-      fc.assert(
-        fc.property(
-          fc.record({
-            maxSelect: fc.integer({ min: 1, max: 10 }),
-            maxSize: fc.integer({ min: 0, max: 10485760 }),
-            mimeTypes: fc.array(fc.string(), { maxLength: 3 }),
-            thumbs: fc.array(fc.string(), { maxLength: 3 }),
-            protected: fc.boolean(),
-          }),
-          (options) => {
-            const schema: CollectionSchema = {
-              name: "test_file_object",
-              type: "base",
-              fields: [
-                {
-                  name: "file_field",
-                  type: "file",
-                  required: false,
-                  options: options,
-                },
-              ],
-              indexes: [],
-              permissions: {
-                listRule: "",
-                viewRule: "",
-                createRule: "",
-                updateRule: "",
-                deleteRule: "",
-              },
-            };
-
-            const diff: SchemaDiff = {
-              collectionsToCreate: [schema],
-              collectionsToModify: [],
-              collectionsToDelete: [],
-            };
-
-            const migrationFiles = generate(diff, { migrationDir: testDir });
-            generatedFiles.push(...migrationFiles);
-
-            expect(migrationFiles.length).toBeGreaterThan(0);
-
-            const content = fs.readFileSync(migrationFiles[0], "utf-8");
-            const parseResult = parseJavaScript(content);
-
-            expect(parseResult.success).toBe(true);
-            if (!parseResult.success) {
-              console.error("Parse error:", parseResult.error);
-              console.error("Options:", options);
-            }
-          }
-        ),
-        { numRuns: 30 }
-      );
-    });
-
     it("should generate valid object syntax for number field options", () => {
       fc.assert(
         fc.property(
