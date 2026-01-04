@@ -161,13 +161,40 @@ describe("Field Metadata Integration", () => {
       expect(definition.options).toEqual({ min: 0, max: 100 });
     });
 
-    it("should handle required NumberField (not optional)", () => {
+    it("should default NumberField to required: false (allows zero values)", () => {
       const field = NumberField({ min: 0 });
       const definition = buildFieldDefinition("price", field);
 
       expect(definition.type).toBe("number");
-      expect(definition.required).toBe(true);
+      expect(definition.required).toBe(false); // Defaults to false to allow zero values
       expect(definition.options).toEqual({ min: 0 });
+    });
+
+    it("should respect explicit required: true for NumberField", () => {
+      const field = NumberField({ min: 1, required: true });
+      const definition = buildFieldDefinition("score", field);
+
+      expect(definition.type).toBe("number");
+      expect(definition.required).toBe(true); // Explicitly set to true
+      expect(definition.options).toEqual({ min: 1 });
+    });
+
+    it("should respect explicit required: false for NumberField", () => {
+      const field = NumberField({ min: 0, required: false });
+      const definition = buildFieldDefinition("progress", field);
+
+      expect(definition.type).toBe("number");
+      expect(definition.required).toBe(false);
+      expect(definition.options).toEqual({ min: 0 });
+    });
+
+    it("should handle noDecimal option for NumberField", () => {
+      const field = NumberField({ min: 0, max: 100, noDecimal: true });
+      const definition = buildFieldDefinition("quantity", field);
+
+      expect(definition.type).toBe("number");
+      expect(definition.required).toBe(false);
+      expect(definition.options).toEqual({ min: 0, max: 100, noDecimal: true });
     });
 
     it("should handle optional TextField", () => {

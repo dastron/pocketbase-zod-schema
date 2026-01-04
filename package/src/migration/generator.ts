@@ -760,7 +760,12 @@ function generateFieldConstructorOptions(field: FieldDefinition, collectionIdMap
       if (field.type === "select" && (key === "maxSelect" || key === "values")) {
         continue;
       }
-      parts.push(`    ${key}: ${formatValue(value)}`);
+      // Convert noDecimal to onlyInt for number fields (PocketBase uses onlyInt)
+      if (field.type === "number" && key === "noDecimal") {
+        parts.push(`    onlyInt: ${formatValue(value)}`);
+      } else {
+        parts.push(`    ${key}: ${formatValue(value)}`);
+      }
     }
   }
 

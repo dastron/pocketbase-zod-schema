@@ -499,13 +499,31 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
 
   if (fieldMetadata) {
     // Use explicit metadata from field helpers
-    const required = isFieldRequired(zodType);
+    // For number fields, default to required: false unless explicitly set
+    // (because required: true in PocketBase means non-zero, which is often not desired)
+    let required: boolean;
+    if (fieldMetadata.type === "number") {
+      // Check if required is explicitly set in options
+      if (fieldMetadata.options?.required !== undefined) {
+        required = fieldMetadata.options.required;
+      } else {
+        // Default to false for number fields to allow zero values
+        // This allows zero values (e.g., progress: 0-100) unless explicitly set to required: true
+        required = false;
+      }
+    } else {
+      // For other field types, use standard logic
+      required = isFieldRequired(zodType);
+    }
+
+    // Remove 'required' from options if present (it's a top-level property, not an option)
+    const { required: _required, ...options } = fieldMetadata.options || {};
 
     const fieldDef: FieldDefinition = {
       name: fieldName,
       type: fieldMetadata.type,
       required,
-      options: fieldMetadata.options,
+      options: Object.keys(options).length > 0 ? options : undefined,
     };
 
     // If it's a relation type from metadata, we still need to extract relation config
