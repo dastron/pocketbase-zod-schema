@@ -23,11 +23,11 @@
     "clean": "yarn workspace pocketbase-zod-schema clean",
     "publish:npm": "yarn workspace pocketbase-zod-schema publish:npm",
     "prepare": "husky install",
-    "migrate:generate": "npx --yes tsx package/dist/cli/migrate.js generate",
-    "migrate:status": "npx --yes tsx package/dist/cli/migrate.js status",
-    "pb:download": "node scripts/download-pocketbase.js",
-    "pb:start": "node scripts/start-pocketbase.js",
-    "pb:stop": "node scripts/stop-pocketbase.js"
+    "db:generate": "npx --yes tsx package/src/cli/migrate.ts generate",
+    "db:status": "npx --yes tsx package/src/cli/migrate.ts status",
+    "db:download": "node scripts/download-pocketbase.js",
+    "db:start": "node scripts/start-pocketbase.js",
+    "db:stop": "node scripts/stop-pocketbase.js"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -171,4 +171,26 @@ describe("Collection Creation Integration Tests", () => {
       }
     });
   });
+
+  describe("5.9 Collection with explicit ID", () => {
+    it("should generate migration with explicit id property", () => {
+      const CustomSchema = {
+        ...CreateCollectionBlankSchema,
+        id: "pb_1234567890abcde",
+        name: "CustomWithId",
+      };
+      const currentSchema = createSchemaDefinition(CustomSchema);
+      const diff = compare(currentSchema, null);
+
+      expect(diff.collectionsToCreate).toHaveLength(1);
+      expect(diff.collectionsToCreate[0].id).toBe("pb_1234567890abcde");
+
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
+
+      const content = fs.readFileSync(generatedPath, "utf-8");
+      expect(content).toContain('id: "pb_1234567890abcde"');
+    });
+  });
 });

@@ -666,6 +666,9 @@ export function generateCollectionCreation(
   const lines: string[] = [];
 
   lines.push(`  const ${varName} = new Collection({`);
+  if (collection.id) {
+    lines.push(`    id: ${formatValue(collection.id)},`);
+  }
   lines.push(`    name: "${collection.name}",`);
   lines.push(`    type: "${collection.type}",`);
 
