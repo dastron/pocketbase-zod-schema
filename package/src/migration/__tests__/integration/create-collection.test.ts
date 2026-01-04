@@ -46,7 +46,9 @@ describe("Collection Creation Integration Tests", () => {
       expect(diff.collectionsToCreate).toHaveLength(1);
       expect(diff.collectionsToCreate[0].name).toBe(CreateCollectionWithColumnsSchema.name);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       const content = fs.readFileSync(generatedPath, "utf-8");
@@ -70,7 +72,9 @@ describe("Collection Creation Integration Tests", () => {
       expect(diff.collectionsToCreate).toHaveLength(1);
       expect(diff.collectionsToCreate[0].name).toBe(CreateCollectionBlankSchema.name);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       const content = fs.readFileSync(generatedPath, "utf-8");
@@ -95,7 +99,9 @@ describe("Collection Creation Integration Tests", () => {
       expect(diff.collectionsToCreate).toHaveLength(1);
       expect(diff.collectionsToCreate[0].name).toBe(CreateCollectionWithUniqueIndexSchema.name);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       const content = fs.readFileSync(generatedPath, "utf-8");
@@ -114,7 +120,9 @@ describe("Collection Creation Integration Tests", () => {
       expect(diff.collectionsToCreate).toHaveLength(1);
       expect(diff.collectionsToCreate[0].name).toBe(CreateCollectionWithUnrestrictedApiRulesSchema.name);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       const content = fs.readFileSync(generatedPath, "utf-8");
@@ -136,7 +144,9 @@ describe("Collection Creation Integration Tests", () => {
       expect(diff.collectionsToCreate).toHaveLength(1);
       expect(diff.collectionsToCreate[0].name).toBe(CreateCollectionWithRestrictedApiRulesSchema.name);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       const content = fs.readFileSync(generatedPath, "utf-8");

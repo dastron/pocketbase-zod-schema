@@ -52,7 +52,9 @@ describe("Project Schema Migration Generation", () => {
     expect(diff.collectionsToCreate[0].name).toBe(collectionName);
 
     // Generate migration file
-    const generatedPath = generate(diff, tempDir);
+    const generatedPaths = generate(diff, tempDir);
+    expect(generatedPaths).toHaveLength(1);
+    const generatedPath = generatedPaths[0];
     expect(fs.existsSync(generatedPath)).toBe(true);
 
     // Read and validate migration content

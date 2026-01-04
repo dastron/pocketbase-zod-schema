@@ -82,7 +82,9 @@ describe("Auth Collection Type Generation", () => {
     expect(diff.collectionsToCreate[0].type).toBe("auth");
 
     // Generate migration file
-    const generatedPath = generate(diff, tempDir);
+    const generatedPaths = generate(diff, tempDir);
+    expect(generatedPaths).toHaveLength(1);
+    const generatedPath = generatedPaths[0];
     expect(fs.existsSync(generatedPath)).toBe(true);
 
     // Read and validate migration content
@@ -117,7 +119,9 @@ describe("Auth Collection Type Generation", () => {
     const currentSchema = createSchemaDefinitionFromZod(TestAuthUserCollection);
     const diff = compare(currentSchema, null);
 
-    const generatedPath = generate(diff, tempDir);
+    const generatedPaths = generate(diff, tempDir);
+    expect(generatedPaths).toHaveLength(1);
+    const generatedPath = generatedPaths[0];
     const content = fs.readFileSync(generatedPath, "utf-8");
 
     // Should contain custom field
@@ -144,7 +148,9 @@ describe("Auth Collection Type Generation", () => {
     const currentSchema = createSchemaDefinitionFromZod(TestAuthUserCollection);
     const diff = compare(currentSchema, null);
 
-    const generatedPath = generate(diff, tempDir);
+    const generatedPaths = generate(diff, tempDir);
+    expect(generatedPaths).toHaveLength(1);
+    const generatedPath = generatedPaths[0];
     const content = fs.readFileSync(generatedPath, "utf-8");
 
     // Verify all permission rules are in the generated code
@@ -168,7 +174,9 @@ describe("Auth Collection Type Generation", () => {
     const currentSchema = createSchemaDefinitionFromZod(TestAuthUserCollection);
     const diff = compare(currentSchema, null);
 
-    const generatedPath = generate(diff, tempDir);
+    const generatedPaths = generate(diff, tempDir);
+    expect(generatedPaths).toHaveLength(1);
+    const generatedPath = generatedPaths[0];
 
     // Parse the generated migration
     const generatedMigration = parseMigrationFile(generatedPath);

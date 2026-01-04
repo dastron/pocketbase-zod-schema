@@ -208,7 +208,9 @@ describe("Generate Migration - No Additional Migration Needed", () => {
       const diff = compare(originalSchema, null);
       expect(diff.collectionsToCreate.length).toBeGreaterThan(0);
 
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       // Step 3: Load the generated migration as a snapshot
@@ -339,7 +341,9 @@ describe("Generate Migration - No Additional Migration Needed", () => {
 
       const originalSchema = createSchemaDefinition(collectionWithSelect);
       const diff = compare(originalSchema, null);
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
 
       const migrationContent = fs.readFileSync(generatedPath, "utf-8");
       const operations = parseMigrationOperations(migrationContent);
@@ -400,7 +404,9 @@ describe("Generate Migration - No Additional Migration Needed", () => {
 
       const originalSchema = createSchemaDefinition(collectionWithRelations);
       const diff = compare(originalSchema, null);
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
 
       const migrationContent = fs.readFileSync(generatedPath, "utf-8");
       const operations = parseMigrationOperations(migrationContent);
@@ -459,7 +465,9 @@ describe("Generate Migration - No Additional Migration Needed", () => {
 
       const originalSchema = createSchemaDefinition(collectionSchema);
       const diff = compare(originalSchema, null);
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
 
       // Load using loadSnapshotWithMigrations (simulating real usage)
       // Note: loadSnapshotWithMigrations looks for snapshot files, not regular migrations

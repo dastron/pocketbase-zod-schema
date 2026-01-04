@@ -27,6 +27,13 @@ export interface FieldDefinition {
 export interface CollectionSchema {
   name: string;
   type: "base" | "auth";
+  /**
+   * Pre-generated collection ID for use in migrations
+   * Format: pb_ followed by 15 alphanumeric lowercase characters
+   * Special case: "_pb_users_auth_" for users collection
+   * This ID is generated during migration creation to avoid runtime lookups
+   */
+  id?: string;
   fields: FieldDefinition[];
   indexes?: string[];
   rules?: {
@@ -100,4 +107,32 @@ export interface SchemaDiff {
   collectionsToCreate: CollectionSchema[];
   collectionsToDelete: any[];
   collectionsToModify: CollectionModification[];
+}
+
+/**
+ * Represents a single collection operation for file splitting
+ * Each operation will generate a separate migration file
+ */
+export interface CollectionOperation {
+  /**
+   * Type of operation being performed
+   */
+  type: "create" | "modify" | "delete";
+
+  /**
+   * Collection being operated on
+   * For create/modify: CollectionSchema
+   * For delete: collection name as string
+   */
+  collection: CollectionSchema | string;
+
+  /**
+   * Modifications to apply (only for 'modify' operations)
+   */
+  modifications?: CollectionModification;
+
+  /**
+   * Timestamp for this operation's migration file
+   */
+  timestamp: string;
 }

@@ -111,6 +111,16 @@ export interface NumberFieldOptions {
    * Whether to disallow decimal values (integers only)
    */
   noDecimal?: boolean;
+
+  /**
+   * Whether the field is required
+   * @default false
+   *
+   * Note: In PocketBase, `required: true` for number fields means the value must be non-zero.
+   * If you want to allow zero values (e.g., for progress: 0-100), keep this as `false`.
+   * Set to `true` only if you want to enforce non-zero values.
+   */
+  required?: boolean;
 }
 
 /**
@@ -238,7 +248,14 @@ export function BoolField(): z.ZodBoolean {
  *   price: NumberField({ min: 0 }),
  *   quantity: NumberField({ min: 0, noDecimal: true }),
  *   rating: NumberField({ min: 0, max: 5 }),
+ *   progress: NumberField({ min: 0, max: 100 }), // required defaults to false, allowing zero
+ *   score: NumberField({ min: 1, max: 10, required: true }), // requires non-zero value
  * });
+ *
+ * @remarks
+ * By default, number fields are not required (`required: false`), which allows zero values.
+ * In PocketBase, `required: true` for number fields means the value must be non-zero.
+ * If you set `min: 0` and want to allow zero, keep `required: false` (the default).
  */
 export function NumberField(options?: NumberFieldOptions): z.ZodNumber {
   // Validate options

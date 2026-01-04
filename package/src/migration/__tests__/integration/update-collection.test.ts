@@ -94,7 +94,9 @@ describe("Collection Update Integration Tests", () => {
       expect(diff.collectionsToModify[0].fieldsToAdd.length).toBeGreaterThan(0);
 
       // Run generator to create update migration
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       // Parse generated migration
@@ -179,7 +181,9 @@ describe("Collection Update Integration Tests", () => {
       expect(diff.collectionsToModify[0].fieldsToRemove[0].name).toBe("field_to_remove");
 
       // Run generator to create migration
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       // Verify field removal is present in migration
@@ -254,7 +258,9 @@ describe("Collection Update Integration Tests", () => {
       expect(diff.collectionsToModify[0].fieldsToModify.length).toBeGreaterThan(0);
 
       // Run generator to create migration
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       // Verify field modification is present in migration
@@ -319,7 +325,9 @@ describe("Collection Update Integration Tests", () => {
       expect(hasRuleUpdates || hasPermissionUpdates).toBe(true);
 
       // Run generator to create migration
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       // Verify permission updates are present in migration
@@ -371,7 +379,9 @@ describe("Collection Update Integration Tests", () => {
       expect(diff.collectionsToModify[0].collection).toBe(editCollectionAddIndexAfterName);
 
       // Run generator to create update migration
-      const generatedPath = generate(diff, tempDir);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+      const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
       // Parse generated migration

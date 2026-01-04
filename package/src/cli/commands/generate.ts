@@ -180,11 +180,20 @@ export async function executeGenerate(options: any): Promise<void> {
     // Generate migration
     logSection("📝 Generating Migration");
 
-    const migrationPath = await withProgress("Creating migration file...", () =>
+    const migrationPaths = await withProgress("Creating migration file...", () =>
       Promise.resolve(generate(diff, migrationsDir))
     );
 
-    logSuccess(`Migration file created: ${path.basename(migrationPath)}`);
+    if (migrationPaths.length === 0) {
+      logWarning("No migration files were generated (no changes detected).");
+      return;
+    }
+
+    if (migrationPaths.length === 1) {
+      logSuccess(`Migration file created: ${path.basename(migrationPaths[0])}`);
+    } else {
+      logSuccess(`Created ${migrationPaths.length} migration files`);
+    }
 
     // Note: Snapshot is embedded in the generated migration file
     // No separate snapshot file needed
@@ -192,8 +201,10 @@ export async function executeGenerate(options: any): Promise<void> {
     // Display next steps
     logSection("✅ Next Steps");
     console.log();
-    console.log("  1. Review the generated migration file:");
-    console.log(`     ${migrationPath}`);
+    console.log("  1. Review the generated migration file(s):");
+    migrationPaths.forEach((migrationPath) => {
+      console.log(`     ${migrationPath}`);
+    });
     console.log();
     console.log("  2. Apply the migration by running PocketBase:");
     console.log("     yarn pb");

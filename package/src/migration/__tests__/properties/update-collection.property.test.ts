@@ -129,7 +129,9 @@ describe("Collection Update Property Tests", () => {
             expect(modification.fieldsToAdd.some((f) => f.name === newField.name)).toBe(true);
 
             // Generate migration
-            const generatedPath = generate(diff, tempDir);
+            const generatedPaths = generate(diff, tempDir);
+            expect(generatedPaths).toHaveLength(1);
+            const generatedPath = generatedPaths[0];
             const migrationContent = fs.readFileSync(generatedPath, "utf-8");
 
             // Should contain field addition code
@@ -180,7 +182,9 @@ describe("Collection Update Property Tests", () => {
             expect(modification.indexesToAdd.length).toBeGreaterThan(0);
 
             // Generate migration
-            const generatedPath = generate(diff, tempDir);
+            const generatedPaths = generate(diff, tempDir);
+            expect(generatedPaths).toHaveLength(1);
+            const generatedPath = generatedPaths[0];
             const migrationContent = fs.readFileSync(generatedPath, "utf-8");
 
             // Should contain index addition code
@@ -229,7 +233,9 @@ describe("Collection Update Property Tests", () => {
             expect(modification.fieldsToRemove.some((f) => f.name === fieldToRemove.name)).toBe(true);
 
             // Generate migration
-            const generatedPath = generate(diff, tempDir);
+            const generatedPaths = generate(diff, tempDir);
+            expect(generatedPaths).toHaveLength(1);
+            const generatedPath = generatedPaths[0];
             const migrationContent = fs.readFileSync(generatedPath, "utf-8");
 
             // Should contain field removal code
@@ -284,7 +290,9 @@ describe("Collection Update Property Tests", () => {
               expect(modification.fieldsToModify.some((f) => f.fieldName === fieldToModify.name)).toBe(true);
 
               // Generate migration
-              const generatedPath = generate(diff, tempDir);
+              const generatedPaths = generate(diff, tempDir);
+              expect(generatedPaths).toHaveLength(1);
+              const generatedPath = generatedPaths[0];
               const migrationContent = fs.readFileSync(generatedPath, "utf-8");
 
               // Should contain field modification code
@@ -347,7 +355,9 @@ describe("Collection Update Property Tests", () => {
             expect(hasRuleUpdates || hasPermissionUpdates).toBe(true);
 
             // Generate migration
-            const generatedPath = generate(diff, tempDir);
+            const generatedPaths = generate(diff, tempDir);
+            expect(generatedPaths).toHaveLength(1);
+            const generatedPath = generatedPaths[0];
             const migrationContent = fs.readFileSync(generatedPath, "utf-8");
 
             // Should contain permission update code
