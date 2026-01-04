@@ -384,8 +384,8 @@ function formatValue(value: any): string {
   }
 
   if (Array.isArray(value)) {
-    const items = value.map((v) => formatValue(v)).join(", ");
-    return `[${items}]`;
+    // Use JSON.stringify for arrays to properly handle all special characters
+    return JSON.stringify(value);
   }
 
   if (typeof value === "object") {
