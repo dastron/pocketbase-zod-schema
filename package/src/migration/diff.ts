@@ -411,6 +411,52 @@ export function compareFieldConstraints(currentField: FieldDefinition, previousF
 }
 
 /**
+ * Normalizes a field option value to account for PocketBase defaults
+ * Returns the normalized value, treating default values as equivalent to undefined
+ *
+ * @param key - Option key name
+ * @param value - Option value
+ * @param fieldType - Field type
+ * @returns Normalized value (undefined if it's a default value)
+ */
+function normalizeOptionValue(key: string, value: any, fieldType: string): any {
+  // maxSelect: 1 is the default for select and file fields
+  if (key === "maxSelect" && value === 1 && (fieldType === "select" || fieldType === "file")) {
+    return undefined; // Treat as undefined to match missing default
+  }
+
+  // maxSize: 0 is default for file fields
+  if (key === "maxSize" && value === 0 && fieldType === "file") {
+    return undefined;
+  }
+
+  // Empty arrays are defaults for file fields
+  if (fieldType === "file") {
+    if (key === "mimeTypes" && Array.isArray(value) && value.length === 0) {
+      return undefined;
+    }
+    if (key === "thumbs" && Array.isArray(value) && value.length === 0) {
+      return undefined;
+    }
+    if (key === "protected" && value === false) {
+      return undefined;
+    }
+  }
+
+  // Autodate defaults
+  if (fieldType === "autodate") {
+    if (key === "onCreate" && value === true) {
+      return undefined;
+    }
+    if (key === "onUpdate" && value === false) {
+      return undefined;
+    }
+  }
+
+  return value;
+}
+
+/**
  * Compares field options (min, max, pattern, etc.) between current and previous
  *
  * @param currentField - Current field definition
@@ -427,17 +473,25 @@ export function compareFieldOptions(currentField: FieldDefinition, previousField
   const allKeys = new Set([...Object.keys(currentOptions), ...Object.keys(previousOptions)]);
 
   // Compare each option
+  // Use currentField.type for normalization since types should match at this point
+  // (type changes are handled separately in compareFieldTypes)
+  const fieldType = currentField.type;
+
   for (const key of allKeys) {
     const currentValue = currentOptions[key];
     const previousValue = previousOptions[key];
 
-    // Handle undefined values - if one is undefined and the other is not, that's a change
-    // But if both are undefined, that's not a change
-    if (currentValue === undefined && previousValue === undefined) {
+    // Normalize values to account for default values
+    // This ensures that maxSelect: 1 (default) is treated the same as undefined (missing default)
+    const normalizedCurrent = normalizeOptionValue(key, currentValue, fieldType);
+    const normalizedPrevious = normalizeOptionValue(key, previousValue, fieldType);
+
+    // Handle undefined values - if both are undefined (or normalized to undefined), that's not a change
+    if (normalizedCurrent === undefined && normalizedPrevious === undefined) {
       continue;
     }
 
-    if (!areValuesEqual(currentValue, previousValue)) {
+    if (!areValuesEqual(normalizedCurrent, normalizedPrevious)) {
       changes.push({
         property: `options.${key}`,
         oldValue: previousValue,
@@ -458,7 +512,8 @@ export function compareFieldOptions(currentField: FieldDefinition, previousField
  */
 export function compareRelationConfigurations(
   currentField: FieldDefinition,
-  previousField: FieldDefinition
+  previousField: FieldDefinition,
+  collectionIdToName?: Map<string, string>
 ): FieldChange[] {
   const changes: FieldChange[] = [];
 
@@ -481,10 +536,11 @@ export function compareRelationConfigurations(
   const normalizeCollection = (collection: string): string => {
     if (!collection) return collection;
 
-    // Handle known PocketBase constants
-    if (collection === "_pb_users_auth_") {
-      return "Users";
+    // Resolve ID to name if possible
+    if (collectionIdToName && collectionIdToName.has(collection)) {
+      return collectionIdToName.get(collection)!;
     }
+
     // Handle expressions that might not have been parsed correctly
     const nameMatch = collection.match(/app\.findCollectionByNameOrId\s*\(\s*["']([^"']+)["']\s*\)/);
     if (nameMatch) {
@@ -494,15 +550,16 @@ export function compareRelationConfigurations(
   };
 
   const normalizedCurrent = normalizeCollection(currentRelation.collection);
+  // We resolve the ID from the previous relation (snapshot) to its name if available
   const normalizedPrevious = normalizeCollection(previousRelation.collection);
 
   // Only report a change if the normalized values differ
-  // Use normalized values for comparison, but report original values in the change
-  if (normalizedCurrent !== normalizedPrevious) {
+  // Use case-insensitive comparison for collection names
+  if (normalizedCurrent.toLowerCase() !== normalizedPrevious.toLowerCase()) {
     changes.push({
       property: "relation.collection",
-      oldValue: normalizedPrevious, // Use normalized value for clarity
-      newValue: normalizedCurrent, // Use normalized value for clarity
+      oldValue: previousRelation.collection,
+      newValue: currentRelation.collection,
     });
   }
 
@@ -514,7 +571,13 @@ export function compareRelationConfigurations(
     });
   }
 
-  if (currentRelation.maxSelect !== previousRelation.maxSelect) {
+  // Normalize maxSelect: 1 to undefined/null as it's often the default or treated as such
+  const normalizeMax = (val: number | null | undefined) => (val === 1 ? null : val);
+  const currentMax = normalizeMax(currentRelation.maxSelect);
+  const previousMax = normalizeMax(previousRelation.maxSelect);
+
+  // Use loose equality to handle null vs undefined
+  if (currentMax != previousMax) {
     changes.push({
       property: "relation.maxSelect",
       oldValue: previousRelation.maxSelect,
@@ -522,7 +585,12 @@ export function compareRelationConfigurations(
     });
   }
 
-  if (currentRelation.minSelect !== previousRelation.minSelect) {
+  // Normalize minSelect: 0 to undefined/null
+  const normalizeMin = (val: number | null | undefined) => (val === 0 ? null : val);
+  const currentMin = normalizeMin(currentRelation.minSelect);
+  const previousMin = normalizeMin(previousRelation.minSelect);
+
+  if (currentMin != previousMin) {
     changes.push({
       property: "relation.minSelect",
       oldValue: previousRelation.minSelect,
@@ -541,7 +609,11 @@ export function compareRelationConfigurations(
  * @param previousField - Previous field definition
  * @returns Array of all detected changes
  */
-export function detectFieldChanges(currentField: FieldDefinition, previousField: FieldDefinition): FieldChange[] {
+export function detectFieldChanges(
+  currentField: FieldDefinition,
+  previousField: FieldDefinition,
+  collectionIdToName?: Map<string, string>
+): FieldChange[] {
   const changes: FieldChange[] = [];
 
   // Compare types
@@ -558,7 +630,7 @@ export function detectFieldChanges(currentField: FieldDefinition, previousField:
 
   // Compare relation configurations (if applicable)
   if (currentField.type === "relation" && previousField.type === "relation") {
-    changes.push(...compareRelationConfigurations(currentField, previousField));
+    changes.push(...compareRelationConfigurations(currentField, previousField, collectionIdToName));
   }
 
   return changes;
@@ -591,7 +663,12 @@ function compareIndexes(
  * @param previousRules - Previous collection rules
  * @returns Array of rule updates
  */
-function compareRules(currentRules: CollectionSchema["rules"], previousRules: CollectionSchema["rules"]): RuleUpdate[] {
+function compareRules(
+  currentRules: CollectionSchema["rules"],
+  previousRules: CollectionSchema["rules"],
+  currentPermissions?: CollectionSchema["permissions"],
+  previousPermissions?: CollectionSchema["permissions"]
+): RuleUpdate[] {
   const updates: RuleUpdate[] = [];
 
   const ruleTypes: Array<keyof NonNullable<CollectionSchema["rules"]>> = [
@@ -604,8 +681,9 @@ function compareRules(currentRules: CollectionSchema["rules"], previousRules: Co
   ];
 
   for (const ruleType of ruleTypes) {
-    const currentValue = currentRules?.[ruleType] ?? null;
-    const previousValue = previousRules?.[ruleType] ?? null;
+    // Use rules if available, otherwise fall back to permissions (they're the same thing)
+    const currentValue = currentRules?.[ruleType] ?? currentPermissions?.[ruleType] ?? null;
+    const previousValue = previousRules?.[ruleType] ?? previousPermissions?.[ruleType] ?? null;
 
     if (currentValue !== previousValue) {
       updates.push({
@@ -665,7 +743,8 @@ export function comparePermissions(
 function compareCollectionFields(
   currentCollection: CollectionSchema,
   previousCollection: CollectionSchema,
-  config?: DiffEngineConfig
+  config?: DiffEngineConfig,
+  collectionIdToName?: Map<string, string>
 ): {
   fieldsToAdd: FieldDefinition[];
   fieldsToRemove: FieldDefinition[];
@@ -686,7 +765,7 @@ function compareCollectionFields(
   const matchedFields = matchFieldsByName(currentCollection.fields, previousCollection.fields);
 
   for (const [currentField, previousField] of matchedFields) {
-    const changes = detectFieldChanges(currentField, previousField);
+    const changes = detectFieldChanges(currentField, previousField, collectionIdToName);
 
     if (changes.length > 0) {
       fieldsToModify.push({
@@ -712,20 +791,27 @@ function compareCollectionFields(
 function buildCollectionModification(
   currentCollection: CollectionSchema,
   previousCollection: CollectionSchema,
-  config?: DiffEngineConfig
+  config?: DiffEngineConfig,
+  collectionIdToName?: Map<string, string>
 ): CollectionModification {
   // Compare fields
   const { fieldsToAdd, fieldsToRemove, fieldsToModify } = compareCollectionFields(
     currentCollection,
     previousCollection,
-    config
+    config,
+    collectionIdToName
   );
 
   // Compare indexes
   const { indexesToAdd, indexesToRemove } = compareIndexes(currentCollection.indexes, previousCollection.indexes);
 
-  // Compare rules
-  const rulesToUpdate = compareRules(currentCollection.rules, previousCollection.rules);
+  // Compare rules (also check permissions as fallback since they're the same thing)
+  const rulesToUpdate = compareRules(
+    currentCollection.rules,
+    previousCollection.rules,
+    currentCollection.permissions,
+    previousCollection.permissions
+  );
 
   // Compare permissions
   const permissionsToUpdate = comparePermissions(currentCollection.permissions, previousCollection.permissions);
@@ -774,6 +860,17 @@ export function aggregateChanges(
   previousSnapshot: SchemaSnapshot | null,
   config?: DiffEngineConfig
 ): SchemaDiff {
+  // Build lookup map for ID -> Name from previous snapshot
+  // This helps resolve relations where snapshot uses ID but schema uses Name
+  const collectionIdToName = new Map<string, string>();
+  if (previousSnapshot) {
+    for (const [name, collection] of previousSnapshot.collections) {
+      if (collection.id) {
+        collectionIdToName.set(collection.id, name);
+      }
+    }
+  }
+
   // Find new and removed collections
   const collectionsToCreate = findNewCollections(currentSchema, previousSnapshot);
   const collectionsToDelete = findRemovedCollections(currentSchema, previousSnapshot);
@@ -795,7 +892,7 @@ export function aggregateChanges(
       return collection;
     }
 
-    // Generate a new ID for the collection
+    // Generate a new ID for the collection (pass name for special handling)
     const id = registry.generate(collection.name);
     return {
       ...collection,
@@ -808,7 +905,7 @@ export function aggregateChanges(
   const matchedCollections = matchCollectionsByName(currentSchema, previousSnapshot);
 
   for (const [currentCollection, previousCollection] of matchedCollections) {
-    const modification = buildCollectionModification(currentCollection, previousCollection, config);
+    const modification = buildCollectionModification(currentCollection, previousCollection, config, collectionIdToName);
 
     // Only include if there are actual changes
     // Note: We allow modifications to the users collection (non-system)

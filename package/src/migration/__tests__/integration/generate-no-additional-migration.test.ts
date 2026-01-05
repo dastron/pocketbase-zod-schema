@@ -426,12 +426,12 @@ describe("Generate Migration - No Additional Migration Needed", () => {
 
       const ownerField = snapshotCollection?.fields.find((f: any) => f.name === "OwnerUser");
       expect(ownerField).toBeDefined();
-      expect(ownerField?.relation?.collection).toBe("Users");
+      expect(ownerField?.relation?.collection).toBe("users");
       expect(ownerField?.relation?.maxSelect).toBe(1);
 
       const subscribersField = snapshotCollection?.fields.find((f: any) => f.name === "SubscriberUsers");
       expect(subscribersField).toBeDefined();
-      expect(subscribersField?.relation?.collection).toBe("Users");
+      expect(subscribersField?.relation?.collection).toBe("users");
       expect(subscribersField?.relation?.maxSelect).toBe(999);
 
       // Verify no additional migration needed

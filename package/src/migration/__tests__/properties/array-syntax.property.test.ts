@@ -96,12 +96,28 @@ describe("Array Syntax Property Tests", () => {
     });
 
     it("should generate valid array syntax for indexes", () => {
+      // Helper to validate that a string is safe for JSON.stringify
+      // We validate round-trip through JSON to ensure the string can be safely serialized
+      const isValidIndexString = (s: string): boolean => {
+        if (s.length === 0 || s.length >= 100) return false;
+
+        // Validate that JSON.stringify produces valid, round-trip-safe output
+        try {
+          const stringified = JSON.stringify(s);
+          const parsed = JSON.parse(stringified);
+          // Ensure perfect round-trip
+          return parsed === s;
+        } catch {
+          return false;
+        }
+      };
+
       fc.assert(
         fc.property(
-          fc.array(
-            fc.string().filter((s) => s.length > 0 && s.length < 20 && !s.includes("`") && !s.includes("$`")),
-            { minLength: 0, maxLength: 3 }
-          ),
+          fc.array(fc.string({ minLength: 1, maxLength: 50 }).filter(isValidIndexString), {
+            minLength: 0,
+            maxLength: 3,
+          }),
           (indexes) => {
             const schema: CollectionSchema = {
               name: "test_indexes",
@@ -138,14 +154,27 @@ describe("Array Syntax Property Tests", () => {
             const content = fs.readFileSync(migrationFiles[0], "utf-8");
             const parseResult = parseJavaScript(content);
 
-            expect(parseResult.success).toBe(true);
             if (!parseResult.success) {
+              // Enhanced error reporting for debugging
               console.error("Parse error:", parseResult.error);
-              console.error("Indexes:", indexes);
+              console.error("Indexes:", JSON.stringify(indexes, null, 2));
+              console.error("Indexes (raw):", indexes);
+              // Find the indexes line in the generated content
+              const indexesMatch = content.match(/indexes:\s*\[[\s\S]*?\],/);
+              if (indexesMatch) {
+                console.error("Generated indexes array:", indexesMatch[0]);
+              }
+              console.error("Generated content snippet (first 1000 chars):", content.substring(0, 1000));
             }
+
+            expect(parseResult.success).toBe(true);
           }
         ),
-        { numRuns: 30 }
+        {
+          numRuns: 100, // Increased runs for better coverage
+          seed: undefined, // Let fast-check use random seeds
+          verbose: true, // Enable verbose mode to see all failing values
+        }
       );
     });
   });

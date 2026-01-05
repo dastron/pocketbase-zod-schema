@@ -187,7 +187,7 @@ describe("unchanged-schema detection", () => {
       const diff = compare(schema, snapshot);
 
       expect(diff.collectionsToModify).toHaveLength(0);
-      expect(converted.fields[0].relation?.collection).toBe("Users");
+      expect(converted.fields[0].relation?.collection).toBe("users");
       expect(converted.fields[0].relation?.maxSelect).toBe(1);
       expect(converted.fields[1].relation?.maxSelect).toBe(999);
     });

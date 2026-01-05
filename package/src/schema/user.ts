@@ -5,19 +5,23 @@ import { EmailField, FileField, TextField } from "./fields";
 /** -- User Collections -- */
 // Input schema for forms (includes passwordConfirm for validation)
 export const UserInputSchema = z.object({
-  name: TextField().optional(),
+  name: TextField({ min: 0, max: 255, pattern: "" }).optional(),
   email: EmailField(),
   password: TextField({ min: 8 }),
   passwordConfirm: z.string(),
-  avatar: FileField().optional(),
+  avatar: FileField({
+    mimeTypes: ["image/jpeg", "image/png", "image/svg+xml", "image/gif", "image/webp"],
+  }).optional(),
 });
 
 // Database schema (excludes passwordConfirm, includes avatar as file field)
 export const UserCollectionSchema = z.object({
-  name: TextField().optional(),
+  name: TextField({ min: 0, max: 255, pattern: "" }).optional(),
   email: EmailField(),
   password: TextField({ min: 8 }),
-  avatar: FileField().optional(),
+  avatar: FileField({
+    mimeTypes: ["image/jpeg", "image/png", "image/svg+xml", "image/gif", "image/webp"],
+  }).optional(),
 });
 
 // Full schema with base fields for type inference (used in types.ts)

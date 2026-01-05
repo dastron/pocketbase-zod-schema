@@ -19,11 +19,9 @@ const SNAPSHOT_VERSION = "1.0.0";
  * @returns The collection name, or the original ID if it can't be resolved
  */
 export function resolveCollectionIdToName(collectionId: string): string {
-  // Known PocketBase constants
-  // Note: We return "Users" (title case) for consistency, but this should be
-  // normalized during comparison to handle case differences
+  // Special case: _pb_users_auth_ is the constant for users collection
   if (collectionId === "_pb_users_auth_") {
-    return "Users";
+    return "users";
   }
 
   // Try to extract collection name from expressions like app.findCollectionByNameOrId("Name").id
@@ -35,6 +33,50 @@ export function resolveCollectionIdToName(collectionId: string): string {
   // If we can't resolve it, return the original ID
   // This will cause a comparison issue, but it's better than failing
   return collectionId;
+}
+
+/**
+ * Extracts field options from a PocketBase field object
+ * Options can be placed directly on the field or in a nested options object
+ * Direct properties take precedence over nested options
+ *
+ * @param pbField - PocketBase field object
+ * @returns Merged options object
+ */
+function extractFieldOptions(pbField: any): Record<string, any> {
+  const options: Record<string, any> = {};
+
+  // Start with nested options if present
+  if (pbField.options && typeof pbField.options === "object") {
+    Object.assign(options, pbField.options);
+  }
+
+  // Extract common field options from direct properties
+  // These take precedence over nested options
+  const directOptionKeys = [
+    "min",
+    "max",
+    "pattern",
+    "noDecimal", // text/number fields
+    "values",
+    "maxSelect", // select fields
+    "mimeTypes",
+    "maxSize",
+    "thumbs",
+    "protected", // file fields
+    "onCreate",
+    "onUpdate", // autodate fields
+    "exceptDomains",
+    "onlyDomains", // email/url fields
+  ];
+
+  for (const key of directOptionKeys) {
+    if (pbField[key] !== undefined) {
+      options[key] = pbField[key];
+    }
+  }
+
+  return options;
 }
 
 /**
@@ -72,20 +114,8 @@ export function convertPocketBaseCollection(pbCollection: any): CollectionSchema
         required: pbField.required || false,
       };
 
-      // Initialize options object
-      field.options = pbField.options ? { ...pbField.options } : {};
-
-      // Extract values for select/enum fields (values can be directly on field or in options)
-      // This must be done before cleaning up empty options to ensure values are preserved
-      if (pbField.type === "select") {
-        // Check for values directly on the field first (common in migration files)
-        if (pbField.values && Array.isArray(pbField.values)) {
-          field.options.values = pbField.values;
-        } else if (pbField.options?.values && Array.isArray(pbField.options.values)) {
-          // Already in options, keep it
-          field.options.values = pbField.options.values;
-        }
-      }
+      // Extract options from both direct properties and nested options object
+      field.options = extractFieldOptions(pbField);
 
       // Handle relation fields
       if (pbField.type === "relation") {
@@ -94,13 +124,19 @@ export function convertPocketBaseCollection(pbCollection: any): CollectionSchema
         // Resolve collectionId to collection name
         // collectionId is a system field (like _pb_users_auth_), not the collection name
         // We need to resolve it to the actual collection name for comparison
-        const collectionName = resolveCollectionIdToName(collectionId);
+        const collectionName = resolveCollectionIdToName(collectionId || "");
         field.relation = {
           collection: collectionName,
           cascadeDelete: pbField.cascadeDelete ?? pbField.options?.cascadeDelete ?? false,
           maxSelect: pbField.maxSelect ?? pbField.options?.maxSelect,
           minSelect: pbField.minSelect ?? pbField.options?.minSelect,
         };
+
+        // Remove relation-specific properties from options
+        // These belong in the relation object, not options
+        delete field.options.maxSelect;
+        delete field.options.minSelect;
+        delete field.options.cascadeDelete;
       }
 
       // Clean up empty options object, but preserve values for select fields
@@ -123,21 +159,36 @@ export function convertPocketBaseCollection(pbCollection: any): CollectionSchema
     fields,
   };
 
+  // Preserve collection ID if present (needed for relation resolution)
+  if (pbCollection.id) {
+    schema.id = pbCollection.id;
+  }
+
   // Add indexes if present
   if (pbCollection.indexes && Array.isArray(pbCollection.indexes)) {
     schema.indexes = pbCollection.indexes;
   }
 
   // Add rules/permissions
-  const rules: any = {};
-  if (pbCollection.listRule !== undefined) rules.listRule = pbCollection.listRule;
-  if (pbCollection.viewRule !== undefined) rules.viewRule = pbCollection.viewRule;
-  if (pbCollection.createRule !== undefined) rules.createRule = pbCollection.createRule;
-  if (pbCollection.updateRule !== undefined) rules.updateRule = pbCollection.updateRule;
-  if (pbCollection.deleteRule !== undefined) rules.deleteRule = pbCollection.deleteRule;
-  if (pbCollection.manageRule !== undefined) rules.manageRule = pbCollection.manageRule;
+  // Check if any rule properties exist on the collection object
+  const hasAnyRule =
+    pbCollection.listRule !== undefined ||
+    pbCollection.viewRule !== undefined ||
+    pbCollection.createRule !== undefined ||
+    pbCollection.updateRule !== undefined ||
+    pbCollection.deleteRule !== undefined ||
+    pbCollection.manageRule !== undefined;
 
-  if (Object.keys(rules).length > 0) {
+  if (hasAnyRule) {
+    const rules: any = {};
+    // Include rules even if they're null (null is a valid value)
+    if (pbCollection.listRule !== undefined) rules.listRule = pbCollection.listRule;
+    if (pbCollection.viewRule !== undefined) rules.viewRule = pbCollection.viewRule;
+    if (pbCollection.createRule !== undefined) rules.createRule = pbCollection.createRule;
+    if (pbCollection.updateRule !== undefined) rules.updateRule = pbCollection.updateRule;
+    if (pbCollection.deleteRule !== undefined) rules.deleteRule = pbCollection.deleteRule;
+    if (pbCollection.manageRule !== undefined) rules.manageRule = pbCollection.manageRule;
+
     schema.rules = rules;
     // Also set permissions to match rules (they're the same thing)
     schema.permissions = { ...rules };

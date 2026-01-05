@@ -185,6 +185,7 @@ export interface FileFieldOptions {
   /**
    * Thumbnail sizes to generate
    * Example: ["100x100", "200x200"]
+   * Set to null to explicitly disable thumbnails
    */
   thumbs?: string[];
 

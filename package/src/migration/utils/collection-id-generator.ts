@@ -39,18 +39,20 @@ export class CollectionIdRegistry {
 
   /**
    * Generates a unique collection ID for a given collection name
-   * Special case: Returns constant "_pb_users_auth_" for users collection
    * Retries up to 10 times if collision occurs (extremely rare)
+   * Special case: returns "_pb_users_auth_" for users collection
    *
-   * @param collectionName - The name of the collection
+   * @param collectionName - The name of the collection (optional)
    * @returns A unique collection ID
    * @throws Error if unable to generate unique ID after max attempts
    */
   generate(collectionName?: string): string {
-    // Special case: users collection always uses the constant ID
+    // Special case: users collection always uses the constant
     if (collectionName && collectionName.toLowerCase() === "users") {
       const usersId = "_pb_users_auth_";
-      this.register(usersId);
+      if (!this.has(usersId)) {
+        this.register(usersId);
+      }
       return usersId;
     }
 
