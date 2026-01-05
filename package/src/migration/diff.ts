@@ -1193,18 +1193,6 @@ export class DiffEngine {
    * Compares current schema with previous snapshot
    */
   compare(currentSchema: SchemaDefinition, previousSnapshot: SchemaSnapshot | null): SchemaDiff {
-    // Build lookup map for ID -> Name from previous snapshot
-    // This helps resolve relations where snapshot uses ID but schema uses Name
-    const collectionIdToName = new Map<string, string>();
-    if (previousSnapshot) {
-      for (const [name, collection] of previousSnapshot.collections) {
-        if (collection.id) {
-          collectionIdToName.set(collection.id, name);
-        }
-      }
-    }
-
-    // Find new and removed collections
     return compare(currentSchema, previousSnapshot, this.config);
   }
 

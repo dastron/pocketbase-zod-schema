@@ -72,10 +72,7 @@ describe("Migration Loop Detection", () => {
    * 3. Compares the original schema to the snapshot
    * 4. Returns detailed information about any detected changes
    */
-  function testMigrationRoundTrip(
-    testName: string,
-    collectionSchema: CollectionSchema
-  ): {
+  function testMigrationRoundTrip(collectionSchema: CollectionSchema): {
     success: boolean;
     diff: ReturnType<typeof compare>;
     generatedMigration: string;
@@ -131,7 +128,7 @@ describe("Migration Loop Detection", () => {
    * Asserts that a migration round-trip is idempotent
    */
   function assertIdempotent(testName: string, collectionSchema: CollectionSchema) {
-    const result = testMigrationRoundTrip(testName, collectionSchema);
+    const result = testMigrationRoundTrip(collectionSchema);
 
     if (!result.success) {
       console.error(`\n=== Migration Loop Detected: ${testName} ===`);
