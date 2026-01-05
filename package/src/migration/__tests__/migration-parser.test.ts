@@ -252,7 +252,7 @@ describe("migration-parser", () => {
       expect(result.collectionsToCreate).toHaveLength(1);
       const RelationField = result.collectionsToCreate[0].fields.find((f) => f.type === "relation");
       expect(RelationField).toBeDefined();
-      expect(RelationField?.relation?.collection).toBe("Users");
+      expect(RelationField?.relation?.collection).toBe("users");
     });
 
     it("should handle collection with select field values", () => {

@@ -1167,7 +1167,44 @@ export function generateOperationUpMigration(
     lines.push(generateCollectionDeletion(collectionName, varName, true));
   }
 
-  return lines.join("\n");
+  let code = lines.join("\n");
+
+  // Find the last app.save() or app.delete() call and make it return the result
+  // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
+  const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
+  const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
+
+  const saveMatches = [...code.matchAll(savePattern)];
+  const deleteMatches = [...code.matchAll(deletePattern)];
+
+  // Combine all matches and find the last one by position
+  const allMatches = [
+    ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
+    ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
+  ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+
+  if (allMatches.length > 0) {
+    const lastMatch = allMatches[0];
+    if (lastMatch.type === "save") {
+      code =
+        code.substring(0, lastMatch.match.index!) +
+        lastMatch.match[1] +
+        "return app.save(" +
+        lastMatch.match[2] +
+        ");" +
+        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    } else {
+      code =
+        code.substring(0, lastMatch.match.index!) +
+        lastMatch.match[1] +
+        "return app.delete(" +
+        lastMatch.match[2] +
+        ");" +
+        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    }
+  }
+
+  return code;
 }
 
 /**
@@ -1295,7 +1332,44 @@ export function generateOperationDownMigration(
     }
   }
 
-  return lines.join("\n");
+  let code = lines.join("\n");
+
+  // Find the last app.save() or app.delete() call and make it return the result
+  // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
+  const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
+  const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
+
+  const saveMatches = [...code.matchAll(savePattern)];
+  const deleteMatches = [...code.matchAll(deletePattern)];
+
+  // Combine all matches and find the last one by position
+  const allMatches = [
+    ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
+    ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
+  ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+
+  if (allMatches.length > 0) {
+    const lastMatch = allMatches[0];
+    if (lastMatch.type === "save") {
+      code =
+        code.substring(0, lastMatch.match.index!) +
+        lastMatch.match[1] +
+        "return app.save(" +
+        lastMatch.match[2] +
+        ");" +
+        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    } else {
+      code =
+        code.substring(0, lastMatch.match.index!) +
+        lastMatch.match[1] +
+        "return app.delete(" +
+        lastMatch.match[2] +
+        ");" +
+        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    }
+  }
+
+  return code;
 }
 
 /**

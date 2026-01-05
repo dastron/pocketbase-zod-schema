@@ -692,7 +692,7 @@ migrate((app) => {
           "protected": false,
           "required": false,
           "system": false,
-          "thumbs": null,
+          "thumbs": undefined,
           "type": "file"
         },
         {

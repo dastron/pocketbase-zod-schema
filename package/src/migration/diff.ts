@@ -536,11 +536,6 @@ export function compareRelationConfigurations(
   const normalizeCollection = (collection: string): string => {
     if (!collection) return collection;
 
-    // Handle known PocketBase constants
-    if (collection === "_pb_users_auth_") {
-      return "users"; // Normalize to lowercase "users" to match potential schema usage
-    }
-
     // Resolve ID to name if possible
     if (collectionIdToName && collectionIdToName.has(collection)) {
       return collectionIdToName.get(collection)!;
@@ -559,20 +554,13 @@ export function compareRelationConfigurations(
   const normalizedPrevious = normalizeCollection(previousRelation.collection);
 
   // Only report a change if the normalized values differ
-  // Use normalized values for comparison, but report original values in the change
-  if (normalizedCurrent !== normalizedPrevious) {
-    // Double check if one is "users" and other is "_pb_users_auth_" (case insensitive)
-    const isUsersMismatch =
-      (normalizedCurrent === "users" && normalizedPrevious === "_pb_users_auth_") ||
-      (normalizedCurrent === "_pb_users_auth_" && normalizedPrevious === "users");
-
-    if (!isUsersMismatch) {
-      changes.push({
-        property: "relation.collection",
-        oldValue: previousRelation.collection,
-        newValue: currentRelation.collection,
-      });
-    }
+  // Use case-insensitive comparison for collection names
+  if (normalizedCurrent.toLowerCase() !== normalizedPrevious.toLowerCase()) {
+    changes.push({
+      property: "relation.collection",
+      oldValue: previousRelation.collection,
+      newValue: currentRelation.collection,
+    });
   }
 
   if (currentRelation.cascadeDelete !== previousRelation.cascadeDelete) {
@@ -675,7 +663,12 @@ function compareIndexes(
  * @param previousRules - Previous collection rules
  * @returns Array of rule updates
  */
-function compareRules(currentRules: CollectionSchema["rules"], previousRules: CollectionSchema["rules"]): RuleUpdate[] {
+function compareRules(
+  currentRules: CollectionSchema["rules"],
+  previousRules: CollectionSchema["rules"],
+  currentPermissions?: CollectionSchema["permissions"],
+  previousPermissions?: CollectionSchema["permissions"]
+): RuleUpdate[] {
   const updates: RuleUpdate[] = [];
 
   const ruleTypes: Array<keyof NonNullable<CollectionSchema["rules"]>> = [
@@ -688,8 +681,9 @@ function compareRules(currentRules: CollectionSchema["rules"], previousRules: Co
   ];
 
   for (const ruleType of ruleTypes) {
-    const currentValue = currentRules?.[ruleType] ?? null;
-    const previousValue = previousRules?.[ruleType] ?? null;
+    // Use rules if available, otherwise fall back to permissions (they're the same thing)
+    const currentValue = currentRules?.[ruleType] ?? currentPermissions?.[ruleType] ?? null;
+    const previousValue = previousRules?.[ruleType] ?? previousPermissions?.[ruleType] ?? null;
 
     if (currentValue !== previousValue) {
       updates.push({
@@ -811,8 +805,13 @@ function buildCollectionModification(
   // Compare indexes
   const { indexesToAdd, indexesToRemove } = compareIndexes(currentCollection.indexes, previousCollection.indexes);
 
-  // Compare rules
-  const rulesToUpdate = compareRules(currentCollection.rules, previousCollection.rules);
+  // Compare rules (also check permissions as fallback since they're the same thing)
+  const rulesToUpdate = compareRules(
+    currentCollection.rules,
+    previousCollection.rules,
+    currentCollection.permissions,
+    previousCollection.permissions
+  );
 
   // Compare permissions
   const permissionsToUpdate = comparePermissions(currentCollection.permissions, previousCollection.permissions);
@@ -893,7 +892,7 @@ export function aggregateChanges(
       return collection;
     }
 
-    // Generate a new ID for the collection
+    // Generate a new ID for the collection (pass name for special handling)
     const id = registry.generate(collection.name);
     return {
       ...collection,

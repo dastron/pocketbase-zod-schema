@@ -19,8 +19,8 @@ const __dirname = dirname(__filename);
 
 describe("pocketbase-converter", () => {
   describe("resolveCollectionIdToName", () => {
-    it("should resolve _pb_users_auth_ to Users", () => {
-      expect(resolveCollectionIdToName("_pb_users_auth_")).toBe("Users");
+    it("should resolve _pb_users_auth_ to users", () => {
+      expect(resolveCollectionIdToName("_pb_users_auth_")).toBe("users");
     });
 
     it("should extract collection name from findCollectionByNameOrId expression", () => {
@@ -45,6 +45,526 @@ describe("pocketbase-converter", () => {
   });
 
   describe("convertPocketBaseCollection", () => {
+    describe("extractFieldOptions (via convertPocketBaseCollection)", () => {
+      it("should extract min option from direct field property", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "title",
+              type: "text",
+              required: true,
+              min: 5,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.min).toBe(5);
+      });
+
+      it("should extract max option from direct field property", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "title",
+              type: "text",
+              required: true,
+              max: 100,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.max).toBe(100);
+      });
+
+      it("should extract pattern option from direct field property", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "code",
+              type: "text",
+              required: true,
+              pattern: "^[A-Z]{3}$",
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.pattern).toBe("^[A-Z]{3}$");
+      });
+
+      it("should extract noDecimal option from direct field property", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "count",
+              type: "number",
+              required: true,
+              noDecimal: true,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.noDecimal).toBe(true);
+      });
+
+      it("should extract values option from direct field property for select fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "status",
+              type: "select",
+              required: true,
+              values: ["draft", "published", "archived"],
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.values).toEqual(["draft", "published", "archived"]);
+      });
+
+      it("should extract maxSelect option from direct field property for select fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "tags",
+              type: "select",
+              required: false,
+              maxSelect: 5,
+              values: ["tag1", "tag2", "tag3"],
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.maxSelect).toBe(5);
+      });
+
+      it("should extract mimeTypes option from direct field property for file fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "avatar",
+              type: "file",
+              required: false,
+              mimeTypes: ["image/png", "image/jpeg"],
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.mimeTypes).toEqual(["image/png", "image/jpeg"]);
+      });
+
+      it("should extract maxSize option from direct field property for file fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "document",
+              type: "file",
+              required: false,
+              maxSize: 5242880,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.maxSize).toBe(5242880);
+      });
+
+      it("should extract thumbs option from direct field property for file fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "image",
+              type: "file",
+              required: false,
+              thumbs: ["100x100", "200x200"],
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.thumbs).toEqual(["100x100", "200x200"]);
+      });
+
+      it("should extract protected option from direct field property for file fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "private_file",
+              type: "file",
+              required: false,
+              protected: true,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.protected).toBe(true);
+      });
+
+      it("should extract onCreate option from direct field property for autodate fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "created_at",
+              type: "autodate",
+              required: false,
+              onCreate: true,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.onCreate).toBe(true);
+      });
+
+      it("should extract onUpdate option from direct field property for autodate fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "updated_at",
+              type: "autodate",
+              required: false,
+              onUpdate: true,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.onUpdate).toBe(true);
+      });
+
+      it("should extract exceptDomains option from direct field property for email/url fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "email",
+              type: "email",
+              required: false,
+              exceptDomains: ["spam.com", "blocked.com"],
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.exceptDomains).toEqual(["spam.com", "blocked.com"]);
+      });
+
+      it("should extract onlyDomains option from direct field property for email/url fields", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "corporate_email",
+              type: "email",
+              required: false,
+              onlyDomains: ["company.com", "corp.com"],
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.onlyDomains).toEqual(["company.com", "corp.com"]);
+      });
+
+      it("should extract multiple options from direct field properties", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "title",
+              type: "text",
+              required: true,
+              min: 5,
+              max: 100,
+              pattern: "^[A-Za-z]",
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.min).toBe(5);
+        expect(result.fields[0].options?.max).toBe(100);
+        expect(result.fields[0].options?.pattern).toBe("^[A-Za-z]");
+      });
+
+      it("should merge nested options with direct properties", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "title",
+              type: "text",
+              required: true,
+              min: 5,
+              options: {
+                max: 100,
+                customOption: "value",
+              },
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.min).toBe(5);
+        expect(result.fields[0].options?.max).toBe(100);
+        expect(result.fields[0].options?.customOption).toBe("value");
+      });
+
+      it("should give precedence to direct properties over nested options", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "title",
+              type: "text",
+              required: true,
+              min: 10, // Direct property
+              options: {
+                min: 5, // Nested option (should be overridden)
+                max: 100,
+              },
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.min).toBe(10); // Direct property wins
+        expect(result.fields[0].options?.max).toBe(100);
+      });
+
+      it("should handle empty options object", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "simple",
+              type: "text",
+              required: false,
+              options: {},
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        // Empty options should be cleaned up
+        expect(result.fields[0].options).toBeUndefined();
+      });
+
+      it("should handle null options", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "simple",
+              type: "text",
+              required: false,
+              options: null,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        // Null options should result in no options
+        expect(result.fields[0].options).toBeUndefined();
+      });
+
+      it("should handle undefined options", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "simple",
+              type: "text",
+              required: false,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        // No options should result in no options
+        expect(result.fields[0].options).toBeUndefined();
+      });
+
+      it("should handle undefined direct property values", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "title",
+              type: "text",
+              required: false,
+              min: undefined,
+              max: undefined,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        // Undefined values should not be included in options
+        expect(result.fields[0].options).toBeUndefined();
+      });
+
+      it("should preserve zero values in options", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "count",
+              type: "number",
+              required: false,
+              min: 0,
+              max: 0,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.min).toBe(0);
+        expect(result.fields[0].options?.max).toBe(0);
+      });
+
+      it("should preserve false values in options", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "count",
+              type: "number",
+              required: false,
+              noDecimal: false,
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.noDecimal).toBe(false);
+      });
+
+      it("should preserve empty string values in options", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "title",
+              type: "text",
+              required: false,
+              pattern: "",
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.pattern).toBe("");
+      });
+
+      it("should preserve empty array values in options", () => {
+        const pbCollection = {
+          name: "test",
+          type: "base",
+          fields: [
+            {
+              name: "tags",
+              type: "select",
+              required: false,
+              values: [],
+            },
+          ],
+        };
+
+        const result = convertPocketBaseCollection(pbCollection);
+
+        expect(result.fields[0].options).toBeDefined();
+        expect(result.fields[0].options?.values).toEqual([]);
+      });
+    });
+
     it("should convert a minimal collection", () => {
       const pbCollection = {
         name: "test_collection",
@@ -221,7 +741,7 @@ describe("pocketbase-converter", () => {
         type: "relation",
         required: true,
         relation: {
-          collection: "Users",
+          collection: "users",
           cascadeDelete: false,
           maxSelect: 1,
           minSelect: 0,
@@ -251,7 +771,7 @@ describe("pocketbase-converter", () => {
       const result = convertPocketBaseCollection(pbCollection);
 
       expect(result.fields).toHaveLength(1);
-      expect(result.fields[0].relation?.collection).toBe("Users");
+      expect(result.fields[0].relation?.collection).toBe("users");
       expect(result.fields[0].relation?.cascadeDelete).toBe(true);
     });
 
