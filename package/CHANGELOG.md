@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.0...pocketbase-zod-schema-v0.3.1) (2026-01-05)
+
+
+### Bug Fixes
+
+* add collection id ([2ee0808](https://github.com/dastron/pocketbase-zod-schema/commit/2ee08082f5a27b76a277e37427ba16011046a1cc))
+* Add Collection Id on Create ([c911b94](https://github.com/dastron/pocketbase-zod-schema/commit/c911b946b34317387bce06a70ad14f3718658a11))
+
 ## [0.3.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.2.5...pocketbase-zod-schema-v0.3.0) (2026-01-04)
 
 
