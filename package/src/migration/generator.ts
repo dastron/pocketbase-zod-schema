@@ -856,7 +856,8 @@ export function generateFieldModification(
   collectionName: string,
   modification: FieldModification,
   varName?: string,
-  isLast: boolean = false
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${modification.fieldName}`;
@@ -881,9 +882,17 @@ export function generateFieldModification(
         // Special handling for collection ID
         // Use case-insensitive check for "users" to handle both explicit and implicit relation definitions
         const isUsersCollection = String(change.newValue).toLowerCase() === "users";
-        const collectionIdValue = isUsersCollection
-          ? '"_pb_users_auth_"'
-          : `app.findCollectionByNameOrId("${change.newValue}").id`;
+        let collectionIdValue: string;
+
+        if (isUsersCollection) {
+          collectionIdValue = '"_pb_users_auth_"';
+        } else if (collectionIdMap && collectionIdMap.has(String(change.newValue))) {
+          // Use pre-generated ID from map (for existing collections)
+          collectionIdValue = `"${collectionIdMap.get(String(change.newValue))}"`;
+        } else {
+          // Fall back to runtime lookup (should not happen if snapshot is properly loaded)
+          collectionIdValue = `app.findCollectionByNameOrId("${change.newValue}").id`;
+        }
         lines.push(`  ${fieldVar}.collectionId = ${collectionIdValue};`);
       } else {
         lines.push(`  ${fieldVar}.${relationKey} = ${formatValue(change.newValue)};`);
@@ -1095,9 +1104,10 @@ export function generateOperationUpMigration(
       modification.permissionsToUpdate.length;
 
     // Add new fields
-    for (const field of modification.fieldsToAdd) {
+    for (let i = 0; i < modification.fieldsToAdd.length; i++) {
+      const field = modification.fieldsToAdd[i];
       operationCount++;
-      const varName = `collection_${collectionName}_add_${field.name}`;
+      const varName = `collection_${collectionName}_add_${field.name}_${i}`;
       const isLast = operationCount === totalOperations;
       lines.push(generateFieldAddition(collectionName, field, varName, isLast, collectionIdMap));
       if (!isLast) lines.push("");
@@ -1108,7 +1118,7 @@ export function generateOperationUpMigration(
       operationCount++;
       const varName = `collection_${collectionName}_modify_${fieldMod.fieldName}`;
       const isLast = operationCount === totalOperations;
-      lines.push(generateFieldModification(collectionName, fieldMod, varName, isLast));
+      lines.push(generateFieldModification(collectionName, fieldMod, varName, isLast, collectionIdMap));
       if (!isLast) lines.push("");
     }
 
@@ -1397,12 +1407,18 @@ export function generateUpMigration(diff: SchemaDiff): string {
   lines.push(`  // UP MIGRATION`);
   lines.push(``);
 
-  // Build collection ID map from collections being created
+  // Build collection ID map from collections being created and existing collections
   // This map will be used to resolve relation field references
   const collectionIdMap = new Map<string, string>();
   for (const collection of diff.collectionsToCreate) {
     if (collection.id) {
       collectionIdMap.set(collection.name, collection.id);
+    }
+  }
+  // Add existing collection IDs from snapshot (for relation fields referencing existing collections)
+  if (diff.existingCollectionIds) {
+    for (const [name, id] of diff.existingCollectionIds) {
+      collectionIdMap.set(name, id);
     }
   }
 
@@ -1425,8 +1441,9 @@ export function generateUpMigration(diff: SchemaDiff): string {
       // Add new fields
       if (modification.fieldsToAdd.length > 0) {
         lines.push(`  // Add fields to ${collectionName}`);
-        for (const field of modification.fieldsToAdd) {
-          const varName = `collection_${collectionName}_add_${field.name}`;
+        for (let i = 0; i < modification.fieldsToAdd.length; i++) {
+          const field = modification.fieldsToAdd[i];
+          const varName = `collection_${collectionName}_add_${field.name}_${i}`;
           lines.push(generateFieldAddition(collectionName, field, varName, false, collectionIdMap));
           lines.push(``);
         }
@@ -1437,7 +1454,7 @@ export function generateUpMigration(diff: SchemaDiff): string {
         lines.push(`  // Modify fields in ${collectionName}`);
         for (const fieldMod of modification.fieldsToModify) {
           const varName = `collection_${collectionName}_modify_${fieldMod.fieldName}`;
-          lines.push(generateFieldModification(collectionName, fieldMod, varName));
+          lines.push(generateFieldModification(collectionName, fieldMod, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1582,6 +1599,12 @@ export function generateDownMigration(diff: SchemaDiff): string {
   for (const collection of diff.collectionsToDelete) {
     if (collection.id) {
       collectionIdMap.set(collection.name, collection.id);
+    }
+  }
+  // Add existing collection IDs from snapshot (for relation fields referencing existing collections)
+  if (diff.existingCollectionIds) {
+    for (const [name, id] of diff.existingCollectionIds) {
+      collectionIdMap.set(name, id);
     }
   }
 
@@ -1786,6 +1809,12 @@ export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | st
     for (const collection of diff.collectionsToDelete) {
       if (collection.id) {
         collectionIdMap.set(collection.name, collection.id);
+      }
+    }
+    // Add existing collection IDs from snapshot (for relation fields referencing existing collections)
+    if (diff.existingCollectionIds) {
+      for (const [name, id] of diff.existingCollectionIds) {
+        collectionIdMap.set(name, id);
       }
     }
 

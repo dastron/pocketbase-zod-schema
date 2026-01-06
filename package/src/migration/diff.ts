@@ -914,10 +914,22 @@ export function aggregateChanges(
     }
   }
 
+  // Build map of existing collection names to their IDs from the snapshot
+  // This is used by the generator to resolve relation field references
+  const existingCollectionIds = new Map<string, string>();
+  if (previousSnapshot) {
+    for (const [name, collection] of previousSnapshot.collections) {
+      if (collection.id) {
+        existingCollectionIds.set(name, collection.id);
+      }
+    }
+  }
+
   return {
     collectionsToCreate: collectionsWithIds,
     collectionsToDelete: filteredCollectionsToDelete,
     collectionsToModify,
+    existingCollectionIds,
   };
 }
 

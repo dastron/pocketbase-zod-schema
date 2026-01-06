@@ -692,6 +692,283 @@ describe("Migration Loop Detection", () => {
     });
   });
 
+  describe("Relation Field to Existing Collection", () => {
+    /**
+     * Test case for the critical bug where adding a relation field to an existing collection
+     * that references another existing collection should use the actual collection ID
+     * from the snapshot, not app.findCollectionByNameOrId().id
+     *
+     * This test simulates:
+     * 1. First migration: Create "Files" collection
+     * 2. Second migration: Add "Media" collection with relation to "Files"
+     * 3. Verify the relation uses the actual collection ID from the first migration
+     */
+    it("should use existing collection ID when adding relation field to existing collection", () => {
+      // Step 1: Create initial schema with "Files" collection
+      const filesCollection: CollectionSchema = {
+        name: "Files",
+        type: "base",
+        fields: [
+          {
+            name: "name",
+            type: "text",
+            required: true,
+          },
+        ],
+      };
+
+      const initialSchema = createSchemaDefinition(filesCollection);
+      const initialDiff = compare(initialSchema, null);
+      const initialMigrationPaths = generate(initialDiff, tempDir);
+      expect(initialMigrationPaths.length).toBeGreaterThan(0);
+      generatedFiles.push(...initialMigrationPaths);
+
+      // Step 2: Parse the first migration to get the Files collection ID
+      const firstMigrationContent = fs.readFileSync(initialMigrationPaths[0], "utf-8");
+      const firstOperations = parseMigrationOperations(firstMigrationContent);
+      expect(firstOperations.collectionsToCreate.length).toBeGreaterThan(0);
+
+      const filesCollectionFromMigration = firstOperations.collectionsToCreate.find((c) => c.name === "Files");
+      expect(filesCollectionFromMigration).toBeDefined();
+      expect(filesCollectionFromMigration?.id).toBeDefined();
+      const filesCollectionId = filesCollectionFromMigration!.id!;
+
+      // Step 3: Create snapshot from first migration
+      const snapshot: SchemaSnapshot = {
+        version: "1.0.0",
+        timestamp: new Date().toISOString(),
+        collections: new Map<string, CollectionSchema>(),
+      };
+
+      for (const collection of firstOperations.collectionsToCreate) {
+        snapshot.collections.set(collection.name, collection);
+      }
+      snapshot.collections.set("users", { name: "users", type: "auth", fields: [] } as CollectionSchema);
+
+      // Step 4: Create schema with "Media" collection that has relation to "Files"
+      const mediaCollection: CollectionSchema = {
+        name: "Media",
+        type: "base",
+        fields: [
+          {
+            name: "title",
+            type: "text",
+            required: true,
+          },
+          {
+            name: "proxyFileRef",
+            type: "relation",
+            required: false,
+            relation: {
+              collection: "Files",
+              maxSelect: 1,
+              minSelect: 0,
+              cascadeDelete: false,
+            },
+          },
+        ],
+      };
+
+      const updatedSchema: SchemaDefinition = {
+        collections: new Map([
+          ["Files", filesCollectionFromMigration!],
+          ["Media", mediaCollection],
+          ["users", { name: "users", type: "auth", fields: [] } as CollectionSchema],
+        ]),
+      };
+
+      // Step 5: Generate second migration (adding Media collection with relation to Files)
+      const secondDiff = compare(updatedSchema, snapshot);
+      expect(secondDiff.collectionsToCreate.length).toBeGreaterThan(0);
+
+      const secondMigrationPaths = generate(secondDiff, tempDir);
+      expect(secondMigrationPaths.length).toBeGreaterThan(0);
+      generatedFiles.push(...secondMigrationPaths);
+
+      // Step 6: Verify the generated migration uses the actual collection ID
+      const secondMigrationContent = fs.readFileSync(secondMigrationPaths[0], "utf-8");
+
+      // The migration should use the actual collection ID, not app.findCollectionByNameOrId("Files").id
+      expect(secondMigrationContent).toContain(`collectionId: "${filesCollectionId}"`);
+      expect(secondMigrationContent).not.toContain('app.findCollectionByNameOrId("Files").id');
+
+      // Step 7: Parse the second migration and verify idempotency
+      const secondOperations = parseMigrationOperations(secondMigrationContent);
+      const updatedSnapshot: SchemaSnapshot = {
+        version: "1.0.0",
+        timestamp: new Date().toISOString(),
+        collections: new Map(snapshot.collections),
+      };
+
+      for (const collection of secondOperations.collectionsToCreate) {
+        updatedSnapshot.collections.set(collection.name, collection);
+      }
+
+      // Step 8: Compare again - should show no changes
+      const finalDiff = compare(updatedSchema, updatedSnapshot);
+      expect(finalDiff.collectionsToCreate).toHaveLength(0);
+      expect(finalDiff.collectionsToModify).toHaveLength(0);
+      expect(finalDiff.collectionsToDelete).toHaveLength(0);
+    });
+
+    /**
+     * Test case for adding a relation field to an existing collection
+     * This simulates the exact scenario from the user's bug report
+     */
+    it("should handle adding relation field to existing collection without migration loop", () => {
+      // Step 1: Create initial schema with "Files" and "Media" collections (without relation)
+      const filesCollection: CollectionSchema = {
+        name: "Files",
+        type: "base",
+        fields: [
+          {
+            name: "name",
+            type: "text",
+            required: true,
+          },
+        ],
+      };
+
+      const mediaCollectionInitial: CollectionSchema = {
+        name: "Media",
+        type: "base",
+        fields: [
+          {
+            name: "title",
+            type: "text",
+            required: true,
+          },
+        ],
+      };
+
+      const initialSchema = createSchemaDefinition(filesCollection);
+      const initialDiff = compare(initialSchema, null);
+      const initialMigrationPaths = generate(initialDiff, tempDir);
+      expect(initialMigrationPaths.length).toBeGreaterThan(0);
+      generatedFiles.push(...initialMigrationPaths);
+
+      // Parse first migration to get collection IDs
+      const firstMigrationContent = fs.readFileSync(initialMigrationPaths[0], "utf-8");
+      const firstOperations = parseMigrationOperations(firstMigrationContent);
+
+      const snapshot: SchemaSnapshot = {
+        version: "1.0.0",
+        timestamp: new Date().toISOString(),
+        collections: new Map<string, CollectionSchema>(),
+      };
+
+      for (const collection of firstOperations.collectionsToCreate) {
+        snapshot.collections.set(collection.name, collection);
+      }
+      snapshot.collections.set("users", { name: "users", type: "auth", fields: [] } as CollectionSchema);
+
+      // Step 2: Add Media collection
+      const mediaDiff = compare(
+        {
+          collections: new Map([...Array.from(snapshot.collections), ["Media", mediaCollectionInitial]]),
+        },
+        snapshot
+      );
+      const mediaMigrationPaths = generate(mediaDiff, tempDir);
+      expect(mediaMigrationPaths.length).toBeGreaterThan(0);
+      generatedFiles.push(...mediaMigrationPaths);
+
+      const mediaMigrationContent = fs.readFileSync(mediaMigrationPaths[0], "utf-8");
+      const mediaOperations = parseMigrationOperations(mediaMigrationContent);
+
+      const snapshotWithMedia: SchemaSnapshot = {
+        version: "1.0.0",
+        timestamp: new Date().toISOString(),
+        collections: new Map(snapshot.collections),
+      };
+
+      for (const collection of mediaOperations.collectionsToCreate) {
+        snapshotWithMedia.collections.set(collection.name, collection);
+      }
+
+      const filesCollectionFromSnapshot = snapshotWithMedia.collections.get("Files");
+      expect(filesCollectionFromSnapshot).toBeDefined();
+      expect(filesCollectionFromSnapshot?.id).toBeDefined();
+      const filesCollectionId = filesCollectionFromSnapshot!.id!;
+
+      // Step 3: Add relation field to Media collection
+      const mediaCollectionWithRelation: CollectionSchema = {
+        name: "Media",
+        type: "base",
+        fields: [
+          {
+            name: "title",
+            type: "text",
+            required: true,
+          },
+          {
+            name: "proxyFileRef",
+            type: "relation",
+            required: false,
+            relation: {
+              collection: "Files",
+              maxSelect: 1,
+              minSelect: 0,
+              cascadeDelete: false,
+            },
+          },
+        ],
+      };
+
+      const updatedSchema: SchemaDefinition = {
+        collections: new Map([...Array.from(snapshotWithMedia.collections), ["Media", mediaCollectionWithRelation]]),
+      };
+
+      const relationDiff = compare(updatedSchema, snapshotWithMedia);
+      expect(relationDiff.collectionsToModify.length).toBeGreaterThan(0);
+      expect(relationDiff.collectionsToModify[0].fieldsToAdd.length).toBe(1);
+
+      const relationMigrationPaths = generate(relationDiff, tempDir);
+      expect(relationMigrationPaths.length).toBeGreaterThan(0);
+      generatedFiles.push(...relationMigrationPaths);
+
+      // Step 4: Verify the migration uses the actual collection ID
+      const relationMigrationContent = fs.readFileSync(relationMigrationPaths[0], "utf-8");
+      expect(relationMigrationContent).toContain(`collectionId: "${filesCollectionId}"`);
+      expect(relationMigrationContent).not.toContain('app.findCollectionByNameOrId("Files").id');
+
+      // Step 5: Verify idempotency
+      const finalSnapshot: SchemaSnapshot = {
+        version: "1.0.0",
+        timestamp: new Date().toISOString(),
+        collections: new Map(snapshotWithMedia.collections),
+      };
+
+      // Apply the modification to the snapshot
+      const mediaCollectionInSnapshot = finalSnapshot.collections.get("Media");
+      if (mediaCollectionInSnapshot) {
+        const updatedMediaCollection: CollectionSchema = {
+          ...mediaCollectionInSnapshot,
+          fields: [
+            ...mediaCollectionInSnapshot.fields,
+            {
+              name: "proxyFileRef",
+              type: "relation",
+              required: false,
+              relation: {
+                collection: "Files",
+                maxSelect: 1,
+                minSelect: 0,
+                cascadeDelete: false,
+              },
+            },
+          ],
+        };
+        finalSnapshot.collections.set("Media", updatedMediaCollection);
+      }
+
+      const finalDiff = compare(updatedSchema, finalSnapshot);
+      expect(finalDiff.collectionsToCreate).toHaveLength(0);
+      expect(finalDiff.collectionsToModify).toHaveLength(0);
+      expect(finalDiff.collectionsToDelete).toHaveLength(0);
+    });
+  });
+
   describe("Edge Cases", () => {
     it("should handle empty options object", () => {
       assertIdempotent("empty-options", {

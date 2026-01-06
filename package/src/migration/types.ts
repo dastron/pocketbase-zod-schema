@@ -107,6 +107,11 @@ export interface SchemaDiff {
   collectionsToCreate: CollectionSchema[];
   collectionsToDelete: any[];
   collectionsToModify: CollectionModification[];
+  /**
+   * Map of existing collection names to their IDs from the previous snapshot
+   * Used to resolve relation field references to existing collections
+   */
+  existingCollectionIds?: Map<string, string>;
 }
 
 /**
