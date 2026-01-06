@@ -391,6 +391,7 @@ function formatValue(value: any): string {
 
   if (typeof value === "object") {
     const entries = Object.entries(value)
+      .filter(([k, v]) => v !== undefined) // Omit undefined values
       .map(([k, v]) => `${k}: ${formatValue(v)}`)
       .join(", ");
     return `{ ${entries} }`;
