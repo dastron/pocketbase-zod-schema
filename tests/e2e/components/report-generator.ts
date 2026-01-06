@@ -114,7 +114,7 @@ export class ReportGeneratorImpl implements ReportGenerator {
 
     try {
       const timestamp = new Date().toISOString();
-      const pocketbaseVersion = process.env.PB_VERSION || '0.34.2';
+      const pocketbaseVersion = process.env.PB_VERSION || '0.35.0';
       const libraryVersion = await this.getLibraryVersion();
 
       // Convert test results to scenario results

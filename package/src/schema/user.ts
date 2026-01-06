@@ -31,7 +31,7 @@ export const UserSchema = UserCollectionSchema.extend(baseSchema);
 // Matches PocketBase's default users collection configuration
 // Using default export - the migration tool will automatically use this
 const UserCollection = defineCollection({
-  collectionName: "users",
+  collectionName: "Users",
   type: "auth",
   schema: UserSchema,
   permissions: {

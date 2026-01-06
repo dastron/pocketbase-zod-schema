@@ -45,16 +45,16 @@ describe('PBDownloader', () => {
   }, 120000);
 
   it('should generate correct path for different versions', () => {
-    const path1 = downloader.getPocketBasePath('0.34.2');
+    const path1 = downloader.getPocketBasePath('0.35.0');
     const path2 = downloader.getPocketBasePath('0.35.0');
     
-    expect(path1).toContain('0.34.2');
+    expect(path1).toContain('0.35.0');
     expect(path2).toContain('0.35.0');
     expect(path1).not.toBe(path2);
   });
 
   it('should handle platform-specific executable names', () => {
-    const path = downloader.getPocketBasePath('0.34.2');
+    const path = downloader.getPocketBasePath('0.35.0');
     
     if (process.platform === 'win32') {
       expect(path).toMatch(/pocketbase\.exe$/);

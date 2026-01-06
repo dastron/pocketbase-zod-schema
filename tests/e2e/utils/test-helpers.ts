@@ -137,7 +137,7 @@ export async function retry<T>(
  */
 export const env = {
   getPbVersion(): string {
-    return process.env.PB_VERSION || '0.34.2';
+    return process.env.PB_VERSION || '0.35.0';
   },
   
   getWorkspaceDir(): string {

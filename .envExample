@@ -1,5 +1,5 @@
 # PocketBase
-PB_VERSION=0.34.2
+PB_VERSION=0.35.0
 
 # E2E Test Configuration
 # E2E_ENABLED_CATEGORIES=basic,field-types,indexes,rules,auth,relations,updates

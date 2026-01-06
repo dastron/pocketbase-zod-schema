@@ -59,7 +59,7 @@ cp tests/e2e/.env.example tests/e2e/.env
 ```
 
 Key environment variables:
-- `PB_VERSION`: PocketBase version to test against (default: 0.34.2)
+- `PB_VERSION`: PocketBase version to test against (default: 0.35.0)
 - `E2E_WORKSPACE_DIR`: Directory for temporary test workspaces
 - `E2E_LOG_LEVEL`: Logging verbosity (debug, info, warn, error)
 - `E2E_PORT_START/END`: Port range for test PocketBase instances
@@ -110,7 +110,7 @@ import { PBDownloader } from '../components/pb-downloader';
 describe('PBDownloader', () => {
   it('should download and cache PocketBase executable', async () => {
     const downloader = new PBDownloader();
-    const path = await downloader.downloadPocketBase('0.34.2');
+    const path = await downloader.downloadPocketBase('0.35.0');
     
     expect(path).toBeTruthy();
     expect(await downloader.verifyExecutable(path)).toBe(true);

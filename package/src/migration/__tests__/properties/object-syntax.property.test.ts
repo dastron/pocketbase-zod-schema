@@ -337,11 +337,12 @@ describe("Object Syntax Property Tests", () => {
             const content = fs.readFileSync(migrationFiles[0], "utf-8");
             const parseResult = parseJavaScript(content);
 
-            expect(parseResult.success).toBe(true);
             if (!parseResult.success) {
               console.error("Parse error:", parseResult.error);
-              console.error("Permissions:", permissions);
+              console.error("Permissions:", JSON.stringify(permissions, null, 2));
+              console.error("Generated code snippet:", content.substring(0, 1000));
             }
+            expect(parseResult.success).toBe(true);
           }
         ),
         { numRuns: 30 }

@@ -63,7 +63,7 @@ export default defineConfig({
     // Environment variables for E2E tests
     env: {
       // PocketBase version for testing
-      PB_VERSION: process.env.PB_VERSION || '0.34.2',
+      PB_VERSION: process.env.PB_VERSION || '0.35.0',
       
       // Test workspace directory
       E2E_WORKSPACE_DIR: process.env.E2E_WORKSPACE_DIR || './tests/e2e/workspaces',

@@ -53,8 +53,8 @@ describe("User Schema Snapshot Alignment", () => {
     expect(diff.collectionsToModify).toHaveLength(0);
 
     // Verify the users collection exists in both
-    const userSchema = currentSchema.collections.get("users");
-    const userSnapshot = previousSnapshot.collections.get("users");
+    const userSchema = currentSchema.collections.get("Users");
+    const userSnapshot = previousSnapshot.collections.get("Users");
 
     expect(userSchema).toBeDefined();
     expect(userSnapshot).toBeDefined();
@@ -76,6 +76,6 @@ describe("User Schema Snapshot Alignment", () => {
     // Verify that UserCollection was correctly identified and used
     // The schema should have been extracted from the default export
     expect(userSchema).toBeDefined();
-    expect(userSchema?.name).toBe("users");
+    expect(userSchema?.name).toBe("Users");
   });
 });

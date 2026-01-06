@@ -19,7 +19,7 @@ function getPocketBaseVersion() {
   } catch (error) {
     console.warn('⚠️  Could not read PB_VERSION from .env file');
   }
-  return '0.34.2'; // fallback version
+  return '0.35.0'; // fallback version
 }
 
 const POCKETBASE_VERSION = getPocketBaseVersion();
