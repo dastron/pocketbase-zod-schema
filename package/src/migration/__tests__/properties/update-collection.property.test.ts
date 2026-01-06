@@ -202,7 +202,7 @@ describe("Collection Update Property Tests", () => {
 
   // Feature: migration-test-suite, Property 7: Field removal format
   describe("Property 7: Field removal format", () => {
-    it("should use collection.fields.remove() for any field removed from an existing collection", () => {
+    it("should use collection.fields.removeByName() for any field removed from an existing collection", () => {
       fc.assert(
         fc.property(collectionSchemaArb, (baseCollection) => {
           // Ensure the collection has at least one field to remove
@@ -239,8 +239,7 @@ describe("Collection Update Property Tests", () => {
             const migrationContent = fs.readFileSync(generatedPath, "utf-8");
 
             // Should contain field removal code
-            expect(migrationContent).toContain("fields.remove");
-            expect(migrationContent).toContain(fieldToRemove.name);
+            expect(migrationContent).toContain(`fields.removeByName("${fieldToRemove.name}")`);
 
             // Clean up
             fs.unlinkSync(generatedPath);

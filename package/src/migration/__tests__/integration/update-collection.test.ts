@@ -123,7 +123,7 @@ describe("Collection Update Integration Tests", () => {
   });
 
   describe("6.5 Removing field from collection", () => {
-    it("should generate migration using collection.fields.remove() for field removal", () => {
+    it("should generate migration using collection.fields.removeByName() for field removal", () => {
       // Create before state with a field
       const beforeCollectionSchema: any = {
         name: "test_field_removal",
@@ -188,8 +188,7 @@ describe("Collection Update Integration Tests", () => {
 
       // Verify field removal is present in migration
       const migrationContent = fs.readFileSync(generatedPath, "utf-8");
-      expect(migrationContent).toContain("fields.remove");
-      expect(migrationContent).toContain("field_to_remove");
+      expect(migrationContent).toContain('fields.removeByName("field_to_remove")');
     });
   });
 

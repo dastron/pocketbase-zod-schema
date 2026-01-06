@@ -916,12 +916,10 @@ export function generateFieldDeletion(
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${fieldName}`;
-  const fieldVar = `${collectionVar}_field`;
 
   lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
-  lines.push(`  const ${fieldVar} = ${collectionVar}.fields.getByName("${fieldName}");`);
   lines.push(``);
-  lines.push(`  ${collectionVar}.fields.remove(${fieldVar}.id);`);
+  lines.push(`  ${collectionVar}.fields.removeByName("${fieldName}");`);
   lines.push(``);
   lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
@@ -1169,38 +1167,44 @@ export function generateOperationUpMigration(
 
   let code = lines.join("\n");
 
-  // Find the last app.save() or app.delete() call and make it return the result
-  // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
-  const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
-  const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
+  // Check if there's already a return statement in the code
+  // If so, skip post-processing to avoid duplicate returns
+  const hasReturnStatement = /return\s+app\.(save|delete)\(/m.test(code);
 
-  const saveMatches = [...code.matchAll(savePattern)];
-  const deleteMatches = [...code.matchAll(deletePattern)];
+  if (!hasReturnStatement) {
+    // Find the last app.save() or app.delete() call and make it return the result
+    // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
+    const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
+    const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
 
-  // Combine all matches and find the last one by position
-  const allMatches = [
-    ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
-    ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
-  ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+    const saveMatches = [...code.matchAll(savePattern)];
+    const deleteMatches = [...code.matchAll(deletePattern)];
 
-  if (allMatches.length > 0) {
-    const lastMatch = allMatches[0];
-    if (lastMatch.type === "save") {
-      code =
-        code.substring(0, lastMatch.match.index!) +
-        lastMatch.match[1] +
-        "return app.save(" +
-        lastMatch.match[2] +
-        ");" +
-        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
-    } else {
-      code =
-        code.substring(0, lastMatch.match.index!) +
-        lastMatch.match[1] +
-        "return app.delete(" +
-        lastMatch.match[2] +
-        ");" +
-        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    // Combine all matches and find the last one by position
+    const allMatches = [
+      ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
+      ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
+    ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+
+    if (allMatches.length > 0) {
+      const lastMatch = allMatches[0];
+      if (lastMatch.type === "save") {
+        code =
+          code.substring(0, lastMatch.match.index!) +
+          lastMatch.match[1] +
+          "return app.save(" +
+          lastMatch.match[2] +
+          ");" +
+          code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+      } else {
+        code =
+          code.substring(0, lastMatch.match.index!) +
+          lastMatch.match[1] +
+          "return app.delete(" +
+          lastMatch.match[2] +
+          ");" +
+          code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+      }
     }
   }
 
@@ -1334,38 +1338,44 @@ export function generateOperationDownMigration(
 
   let code = lines.join("\n");
 
-  // Find the last app.save() or app.delete() call and make it return the result
-  // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
-  const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
-  const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
+  // Check if there's already a return statement in the code
+  // If so, skip post-processing to avoid duplicate returns
+  const hasReturnStatement = /return\s+app\.(save|delete)\(/m.test(code);
 
-  const saveMatches = [...code.matchAll(savePattern)];
-  const deleteMatches = [...code.matchAll(deletePattern)];
+  if (!hasReturnStatement) {
+    // Find the last app.save() or app.delete() call and make it return the result
+    // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
+    const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
+    const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
 
-  // Combine all matches and find the last one by position
-  const allMatches = [
-    ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
-    ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
-  ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+    const saveMatches = [...code.matchAll(savePattern)];
+    const deleteMatches = [...code.matchAll(deletePattern)];
 
-  if (allMatches.length > 0) {
-    const lastMatch = allMatches[0];
-    if (lastMatch.type === "save") {
-      code =
-        code.substring(0, lastMatch.match.index!) +
-        lastMatch.match[1] +
-        "return app.save(" +
-        lastMatch.match[2] +
-        ");" +
-        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
-    } else {
-      code =
-        code.substring(0, lastMatch.match.index!) +
-        lastMatch.match[1] +
-        "return app.delete(" +
-        lastMatch.match[2] +
-        ");" +
-        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    // Combine all matches and find the last one by position
+    const allMatches = [
+      ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
+      ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
+    ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+
+    if (allMatches.length > 0) {
+      const lastMatch = allMatches[0];
+      if (lastMatch.type === "save") {
+        code =
+          code.substring(0, lastMatch.match.index!) +
+          lastMatch.match[1] +
+          "return app.save(" +
+          lastMatch.match[2] +
+          ");" +
+          code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+      } else {
+        code =
+          code.substring(0, lastMatch.match.index!) +
+          lastMatch.match[1] +
+          "return app.delete(" +
+          lastMatch.match[2] +
+          ");" +
+          code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+      }
     }
   }
 
@@ -1501,38 +1511,44 @@ export function generateUpMigration(diff: SchemaDiff): string {
 
   let code = lines.join("\n");
 
-  // Find the last app.save() or app.delete() call and make it return the result
-  // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
-  const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
-  const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
+  // Check if there's already a return statement in the code
+  // If so, skip post-processing to avoid duplicate returns
+  const hasReturnStatement = /return\s+app\.(save|delete)\(/m.test(code);
 
-  const saveMatches = [...code.matchAll(savePattern)];
-  const deleteMatches = [...code.matchAll(deletePattern)];
+  if (!hasReturnStatement) {
+    // Find the last app.save() or app.delete() call and make it return the result
+    // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
+    const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
+    const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
 
-  // Combine all matches and find the last one by position
-  const allMatches = [
-    ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
-    ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
-  ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+    const saveMatches = [...code.matchAll(savePattern)];
+    const deleteMatches = [...code.matchAll(deletePattern)];
 
-  if (allMatches.length > 0) {
-    const lastMatch = allMatches[0];
-    if (lastMatch.type === "save") {
-      code =
-        code.substring(0, lastMatch.match.index!) +
-        lastMatch.match[1] +
-        "return app.save(" +
-        lastMatch.match[2] +
-        ");" +
-        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
-    } else {
-      code =
-        code.substring(0, lastMatch.match.index!) +
-        lastMatch.match[1] +
-        "return app.delete(" +
-        lastMatch.match[2] +
-        ");" +
-        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    // Combine all matches and find the last one by position
+    const allMatches = [
+      ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
+      ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
+    ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+
+    if (allMatches.length > 0) {
+      const lastMatch = allMatches[0];
+      if (lastMatch.type === "save") {
+        code =
+          code.substring(0, lastMatch.match.index!) +
+          lastMatch.match[1] +
+          "return app.save(" +
+          lastMatch.match[2] +
+          ");" +
+          code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+      } else {
+        code =
+          code.substring(0, lastMatch.match.index!) +
+          lastMatch.match[1] +
+          "return app.delete(" +
+          lastMatch.match[2] +
+          ");" +
+          code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+      }
     }
   }
 
@@ -1690,38 +1706,44 @@ export function generateDownMigration(diff: SchemaDiff): string {
 
   let code = lines.join("\n");
 
-  // Find the last app.save() or app.delete() call and make it return the result
-  // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
-  const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
-  const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
+  // Check if there's already a return statement in the code
+  // If so, skip post-processing to avoid duplicate returns
+  const hasReturnStatement = /return\s+app\.(save|delete)\(/m.test(code);
 
-  const saveMatches = [...code.matchAll(savePattern)];
-  const deleteMatches = [...code.matchAll(deletePattern)];
+  if (!hasReturnStatement) {
+    // Find the last app.save() or app.delete() call and make it return the result
+    // Match app.save(...) or app.delete(...) at the end of lines (not in comments or strings)
+    const savePattern = /^(\s*)app\.save\((\w+)\);$/gm;
+    const deletePattern = /^(\s*)app\.delete\((\w+)\);$/gm;
 
-  // Combine all matches and find the last one by position
-  const allMatches = [
-    ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
-    ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
-  ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+    const saveMatches = [...code.matchAll(savePattern)];
+    const deleteMatches = [...code.matchAll(deletePattern)];
 
-  if (allMatches.length > 0) {
-    const lastMatch = allMatches[0];
-    if (lastMatch.type === "save") {
-      code =
-        code.substring(0, lastMatch.match.index!) +
-        lastMatch.match[1] +
-        "return app.save(" +
-        lastMatch.match[2] +
-        ");" +
-        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
-    } else {
-      code =
-        code.substring(0, lastMatch.match.index!) +
-        lastMatch.match[1] +
-        "return app.delete(" +
-        lastMatch.match[2] +
-        ");" +
-        code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+    // Combine all matches and find the last one by position
+    const allMatches = [
+      ...saveMatches.map((m) => ({ match: m, type: "save", index: m.index! })),
+      ...deleteMatches.map((m) => ({ match: m, type: "delete", index: m.index! })),
+    ].sort((a, b) => b.index - a.index); // Sort descending to get last match first
+
+    if (allMatches.length > 0) {
+      const lastMatch = allMatches[0];
+      if (lastMatch.type === "save") {
+        code =
+          code.substring(0, lastMatch.match.index!) +
+          lastMatch.match[1] +
+          "return app.save(" +
+          lastMatch.match[2] +
+          ");" +
+          code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+      } else {
+        code =
+          code.substring(0, lastMatch.match.index!) +
+          lastMatch.match[1] +
+          "return app.delete(" +
+          lastMatch.match[2] +
+          ");" +
+          code.substring(lastMatch.match.index! + lastMatch.match[0].length);
+      }
     }
   }
 

@@ -168,6 +168,16 @@ export interface SelectFieldOptions {
 }
 
 /**
+ * Human-friendly byte size input.
+ *
+ * - Use a number for raw bytes (e.g. `5242880`)
+ * - Use a string with unit suffix for kibibytes/mebibytes/gibibytes (e.g. `"5M"`, `"1G"`)
+ *
+ * Supported suffixes: `K`, `M`, `G` (case-insensitive).
+ */
+export type ByteSize = number | `${number}${"K" | "M" | "G" | "k" | "m" | "g"}`;
+
+/**
  * File field configuration options
  */
 export interface FileFieldOptions {
@@ -178,9 +188,19 @@ export interface FileFieldOptions {
   mimeTypes?: string[];
 
   /**
-   * Maximum file size in bytes
+   * Maximum file size.
+   *
+   * - Provide a number for raw bytes
+   * - Or use a string with `K`, `M`, `G` suffix (case-insensitive)
+   *
+   * Max allowed is `8G`.
+   *
+   * @example
+   * maxSize: 5242880
+   * maxSize: "5M"
+   * maxSize: "1G"
    */
-  maxSize?: number;
+  maxSize?: ByteSize;
 
   /**
    * Thumbnail sizes to generate
@@ -209,6 +229,59 @@ export interface FilesFieldOptions extends FileFieldOptions {
    * Maximum number of files allowed
    */
   maxSelect?: number;
+}
+
+const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024 * 1024; // 8G
+
+function parseByteSizeToBytes(value: ByteSize, context: string): number {
+  let bytes: number;
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new Error(`${context}: maxSize must be a finite number of bytes`);
+    }
+    bytes = Math.round(value);
+  } else {
+    const trimmed = value.trim();
+    const match = /^(\d+(?:\.\d+)?)\s*([KMG])$/i.exec(trimmed);
+    if (!match) {
+      throw new Error(`${context}: maxSize string must be like "10K", "5M", or "1G" (case-insensitive)`);
+    }
+
+    const amount = Number(match[1]);
+    const unit = match[2].toUpperCase() as "K" | "M" | "G";
+
+    if (!Number.isFinite(amount)) {
+      throw new Error(`${context}: maxSize must be a valid number`);
+    }
+
+    const multiplier = unit === "K" ? 1024 : unit === "M" ? 1024 * 1024 : 1024 * 1024 * 1024;
+    bytes = Math.round(amount * multiplier);
+  }
+
+  if (bytes < 0) {
+    throw new Error(`${context}: maxSize must be >= 0`);
+  }
+
+  if (bytes > MAX_FILE_SIZE_BYTES) {
+    throw new Error(`${context}: maxSize cannot exceed 8G (${MAX_FILE_SIZE_BYTES} bytes)`);
+  }
+
+  return bytes;
+}
+
+function normalizeFileFieldOptions(
+  options: FileFieldOptions | undefined,
+  context: string
+): FileFieldOptions | undefined {
+  if (!options) return options;
+  if (options.maxSize === undefined) return options;
+
+  return {
+    ...options,
+    // PocketBase expects bytes; normalize any human-friendly inputs to bytes here.
+    maxSize: parseByteSizeToBytes(options.maxSize, context),
+  };
 }
 
 // ============================================================================
@@ -529,11 +602,13 @@ export function SelectField<T extends [string, ...string[]]>(
 export function FileField(options?: FileFieldOptions): z.ZodType<File> {
   const schema = z.instanceof(File);
 
+  const normalizedOptions = normalizeFileFieldOptions(options, "FileField");
+
   // Build metadata
   const metadata = {
     [FIELD_METADATA_KEY]: {
       type: "file" as const,
-      options: options || {},
+      options: normalizedOptions || {},
     },
   };
 
@@ -571,11 +646,13 @@ export function FilesField(options?: FilesFieldOptions): z.ZodArray<z.ZodType<Fi
     schema = schema.max(options.maxSelect);
   }
 
+  const normalizedOptions = normalizeFileFieldOptions(options, "FilesField");
+
   // Build metadata
   const metadata = {
     [FIELD_METADATA_KEY]: {
       type: "file" as const,
-      options: options || {},
+      options: normalizedOptions || {},
     },
   };
 

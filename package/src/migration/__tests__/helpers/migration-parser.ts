@@ -211,12 +211,22 @@ export function extractOperations(code: string): MigrationOperation[] {
   }
 
   // Match removeById operations
-  const removeMatches = code.matchAll(/collection\.fields\.removeById\s*\(\s*["']([^"']+)["']\s*\)/g);
-  for (const match of removeMatches) {
+  const removeByIdMatches = code.matchAll(/collection\.fields\.removeById\s*\(\s*["']([^"']+)["']\s*\)/g);
+  for (const match of removeByIdMatches) {
     operations.push({
       type: "removeField",
       collection: collectionId,
       details: { fieldId: match[1] },
+    });
+  }
+
+  // Match removeByName operations
+  const removeByNameMatches = code.matchAll(/\.fields\.removeByName\s*\(\s*["']([^"']+)["']\s*\)/g);
+  for (const match of removeByNameMatches) {
+    operations.push({
+      type: "removeField",
+      collection: collectionId,
+      details: { fieldName: match[1] },
     });
   }
 
