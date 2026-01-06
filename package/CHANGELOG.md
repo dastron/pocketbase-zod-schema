@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.1...pocketbase-zod-schema-v0.3.2) (2026-01-06)
+
+
+### Bug Fixes
+
+* update field removal method ([f673f5c](https://github.com/dastron/pocketbase-zod-schema/commit/f673f5c06e972ab4f556666469931c3729614bd4))
+
 ## [0.3.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.0...pocketbase-zod-schema-v0.3.1) (2026-01-05)
 
 
