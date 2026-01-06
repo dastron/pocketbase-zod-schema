@@ -591,16 +591,26 @@ export function SelectField<T extends [string, ...string[]]>(
  * Maps to PocketBase 'file' field type with maxSelect=1
  *
  * @param options - Optional file constraints
- * @returns Zod File schema with PocketBase metadata
+ * @returns Zod schema that accepts File on input and returns string when reading from database
  *
  * @example
  * const ProductSchema = z.object({
  *   thumbnail: FileField({ mimeTypes: ["image/*"], maxSize: 5242880 }),
  *   document: FileField({ mimeTypes: ["application/pdf"] }),
  * });
+ *
+ * @remarks
+ * - When creating/updating records: accepts File objects
+ * - When reading from PocketBase: returns string (filename)
  */
-export function FileField(options?: FileFieldOptions): z.ZodType<File> {
-  const schema = z.instanceof(File);
+export function FileField(options?: FileFieldOptions): z.ZodType<string, z.ZodTypeDef, File | string> {
+  // Accept File for input (when creating/updating) or string (when reading from DB)
+  // Output is always string (as returned by PocketBase)
+  const schema = z.preprocess((val) => {
+    // If it's a File, return its name (or empty string if no name)
+    // If it's already a string (from DB), return as-is
+    return val instanceof File ? val.name || "" : val;
+  }, z.string()) as z.ZodType<string, z.ZodTypeDef, File | string>;
 
   const normalizedOptions = normalizeFileFieldOptions(options, "FileField");
 
@@ -620,15 +630,19 @@ export function FileField(options?: FileFieldOptions): z.ZodType<File> {
  * Maps to PocketBase 'file' field type with maxSelect>1
  *
  * @param options - Optional file constraints
- * @returns Zod array of File schema with PocketBase metadata
+ * @returns Zod array schema that accepts File[] on input and returns string[] when reading from database
  *
  * @example
  * const ProductSchema = z.object({
  *   images: FilesField({ mimeTypes: ["image/*"], maxSelect: 5 }),
  *   attachments: FilesField({ minSelect: 1, maxSelect: 10 }),
  * });
+ *
+ * @remarks
+ * - When creating/updating records: accepts File[]
+ * - When reading from PocketBase: returns string[] (filenames)
  */
-export function FilesField(options?: FilesFieldOptions): z.ZodArray<z.ZodType<File>> {
+export function FilesField(options?: FilesFieldOptions): z.ZodType<string[], z.ZodTypeDef, (File | string)[]> {
   // Validate options
   if (options?.minSelect !== undefined && options?.maxSelect !== undefined) {
     if (options.minSelect > options.maxSelect) {
@@ -636,15 +650,25 @@ export function FilesField(options?: FilesFieldOptions): z.ZodArray<z.ZodType<Fi
     }
   }
 
-  let schema = z.array(z.instanceof(File));
+  // Accept File[] for input (when creating/updating) or string[] (when reading from DB)
+  // Output is always string[] (as returned by PocketBase)
+  let baseArraySchema = z.array(z.string());
 
-  // Apply Zod validations
+  // Apply Zod validations first
   if (options?.minSelect !== undefined) {
-    schema = schema.min(options.minSelect);
+    baseArraySchema = baseArraySchema.min(options.minSelect);
   }
   if (options?.maxSelect !== undefined) {
-    schema = schema.max(options.maxSelect);
+    baseArraySchema = baseArraySchema.max(options.maxSelect);
   }
+
+  const schema = z.preprocess((val) => {
+    // Handle array of Files or strings
+    if (Array.isArray(val)) {
+      return val.map((item) => (item instanceof File ? item.name || "" : item));
+    }
+    return val;
+  }, baseArraySchema);
 
   const normalizedOptions = normalizeFileFieldOptions(options, "FilesField");
 
@@ -656,7 +680,7 @@ export function FilesField(options?: FilesFieldOptions): z.ZodArray<z.ZodType<Fi
     },
   };
 
-  return schema.describe(JSON.stringify(metadata));
+  return schema.describe(JSON.stringify(metadata)) as z.ZodType<string[], z.ZodTypeDef, (File | string)[]>;
 }
 
 /**
