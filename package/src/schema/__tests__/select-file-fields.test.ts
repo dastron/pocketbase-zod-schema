@@ -98,9 +98,10 @@ describe("FilesField", () => {
   it("should return array schema", () => {
     const field = FilesField();
     // FilesField uses z.preprocess, so it returns ZodEffects wrapping a ZodArray
-    expect(field._def.typeName).toBe("ZodEffects");
+    expect((field as any)._def.typeName).toBe("ZodEffects");
     // Verify the inner schema is an array
-    expect((field as any)._def.schema._def.typeName).toBe("ZodArray");
+    const innerSchema = (field as any)._def.schema;
+    expect((innerSchema as any)._def.typeName).toBe("ZodArray");
   });
 
   it("should support minSelect option", () => {
