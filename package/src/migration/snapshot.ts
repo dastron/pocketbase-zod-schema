@@ -12,10 +12,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { FileSystemError, SnapshotError } from "./errors";
 import {
-  ParsedCollectionUpdate,
   extractTimestampFromFilename,
   findMigrationsAfterSnapshot,
   parseMigrationOperations,
+  type ParsedCollectionUpdate,
 } from "./migration-parser";
 import { convertPocketBaseMigration } from "./pocketbase-converter";
 import type { CollectionSchema, SchemaDefinition, SchemaSnapshot } from "./types";
@@ -538,71 +538,71 @@ export function applyMigrationOperations(
 
   // Apply updates
   for (const update of operations.collectionsToUpdate) {
-      const collection = updatedCollections.get(update.collectionName);
-      if (collection) {
-          // Add fields
-          if (update.fieldsToAdd.length > 0) {
-              collection.fields.push(...update.fieldsToAdd);
-          }
-
-          // Remove fields
-          if (update.fieldsToRemove.length > 0) {
-              collection.fields = collection.fields.filter(f => !update.fieldsToRemove.includes(f.name));
-          }
-
-          // Update fields
-          for (const fieldUpdate of update.fieldsToUpdate) {
-              const field = collection.fields.find(f => f.name === fieldUpdate.fieldName);
-              if (field) {
-                  for (const [key, value] of Object.entries(fieldUpdate.changes)) {
-                      if (key.startsWith('options.')) {
-                          const optionKey = key.replace('options.', '');
-                          if (!field.options) field.options = {};
-                          field.options[optionKey] = value;
-                      } else if (key.startsWith('relation.')) {
-                            const relationKey = key.replace('relation.', '');
-                            if (!field.relation && field.type === 'relation') {
-                                // Should initialize relation object if missing but type is relation
-                                field.relation = { collection: '' };
-                            }
-                            if (field.relation) {
-                                (field.relation as any)[relationKey] = value;
-                            }
-                      } else {
-                          (field as any)[key] = value;
-                      }
-                  }
-              }
-          }
-
-          // Indexes
-          if (update.indexesToAdd.length > 0) {
-              if (!collection.indexes) collection.indexes = [];
-              collection.indexes.push(...update.indexesToAdd);
-          }
-
-          if (update.indexesToRemove.length > 0) {
-              if (collection.indexes) {
-                  collection.indexes = collection.indexes.filter(idx => !update.indexesToRemove.includes(idx));
-              }
-          }
-
-          // Rules
-          if (Object.keys(update.rulesToUpdate).length > 0) {
-              if (!collection.rules) collection.rules = {};
-              if (!collection.permissions) collection.permissions = {};
-
-              for (const [key, value] of Object.entries(update.rulesToUpdate)) {
-                  // key is like 'listRule'
-                  // TS constraint: key must be one of the known rule types.
-                  // Since ParsedCollectionUpdate uses string key, we cast or check.
-                  (collection.rules as any)[key] = value;
-                  (collection.permissions as any)[key] = value;
-              }
-          }
-      } else {
-          console.warn(`Attempted to update non-existent collection: ${update.collectionName}`);
+    const collection = updatedCollections.get(update.collectionName);
+    if (collection) {
+      // Add fields
+      if (update.fieldsToAdd.length > 0) {
+        collection.fields.push(...update.fieldsToAdd);
       }
+
+      // Remove fields
+      if (update.fieldsToRemove.length > 0) {
+        collection.fields = collection.fields.filter((f) => !update.fieldsToRemove.includes(f.name));
+      }
+
+      // Update fields
+      for (const fieldUpdate of update.fieldsToUpdate) {
+        const field = collection.fields.find((f) => f.name === fieldUpdate.fieldName);
+        if (field) {
+          for (const [key, value] of Object.entries(fieldUpdate.changes)) {
+            if (key.startsWith("options.")) {
+              const optionKey = key.replace("options.", "");
+              if (!field.options) field.options = {};
+              field.options[optionKey] = value;
+            } else if (key.startsWith("relation.")) {
+              const relationKey = key.replace("relation.", "");
+              if (!field.relation && field.type === "relation") {
+                // Should initialize relation object if missing but type is relation
+                field.relation = { collection: "" };
+              }
+              if (field.relation) {
+                (field.relation as any)[relationKey] = value;
+              }
+            } else {
+              (field as any)[key] = value;
+            }
+          }
+        }
+      }
+
+      // Indexes
+      if (update.indexesToAdd.length > 0) {
+        if (!collection.indexes) collection.indexes = [];
+        collection.indexes.push(...update.indexesToAdd);
+      }
+
+      if (update.indexesToRemove.length > 0) {
+        if (collection.indexes) {
+          collection.indexes = collection.indexes.filter((idx) => !update.indexesToRemove.includes(idx));
+        }
+      }
+
+      // Rules
+      if (Object.keys(update.rulesToUpdate).length > 0) {
+        if (!collection.rules) collection.rules = {};
+        if (!collection.permissions) collection.permissions = {};
+
+        for (const [key, value] of Object.entries(update.rulesToUpdate)) {
+          // key is like 'listRule'
+          // TS constraint: key must be one of the known rule types.
+          // Since ParsedCollectionUpdate uses string key, we cast or check.
+          (collection.rules as any)[key] = value;
+          (collection.permissions as any)[key] = value;
+        }
+      }
+    } else {
+      console.warn(`Attempted to update non-existent collection: ${update.collectionName}`);
+    }
   }
 
   return {

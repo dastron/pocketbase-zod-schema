@@ -58,7 +58,7 @@ export function findMigrationsAfterSnapshot(migrationsPath: string, snapshotTime
     const files = fs.readdirSync(migrationsPath);
     const migrationFiles: { path: string; timestamp: number }[] = [];
     const timestampsSeen = new Set<number>();
-    const duplicates: string[] = [];
+    // const duplicates: string[] = [];
 
     for (const file of files) {
       // Skip snapshot files
@@ -74,7 +74,7 @@ export function findMigrationsAfterSnapshot(migrationsPath: string, snapshotTime
       const timestamp = extractTimestampFromFilename(file);
       if (timestamp) {
         if (timestampsSeen.has(timestamp)) {
-           console.warn(`Duplicate migration timestamp detected: ${timestamp} in file ${file}`);
+          console.warn(`Duplicate migration timestamp detected: ${timestamp} in file ${file}`);
         }
         timestampsSeen.add(timestamp);
 
@@ -150,7 +150,7 @@ function parseMigrationOperationsFromContent(content: string): {
       let stringChar = null;
       let objectStart = -1;
 
-       // Skip whitespace to find the opening brace
+      // Skip whitespace to find the opening brace
       while (i < content.length && /\s/.test(content[i])) {
         i++;
       }
@@ -161,58 +161,58 @@ function parseMigrationOperationsFromContent(content: string): {
         i++;
 
         while (i < content.length && (braceCount > 0 || parenCount > 0)) {
-           const char = content[i];
-           const prevChar = i > 0 ? content[i - 1] : "";
+          const char = content[i];
+          const prevChar = i > 0 ? content[i - 1] : "";
 
-           if (!inString && (char === '"' || char === "'")) {
-             inString = true;
-             stringChar = char;
-           } else if (inString && char === stringChar && prevChar !== "\\") {
-             inString = false;
-             stringChar = null;
-           }
+          if (!inString && (char === '"' || char === "'")) {
+            inString = true;
+            stringChar = char;
+          } else if (inString && char === stringChar && prevChar !== "\\") {
+            inString = false;
+            stringChar = null;
+          }
 
-           if (!inString) {
-             if (char === "{") braceCount++;
-             if (char === "}") braceCount--;
-             if (char === "(") parenCount++;
-             if (char === ")") parenCount--;
-           }
-           i++;
+          if (!inString) {
+            if (char === "{") braceCount++;
+            if (char === "}") braceCount--;
+            if (char === "(") parenCount++;
+            if (char === ")") parenCount--;
+          }
+          i++;
         }
 
         if (braceCount === 0) {
-            objectContent = content.substring(objectStart, i - (parenCount === 0 ? 1 : 0));
-             // Correctly substring: if we broke loop because braceCount is 0, i is at char AFTER '}'
-             // But if parenCount also went to 0, we might be further.
-             // Actually my logic above: i increments at end of loop.
-             // If braceCount becomes 0, loop continues if parenCount > 0 (which it is, started at 1)
-             // Wait, new Collection({...})
-             // { ... } is inside ( ... )
-             // So braceCount goes 1 -> ... -> 0.
-             // parenCount stays 1.
-             // Loop continues until parenCount 0? No, usually `new Collection({...})`
-             // The loop condition is `braceCount > 0 || parenCount > 0`.
-             // When '}' matches, braceCount becomes 0. parenCount is 1. Loop continues.
-             // Next char is ')'. parenCount becomes 0. Loop stops.
+          objectContent = content.substring(objectStart, i - (parenCount === 0 ? 1 : 0));
+          // Correctly substring: if we broke loop because braceCount is 0, i is at char AFTER '}'
+          // But if parenCount also went to 0, we might be further.
+          // Actually my logic above: i increments at end of loop.
+          // If braceCount becomes 0, loop continues if parenCount > 0 (which it is, started at 1)
+          // Wait, new Collection({...})
+          // { ... } is inside ( ... )
+          // So braceCount goes 1 -> ... -> 0.
+          // parenCount stays 1.
+          // Loop continues until parenCount 0? No, usually `new Collection({...})`
+          // The loop condition is `braceCount > 0 || parenCount > 0`.
+          // When '}' matches, braceCount becomes 0. parenCount is 1. Loop continues.
+          // Next char is ')'. parenCount becomes 0. Loop stops.
         }
       } else {
-         // No object literal?
-         searchIndex = i + 1;
-         continue;
+        // No object literal?
+        searchIndex = i + 1;
+        continue;
       }
 
       if (objectContent) {
-           // We need to extract just the object part, which ended when braceCount hit 0.
-           // My loop logic is a bit combined.
-           // Let's rely on the previous simpler logic but refined.
-           // Actually, let's use the object content extraction from the previous implementation but wrapped in this loop
+        // We need to extract just the object part, which ended when braceCount hit 0.
+        // My loop logic is a bit combined.
+        // Let's rely on the previous simpler logic but refined.
+        // Actually, let's use the object content extraction from the previous implementation but wrapped in this loop
       }
 
       // Re-implementing the object extraction carefully
       i = openParen;
       // Skip whitespace
-       while (i < content.length && /\s/.test(content[i])) {
+      while (i < content.length && /\s/.test(content[i])) {
         i++;
       }
 
@@ -227,36 +227,36 @@ function parseMigrationOperationsFromContent(content: string): {
       let inStr = false;
       let strChar = null;
 
-      while(i < content.length && bCount > 0) {
-          const char = content[i];
-          const prev = i > 0 ? content[i-1] : "";
+      while (i < content.length && bCount > 0) {
+        const char = content[i];
+        const prev = i > 0 ? content[i - 1] : "";
 
-           if (!inStr && (char === '"' || char === "'")) {
-             inStr = true;
-             strChar = char;
-           } else if (inStr && char === strChar && prev !== "\\") {
-             inStr = false;
-             strChar = null;
-           }
+        if (!inStr && (char === '"' || char === "'")) {
+          inStr = true;
+          strChar = char;
+        } else if (inStr && char === strChar && prev !== "\\") {
+          inStr = false;
+          strChar = null;
+        }
 
-           if (!inStr) {
-             if (char === "{") bCount++;
-             if (char === "}") bCount--;
-           }
-           i++;
+        if (!inStr) {
+          if (char === "{") bCount++;
+          if (char === "}") bCount--;
+        }
+        i++;
       }
 
       if (bCount === 0) {
-          const objStr = content.substring(startObj, i);
-          try {
-              const collectionObj = new Function(`return ${objStr}`)();
-              if (collectionObj && collectionObj.name) {
-                const schema = convertPocketBaseCollection(collectionObj);
-                collectionsToCreate.push(schema);
-              }
-          } catch(e) {
-              console.warn("Failed to parse collection object:", e);
+        const objStr = content.substring(startObj, i);
+        try {
+          const collectionObj = new Function(`return ${objStr}`)();
+          if (collectionObj && collectionObj.name) {
+            const schema = convertPocketBaseCollection(collectionObj);
+            collectionsToCreate.push(schema);
           }
+        } catch (e) {
+          console.warn("Failed to parse collection object:", e);
+        }
       }
       searchIndex = i;
     }
@@ -269,157 +269,175 @@ function parseMigrationOperationsFromContent(content: string): {
       if (match[1]) {
         collectionsToDelete.push(match[1]);
       } else {
-         // Variable lookup logic (simplified for now, assuming standard variable naming)
-         // Assuming collection variables are tracked if I were parsing sequentially.
-         // But here I'm using regex.
-         // Let's try to extract name from variable name if it follows `collection_NAME`
-         const varMatch = match[0].match(/collection_(\w+)/);
-         if (varMatch) {
-             // Try to infer name (may not be accurate if variable name != collection name)
-             // But usually generator uses `collection_NAME`
-             // Can I look up the definition?
-             // Not easily without full scan.
-             // I'll stick to what was there: try to find definition.
-             const varName = `collection_${varMatch[1]}`;
-             const defRegex = new RegExp(`const\\s+${varName}\\s*=\\s*app\\.findCollectionByNameOrId\\(["']([^"']+)["']\\)`);
-             const defMatch = content.match(defRegex);
-             if (defMatch) {
-                 collectionsToDelete.push(defMatch[1]);
-             } else {
-                 // Try new Collection assignment
-                  const newColRegex = new RegExp(`const\\s+${varName}\\s*=\\s*new\\s+Collection\\(\\s*\\{([\\s\\S]*?)\\}\\s*\\)`);
-                  // This is hard.
-             }
-         }
+        // Variable lookup logic (simplified for now, assuming standard variable naming)
+        // Assuming collection variables are tracked if I were parsing sequentially.
+        // But here I'm using regex.
+        // Let's try to extract name from variable name if it follows `collection_NAME`
+        const varMatch = match[0].match(/collection_(\w+)/);
+        if (varMatch) {
+          // Try to infer name (may not be accurate if variable name != collection name)
+          // But usually generator uses `collection_NAME`
+          // Can I look up the definition?
+          // Not easily without full scan.
+          // I'll stick to what was there: try to find definition.
+          const varName = `collection_${varMatch[1]}`;
+          const defRegex = new RegExp(
+            `const\\s+${varName}\\s*=\\s*app\\.findCollectionByNameOrId\\(["']([^"']+)["']\\)`
+          );
+          const defMatch = content.match(defRegex);
+          if (defMatch) {
+            collectionsToDelete.push(defMatch[1]);
+          } else {
+            // Try new Collection assignment
+            // const newColRegex = new RegExp(
+            //   `const\\s+${varName}\\s*=\\s*new\\s+Collection\\(\\s*\\{([\\s\\S]*?)\\}\\s*\\)`
+            // );
+            // This is hard.
+          }
+        }
       }
     }
 
     // Also direct delete of variable
     // Check assignments: const col = app.findCollectionByNameOrId("name"); app.delete(col);
     const varAssignments = new Map<string, string>();
-    const assignmentMatches = content.matchAll(/const\s+(\w+)\s*=\s*app\.findCollectionByNameOrId\s*\(\s*["']([^"']+)["']\s*\)/g);
+    const assignmentMatches = content.matchAll(
+      /const\s+(\w+)\s*=\s*app\.findCollectionByNameOrId\s*\(\s*["']([^"']+)["']\s*\)/g
+    );
     for (const match of assignmentMatches) {
-        varAssignments.set(match[1], match[2]);
+      varAssignments.set(match[1], match[2]);
     }
 
     const varDeleteMatches = content.matchAll(/app\.delete\s*\(\s*(\w+)\s*\)/g);
     for (const match of varDeleteMatches) {
-        if (varAssignments.has(match[1])) {
-            const name = varAssignments.get(match[1])!;
-            if (!collectionsToDelete.includes(name)) {
-                collectionsToDelete.push(name);
-            }
+      if (varAssignments.has(match[1])) {
+        const name = varAssignments.get(match[1])!;
+        if (!collectionsToDelete.includes(name)) {
+          collectionsToDelete.push(name);
         }
+      }
     }
-
 
     // 3. Parse Updates
 
     // Map of variable name -> { collectionName, type: 'collection' | 'field' | 'index', parentVar? }
-    const variables = new Map<string, { type: 'collection' | 'field', name: string, parentCollection?: string }>();
+    const variables = new Map<string, { type: "collection" | "field"; name: string; parentCollection?: string }>();
 
     // Initialize variables from assignments
     for (const [varName, colName] of varAssignments) {
-        variables.set(varName, { type: 'collection', name: colName });
+      variables.set(varName, { type: "collection", name: colName });
     }
 
     // Find field variables: const field = col.fields.getByName("name")
-    const fieldAssignmentMatches = content.matchAll(/const\s+(\w+)\s*=\s*(\w+)\.fields\.getByName\s*\(\s*["']([^"']+)["']\s*\)/g);
+    const fieldAssignmentMatches = content.matchAll(
+      /const\s+(\w+)\s*=\s*(\w+)\.fields\.getByName\s*\(\s*["']([^"']+)["']\s*\)/g
+    );
     for (const match of fieldAssignmentMatches) {
-        const [_, fieldVar, colVar, fieldName] = match;
-        const colInfo = variables.get(colVar);
-        if (colInfo && colInfo.type === 'collection') {
-            variables.set(fieldVar, {
-                type: 'field',
-                name: fieldName,
-                parentCollection: colInfo.name
-            });
-        }
+      const [_, fieldVar, colVar, fieldName] = match;
+      const colInfo = variables.get(colVar);
+      if (colInfo && colInfo.type === "collection") {
+        variables.set(fieldVar, {
+          type: "field",
+          name: fieldName,
+          parentCollection: colInfo.name,
+        });
+      }
     }
 
     // 3a. fields.add
     // Pattern: colVar.fields.add(new TypeField({...}))
     const addFieldMatches = content.matchAll(/(\w+)\.fields\.add\s*\(\s*new\s+\w+Field\s*\(/g);
     for (const match of addFieldMatches) {
-        const [fullMatch, colVar] = match;
-        const colInfo = variables.get(colVar);
-        if (colInfo && colInfo.type === 'collection') {
-             // Extract the field definition object
-             const startIdx = match.index! + fullMatch.length;
-             // We need to find the object inside (...)
-             // It usually looks like: new TextField({ ... })
-             // So we are at start of `{` hopefully?
-             // Actually `new TextField(` -> next char might be whitespace then `{`
+      const [fullMatch, colVar] = match;
+      const colInfo = variables.get(colVar);
+      if (colInfo && colInfo.type === "collection") {
+        // Extract the field definition object
+        const startIdx = match.index! + fullMatch.length;
+        // We need to find the object inside (...)
+        // It usually looks like: new TextField({ ... })
+        // So we are at start of `{` hopefully?
+        // Actually `new TextField(` -> next char might be whitespace then `{`
 
-             let j = startIdx;
-             while (j < content.length && /\s/.test(content[j])) j++;
+        let j = startIdx;
+        while (j < content.length && /\s/.test(content[j])) j++;
 
-             if (content[j] === "{") {
-                 // Extract object
-                 const objStart = j;
-                 let bCount = 1;
-                 j++;
-                 let inStr = false;
-                 let sChar = null;
+        if (content[j] === "{") {
+          // Extract object
+          const objStart = j;
+          let bCount = 1;
+          j++;
+          let inStr = false;
+          let sChar = null;
 
-                 while(j < content.length && bCount > 0) {
-                      const char = content[j];
-                      const prev = j > 0 ? content[j-1] : "";
-                      if (!inStr && (char === '"' || char === "'")) { inStr = true; sChar = char; }
-                      else if (inStr && char === sChar && prev !== "\\") { inStr = false; sChar = null; }
-                      if (!inStr) {
-                          if (char === "{") bCount++;
-                          if (char === "}") bCount--;
-                      }
-                      j++;
-                 }
+          while (j < content.length && bCount > 0) {
+            const char = content[j];
+            const prev = j > 0 ? content[j - 1] : "";
+            if (!inStr && (char === '"' || char === "'")) {
+              inStr = true;
+              sChar = char;
+            } else if (inStr && char === sChar && prev !== "\\") {
+              inStr = false;
+              sChar = null;
+            }
+            if (!inStr) {
+              if (char === "{") bCount++;
+              if (char === "}") bCount--;
+            }
+            j++;
+          }
 
-                 if (bCount === 0) {
-                     const objStr = content.substring(objStart, j);
-                     // We also need the type. Regex `new (\w+)Field`
-                     const typeMatch = fullMatch.match(/new\s+(\w+)Field/);
-                     const fieldTypeStr = typeMatch ? typeMatch[1].toLowerCase() : "text"; // Default/Fallback
+          if (bCount === 0) {
+            const objStr = content.substring(objStart, j);
+            // We also need the type. Regex `new (\w+)Field`
+            const typeMatch = fullMatch.match(/new\s+(\w+)Field/);
+            // const fieldTypeStr = typeMatch ? typeMatch[1].toLowerCase() : "text"; // Default/Fallback
 
-                     try {
-                         // We need to inject the type into the object if it's not there,
-                         // or rely on convertPocketBaseField.
-                         // convertPocketBaseField expects `type` property.
-                         // But `new TextField({...})` usually doesn't have `type: 'text'` inside.
-                         // It's inferred from constructor.
+            try {
+              // We need to inject the type into the object if it's not there,
+              // or rely on convertPocketBaseField.
+              // convertPocketBaseField expects `type` property.
+              // But `new TextField({...})` usually doesn't have `type: 'text'` inside.
+              // It's inferred from constructor.
 
-                         const rawObj = new Function(`return ${objStr}`)();
+              const rawObj = new Function(`return ${objStr}`)();
 
-                         // Map constructor name to type string if needed
-                         // Valid types: text, number, bool, email, url, date, select, json, file, relation
-                         const typeMap: Record<string, string> = {
-                             'Text': 'text', 'Number': 'number', 'Bool': 'bool', 'Email': 'email',
-                             'URL': 'url', 'Date': 'date', 'Select': 'select', 'JSON': 'json',
-                             'File': 'file', 'Relation': 'relation'
-                         };
-                         const typePrefix = typeMatch ? typeMatch[1] : 'Text';
-                         const inferredType = typeMap[typePrefix] || typePrefix.toLowerCase();
+              // Map constructor name to type string if needed
+              // Valid types: text, number, bool, email, url, date, select, json, file, relation
+              const typeMap: Record<string, string> = {
+                Text: "text",
+                Number: "number",
+                Bool: "bool",
+                Email: "email",
+                URL: "url",
+                Date: "date",
+                Select: "select",
+                JSON: "json",
+                File: "file",
+                Relation: "relation",
+              };
+              const typePrefix = typeMatch ? typeMatch[1] : "Text";
+              const inferredType = typeMap[typePrefix] || typePrefix.toLowerCase();
 
-                         if (!rawObj.type) rawObj.type = inferredType;
+              if (!rawObj.type) rawObj.type = inferredType;
 
-                         const fieldDef = convertPocketBaseField(rawObj);
-                         getUpdate(colInfo.name).fieldsToAdd.push(fieldDef);
-
-                     } catch (e) {
-                         console.warn("Failed to parse field object:", e);
-                     }
-                 }
-             }
+              const fieldDef = convertPocketBaseField(rawObj);
+              getUpdate(colInfo.name).fieldsToAdd.push(fieldDef);
+            } catch (e) {
+              console.warn("Failed to parse field object:", e);
+            }
+          }
         }
+      }
     }
 
     // 3b. fields.removeByName
     const removeFieldMatches = content.matchAll(/(\w+)\.fields\.removeByName\s*\(\s*["']([^"']+)["']\s*\)/g);
     for (const match of removeFieldMatches) {
-        const [_, colVar, fieldName] = match;
-        const colInfo = variables.get(colVar);
-        if (colInfo && colInfo.type === 'collection') {
-            getUpdate(colInfo.name).fieldsToRemove.push(fieldName);
-        }
+      const [_, colVar, fieldName] = match;
+      const colInfo = variables.get(colVar);
+      if (colInfo && colInfo.type === "collection") {
+        getUpdate(colInfo.name).fieldsToRemove.push(fieldName);
+      }
     }
 
     // 3c. Field updates: fieldVar.prop = value
@@ -427,65 +445,67 @@ function parseMigrationOperationsFromContent(content: string): {
     // Assignment: `var.prop = value;`
     // Regex: `(\w+)\.(\w+)\s*=\s*(.+?);`
     // Be careful with newlines and semicolons.
-    const assignmentRegex = /(\w+)\.([\w\.]+)\s*=\s*([^;]+);/g;
+    const assignmentRegex = RegExp(`(\\w+)\\.([\\w.]+)\\s*=\\s*([^;]+);`, "g");
     const assignments = content.matchAll(assignmentRegex);
     for (const match of assignments) {
-        const [_, varName, propPath, valueStr] = match;
-        const varInfo = variables.get(varName);
+      const [_, varName, propPath, valueStr] = match;
+      const varInfo = variables.get(varName);
 
-        if (varInfo) {
-            if (varInfo.type === 'field') {
-                // Update to a field
-                const colName = varInfo.parentCollection!;
-                const fieldName = varInfo.name;
-                const update = getUpdate(colName);
+      if (varInfo) {
+        if (varInfo.type === "field") {
+          // Update to a field
+          const colName = varInfo.parentCollection!;
+          const fieldName = varInfo.name;
+          const update = getUpdate(colName);
 
-                let fieldUpdate = update.fieldsToUpdate.find(f => f.fieldName === fieldName);
-                if (!fieldUpdate) {
-                    fieldUpdate = { fieldName, changes: {} };
-                    update.fieldsToUpdate.push(fieldUpdate);
-                }
+          let fieldUpdate = update.fieldsToUpdate.find((f) => f.fieldName === fieldName);
+          if (!fieldUpdate) {
+            fieldUpdate = { fieldName, changes: {} };
+            update.fieldsToUpdate.push(fieldUpdate);
+          }
 
-                try {
-                    // Parse value
-                    const value = new Function(`return ${valueStr}`)();
-                    fieldUpdate.changes[propPath] = value;
-                } catch (e) {
-                    // console.warn("Failed to parse value:", valueStr);
-                    // Use string if eval fails?
-                    fieldUpdate.changes[propPath] = valueStr.trim();
-                }
-            } else if (varInfo.type === 'collection') {
-                // Update to collection (rules, indexes)
-                const colName = varInfo.name;
-                const update = getUpdate(colName);
+          try {
+            // Parse value
+            const value = new Function(`return ${valueStr}`)();
+            fieldUpdate.changes[propPath] = value;
+          } catch  {
+            // console.warn("Failed to parse value:", valueStr);
+            // Use string if eval fails?
+            fieldUpdate.changes[propPath] = valueStr.trim();
+          }
+        } else if (varInfo.type === "collection") {
+          // Update to collection (rules, indexes)
+          const colName = varInfo.name;
+          const update = getUpdate(colName);
 
-                if (propPath === 'indexes') {
-                    // ignore direct assignment to indexes for now, usually it's push/splice
-                } else if (propPath.endsWith('Rule')) {
-                    try {
-                        const value = new Function(`return ${valueStr}`)();
-                        update.rulesToUpdate[propPath] = value;
-                    } catch {
-                        update.rulesToUpdate[propPath] = valueStr.trim();
-                    }
-                }
+          if (propPath === "indexes") {
+            // ignore direct assignment to indexes for now, usually it's push/splice
+          } else if (propPath.endsWith("Rule")) {
+            try {
+              const value = new Function(`return ${valueStr}`)();
+              update.rulesToUpdate[propPath] = value;
+            } catch {
+              update.rulesToUpdate[propPath] = valueStr.trim();
             }
+          }
         }
+      }
     }
 
     // 3d. Indexes push/splice
     // col.indexes.push("...")
     const idxPushMatches = content.matchAll(/(\w+)\.indexes\.push\s*\(\s*(.+?)\s*\)/g);
     for (const match of idxPushMatches) {
-        const [_, colVar, valStr] = match;
-        const colInfo = variables.get(colVar);
-        if (colInfo && colInfo.type === 'collection') {
-             try {
-                 const val = new Function(`return ${valStr}`)();
-                 getUpdate(colInfo.name).indexesToAdd.push(val);
-             } catch {}
+      const [_, colVar, valStr] = match;
+      const colInfo = variables.get(colVar);
+      if (colInfo && colInfo.type === "collection") {
+        try {
+          const val = new Function(`return ${valStr}`)();
+          getUpdate(colInfo.name).indexesToAdd.push(val);
+        } catch {
+          console.warn(`Failed to parse index value: ${valStr}`);
         }
+      }
     }
 
     // col.indexes.splice(idx, 1) - this is hard because we need to know what index corresponds to.
@@ -493,19 +513,21 @@ function parseMigrationOperationsFromContent(content: string): {
     // const idxVar = col.indexes.findIndex(idx => idx === "...");
     // if (idxVar !== -1) col.indexes.splice(idxVar, 1);
     // So we should look for the findIndex call to identify the index string being removed.
-    const idxFindMatches = content.matchAll(/const\s+(\w+)\s*=\s*(\w+)\.indexes\.findIndex\s*\(\s*idx\s*=>\s*idx\s*===\s*(.+?)\s*\)/g);
+    const idxFindMatches = content.matchAll(
+      /const\s+(\w+)\s*=\s*(\w+)\.indexes\.findIndex\s*\(\s*idx\s*=>\s*idx\s*===\s*(.+?)\s*\)/g
+    );
     for (const match of idxFindMatches) {
-        const [_, idxVar, colVar, idxStr] = match;
-        const colInfo = variables.get(colVar);
-        if (colInfo && colInfo.type === 'collection') {
-             try {
-                 const val = new Function(`return ${idxStr}`)();
-                 getUpdate(colInfo.name).indexesToRemove.push(val);
-             } catch {}
+      const [_, idxVar, colVar, idxStr] = match;
+      const colInfo = variables.get(colVar);
+      if (colInfo && colInfo.type === "collection") {
+        try {
+          const val = new Function(`return ${idxStr}`)();
+          getUpdate(colInfo.name).indexesToRemove.push(val);
+        } catch {
+          console.warn(`Failed to parse index value: ${idxStr} ${idxVar} ${colVar}`);
         }
+      }
     }
-
-
   } catch (error) {
     console.warn(`Failed to parse migration operations from content: ${error}`);
   }

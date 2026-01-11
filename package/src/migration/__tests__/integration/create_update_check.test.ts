@@ -1,8 +1,7 @@
-
 import { describe, expect, it } from "vitest";
 import { parseMigrationOperations } from "../../migration-parser";
 import { applyMigrationOperations } from "../../snapshot";
-import type { SchemaSnapshot, CollectionSchema } from "../../types";
+import type { CollectionSchema, SchemaSnapshot } from "../../types";
 
 describe("Integration: Create, Update, Check Status", () => {
   it("should correctly update schema state by applying update migrations", () => {
@@ -11,14 +10,15 @@ describe("Integration: Create, Update, Check Status", () => {
       version: "1.0.0",
       timestamp: new Date().toISOString(),
       collections: new Map<string, CollectionSchema>([
-        ["test_collection", {
-          name: "test_collection",
-          type: "base",
-          fields: [
-            { name: "title", type: "text", required: true }
-          ]
-        }]
-      ])
+        [
+          "test_collection",
+          {
+            name: "test_collection",
+            type: "base",
+            fields: [{ name: "title", type: "text", required: true }],
+          },
+        ],
+      ]),
     };
 
     // 2. Migration: Update (Add field, remove field, modify field)
@@ -57,10 +57,10 @@ describe("Integration: Create, Update, Check Status", () => {
     expect(collection).toBeDefined();
     expect(collection?.fields).toHaveLength(2); // title + description
 
-    const titleField = collection?.fields.find(f => f.name === "title");
+    const titleField = collection?.fields.find((f) => f.name === "title");
     expect(titleField?.required).toBe(false); // Modified
 
-    const descField = collection?.fields.find(f => f.name === "description");
+    const descField = collection?.fields.find((f) => f.name === "description");
     expect(descField).toBeDefined();
     expect(descField?.type).toBe("text");
   });
