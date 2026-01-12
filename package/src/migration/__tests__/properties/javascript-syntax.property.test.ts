@@ -9,7 +9,7 @@ import fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { generate } from "../../generator";
 import type { CollectionSchema, FieldDefinition, SchemaDiff } from "../../types";
 import { parseJavaScript } from "../helpers/javascript-parser";
@@ -35,6 +35,17 @@ describe("JavaScript Syntax Property Tests", () => {
       }
     });
     generatedFiles = [];
+  });
+
+  afterAll(() => {
+    try {
+      if (fs.existsSync(testDir)) {
+        // Clean up the entire test directory after all tests
+        fs.rmSync(testDir, { recursive: true, force: true });
+      }
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   /**
@@ -88,7 +99,7 @@ describe("JavaScript Syntax Property Tests", () => {
               collectionsToDelete: [],
             };
 
-            const migrationFiles = generate(diff, { migrationDir: testDir });
+            const migrationFiles = generate(diff, { migrationDir: testDir, force: true });
             generatedFiles.push(...migrationFiles);
 
             expect(migrationFiles.length).toBeGreaterThan(0);
@@ -149,7 +160,7 @@ describe("JavaScript Syntax Property Tests", () => {
               collectionsToDelete: [],
             };
 
-            const migrationFiles = generate(diff, { migrationDir: testDir });
+            const migrationFiles = generate(diff, { migrationDir: testDir, force: true });
             generatedFiles.push(...migrationFiles);
 
             expect(migrationFiles.length).toBeGreaterThan(0);
@@ -181,7 +192,7 @@ describe("JavaScript Syntax Property Tests", () => {
               collectionsToDelete: collectionNames,
             };
 
-            const migrationFiles = generate(diff, { migrationDir: testDir });
+            const migrationFiles = generate(diff, { migrationDir: testDir, force: true });
             generatedFiles.push(...migrationFiles);
 
             expect(migrationFiles.length).toBeGreaterThan(0);
@@ -254,7 +265,7 @@ describe("JavaScript Syntax Property Tests", () => {
             collectionsToDelete: [],
           };
 
-          const migrationFiles = generate(diff, { migrationDir: testDir });
+          const migrationFiles = generate(diff, { migrationDir: testDir, force: true });
           generatedFiles.push(...migrationFiles);
 
           migrationFiles.forEach((file) => {
@@ -303,7 +314,7 @@ describe("JavaScript Syntax Property Tests", () => {
             collectionsToDelete: [],
           };
 
-          const migrationFiles = generate(diff, { migrationDir: testDir });
+          const migrationFiles = generate(diff, { migrationDir: testDir, force: true });
           generatedFiles.push(...migrationFiles);
 
           expect(migrationFiles.length).toBeGreaterThan(0);

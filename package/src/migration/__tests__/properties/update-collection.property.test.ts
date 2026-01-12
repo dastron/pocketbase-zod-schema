@@ -9,7 +9,7 @@ import fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { compare } from "../../diff";
 import { generate } from "../../generator";
 import type { CollectionSchema, SchemaDefinition, SchemaSnapshot } from "../../types";
@@ -129,7 +129,7 @@ describe("Collection Update Property Tests", () => {
             expect(modification.fieldsToAdd.some((f) => f.name === newField.name)).toBe(true);
 
             // Generate migration
-            const generatedPaths = generate(diff, tempDir);
+            const generatedPaths = generate(diff, { migrationDir: tempDir, force: true });
             expect(generatedPaths).toHaveLength(1);
             const generatedPath = generatedPaths[0];
             const migrationContent = fs.readFileSync(generatedPath, "utf-8");
@@ -182,7 +182,7 @@ describe("Collection Update Property Tests", () => {
             expect(modification.indexesToAdd.length).toBeGreaterThan(0);
 
             // Generate migration
-            const generatedPaths = generate(diff, tempDir);
+            const generatedPaths = generate(diff, { migrationDir: tempDir, force: true });
             expect(generatedPaths).toHaveLength(1);
             const generatedPath = generatedPaths[0];
             const migrationContent = fs.readFileSync(generatedPath, "utf-8");
@@ -233,7 +233,7 @@ describe("Collection Update Property Tests", () => {
             expect(modification.fieldsToRemove.some((f) => f.name === fieldToRemove.name)).toBe(true);
 
             // Generate migration
-            const generatedPaths = generate(diff, tempDir);
+            const generatedPaths = generate(diff, { migrationDir: tempDir, force: true });
             expect(generatedPaths).toHaveLength(1);
             const generatedPath = generatedPaths[0];
             const migrationContent = fs.readFileSync(generatedPath, "utf-8");
@@ -289,7 +289,7 @@ describe("Collection Update Property Tests", () => {
               expect(modification.fieldsToModify.some((f) => f.fieldName === fieldToModify.name)).toBe(true);
 
               // Generate migration
-              const generatedPaths = generate(diff, tempDir);
+              const generatedPaths = generate(diff, { migrationDir: tempDir, force: true });
               expect(generatedPaths).toHaveLength(1);
               const generatedPath = generatedPaths[0];
               const migrationContent = fs.readFileSync(generatedPath, "utf-8");
@@ -354,7 +354,7 @@ describe("Collection Update Property Tests", () => {
             expect(hasRuleUpdates || hasPermissionUpdates).toBe(true);
 
             // Generate migration
-            const generatedPaths = generate(diff, tempDir);
+            const generatedPaths = generate(diff, { migrationDir: tempDir, force: true });
             expect(generatedPaths).toHaveLength(1);
             const generatedPath = generatedPaths[0];
             const migrationContent = fs.readFileSync(generatedPath, "utf-8");
