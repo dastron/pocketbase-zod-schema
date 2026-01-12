@@ -51,13 +51,13 @@ describe("JavaScript Syntax Property Tests", () => {
           fc.record({
             name: fc.stringMatching(/^[a-z][a-z0-9_]{0,19}$/),
             type: fc.constantFrom("base", "auth"),
-            fields: fc.array(
+            fields: fc.uniqueArray(
               fc.record({
                 name: fc.stringMatching(/^[a-z][a-z0-9_]{0,19}$/),
                 type: fc.constantFrom("text", "number", "bool", "email", "url", "date", "select", "json"),
                 required: fc.boolean(),
               }),
-              { maxLength: 5 }
+              { maxLength: 5, selector: (field) => field.name }
             ),
           }),
           (schemaData) => {
@@ -116,12 +116,12 @@ describe("JavaScript Syntax Property Tests", () => {
         fc.property(
           fc.record({
             name: fc.stringMatching(/^[a-z][a-z0-9_]{0,19}$/),
-            newFields: fc.array(
+            newFields: fc.uniqueArray(
               fc.record({
                 name: fc.stringMatching(/^[a-z][a-z0-9_]{0,19}$/),
                 type: fc.constantFrom("text", "number", "bool"),
               }),
-              { minLength: 1, maxLength: 3 }
+              { minLength: 1, maxLength: 3, selector: (field) => field.name }
             ),
           }),
           (modData) => {

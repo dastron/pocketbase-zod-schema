@@ -22,6 +22,7 @@
     "lint": "yarn workspace pocketbase-zod-schema lint",
     "clean": "yarn workspace pocketbase-zod-schema clean",
     "publish:npm": "yarn workspace pocketbase-zod-schema publish:npm",
+    "precommit": "yarn lint && yarn typecheck && yarn test",
     "prepare": "husky install",
     "db:generate": "npx --yes tsx package/src/cli/migrate.ts generate",
     "db:status": "npx --yes tsx package/src/cli/migrate.ts status",

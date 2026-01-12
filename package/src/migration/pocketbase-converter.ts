@@ -7,7 +7,7 @@
  */
 
 import { SnapshotError } from "./errors";
-import type { CollectionSchema, SchemaSnapshot } from "./types";
+import type { CollectionSchema, FieldDefinition, SchemaSnapshot } from "./types";
 
 const SNAPSHOT_VERSION = "1.0.0";
 
@@ -80,6 +80,57 @@ function extractFieldOptions(pbField: any): Record<string, any> {
 }
 
 /**
+ * Converts a PocketBase field object to FieldDefinition format
+ *
+ * @param pbField - PocketBase field object
+ * @returns FieldDefinition object
+ */
+export function convertPocketBaseField(pbField: any): FieldDefinition {
+  const field: any = {
+    name: pbField.name,
+    type: pbField.type,
+    required: pbField.required || false,
+  };
+
+  // Extract options from both direct properties and nested options object
+  field.options = extractFieldOptions(pbField);
+
+  // Handle relation fields
+  if (pbField.type === "relation") {
+    // Support both formats: collectionId directly on field or in options
+    const collectionId = pbField.collectionId || pbField.options?.collectionId || "";
+    // Resolve collectionId to collection name
+    // collectionId is a system field (like _pb_users_auth_), not the collection name
+    // We need to resolve it to the actual collection name for comparison
+    const collectionName = resolveCollectionIdToName(collectionId || "");
+    field.relation = {
+      collection: collectionName,
+      cascadeDelete: pbField.cascadeDelete ?? pbField.options?.cascadeDelete ?? false,
+      maxSelect: pbField.maxSelect ?? pbField.options?.maxSelect,
+      minSelect: pbField.minSelect ?? pbField.options?.minSelect,
+    };
+
+    // Remove relation-specific properties from options
+    // These belong in the relation object, not options
+    delete field.options.maxSelect;
+    delete field.options.minSelect;
+    delete field.options.cascadeDelete;
+  }
+
+  // Clean up empty options object, but preserve values for select fields
+  // If options only contains values for a select field, keep it
+  const hasOnlyValues = Object.keys(field.options).length === 1 && field.options.values !== undefined;
+  if (Object.keys(field.options).length === 0) {
+    delete field.options;
+  } else if (pbField.type === "select" && hasOnlyValues) {
+    // Keep options object if it only contains values for a select field
+    // This ensures values are preserved for comparison
+  }
+
+  return field as FieldDefinition;
+}
+
+/**
  * Converts a PocketBase collection object to CollectionSchema format
  *
  * @param pbCollection - PocketBase collection object from migration file
@@ -108,47 +159,7 @@ export function convertPocketBaseCollection(pbCollection: any): CollectionSchema
         continue;
       }
 
-      const field: any = {
-        name: pbField.name,
-        type: pbField.type,
-        required: pbField.required || false,
-      };
-
-      // Extract options from both direct properties and nested options object
-      field.options = extractFieldOptions(pbField);
-
-      // Handle relation fields
-      if (pbField.type === "relation") {
-        // Support both formats: collectionId directly on field or in options
-        const collectionId = pbField.collectionId || pbField.options?.collectionId || "";
-        // Resolve collectionId to collection name
-        // collectionId is a system field (like _pb_users_auth_), not the collection name
-        // We need to resolve it to the actual collection name for comparison
-        const collectionName = resolveCollectionIdToName(collectionId || "");
-        field.relation = {
-          collection: collectionName,
-          cascadeDelete: pbField.cascadeDelete ?? pbField.options?.cascadeDelete ?? false,
-          maxSelect: pbField.maxSelect ?? pbField.options?.maxSelect,
-          minSelect: pbField.minSelect ?? pbField.options?.minSelect,
-        };
-
-        // Remove relation-specific properties from options
-        // These belong in the relation object, not options
-        delete field.options.maxSelect;
-        delete field.options.minSelect;
-        delete field.options.cascadeDelete;
-      }
-
-      // Clean up empty options object, but preserve values for select fields
-      // If options only contains values for a select field, keep it
-      const hasOnlyValues = Object.keys(field.options).length === 1 && field.options.values !== undefined;
-      if (Object.keys(field.options).length === 0) {
-        delete field.options;
-      } else if (pbField.type === "select" && hasOnlyValues) {
-        // Keep options object if it only contains values for a select field
-        // This ensures values are preserved for comparison
-      }
-
+      const field = convertPocketBaseField(pbField);
       fields.push(field);
     }
   }
