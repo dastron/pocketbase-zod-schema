@@ -9,7 +9,7 @@ import fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { generate } from "../../generator";
 import type { CollectionSchema, SchemaDiff } from "../../types";
 import { parseJavaScript } from "../helpers/javascript-parser";
@@ -35,6 +35,16 @@ describe("Array Syntax Property Tests", () => {
       }
     });
     generatedFiles = [];
+  });
+
+  afterAll(() => {
+    try {
+      if (fs.existsSync(testDir)) {
+        fs.rmSync(testDir, { recursive: true, force: true });
+      }
+    } catch (error) {
+      // Ignore cleanup errors
+    }
   });
 
   /**

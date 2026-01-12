@@ -9,7 +9,7 @@ import fc from "fast-check";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { generate } from "../../generator";
 import type { CollectionSchema, SchemaDiff } from "../../types";
 import { parseJavaScript } from "../helpers/javascript-parser";
@@ -37,6 +37,16 @@ describe("Object Syntax Property Tests", () => {
     generatedFiles = [];
   });
 
+  afterAll(() => {
+    try {
+      if (fs.existsSync(testDir)) {
+        fs.rmSync(testDir, { recursive: true, force: true });
+      }
+    } catch (error) {
+      // Ignore cleanup errors
+    }
+  });
+
   /**
    * Property 18: Valid Object Syntax
    * Feature: migration-generation-improvements, Property 18: Valid Object Syntax
@@ -52,7 +62,7 @@ describe("Object Syntax Property Tests", () => {
             min: fc.option(fc.integer({ min: 0, max: 100 }), { nil: undefined }),
             max: fc.option(fc.integer({ min: 0, max: 1000 }), { nil: undefined }),
             pattern: fc.option(
-              fc.string().filter((s) => !s.includes("`") && !s.includes("$`")),
+              fc.string().filter((s) => !s.includes("`")),
               { nil: undefined }
             ),
           }),

@@ -286,10 +286,10 @@ export function createMigrationFileStructure(
   const mergedConfig = config ? mergeConfig(config) : DEFAULT_CONFIG;
   let template = mergedConfig.template;
 
-  // Replace placeholders
-  template = template.replace("{{TYPES_PATH}}", mergedConfig.typesPath);
-  template = template.replace("{{UP_CODE}}", upCode);
-  template = template.replace("{{DOWN_CODE}}", downCode);
+  // Replace placeholders using functions to avoid special character expansion (like $')
+  template = template.replace("{{TYPES_PATH}}", () => mergedConfig.typesPath);
+  template = template.replace("{{UP_CODE}}", () => upCode);
+  template = template.replace("{{DOWN_CODE}}", () => downCode);
 
   // Remove type reference if disabled
   if (!mergedConfig.includeTypeReference) {
