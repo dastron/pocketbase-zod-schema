@@ -494,16 +494,46 @@ function parseMigrationOperationsFromContent(content: string): {
 
     // 3d. Indexes push/splice
     // col.indexes.push("...")
-    const idxPushMatches = content.matchAll(/(\w+)\.indexes\.push\s*\(\s*(.+?)\s*\)/g);
-    for (const match of idxPushMatches) {
-      const [_, colVar, valStr] = match;
+    const idxPushRegex = /(\w+)\.indexes\.push\s*\(/g;
+    let match;
+    while ((match = idxPushRegex.exec(content)) !== null) {
+      const colVar = match[1];
       const colInfo = variables.get(colVar);
       if (colInfo && colInfo.type === "collection") {
-        try {
-          const val = new Function(`return ${valStr}`)();
-          getUpdate(colInfo.name).indexesToAdd.push(val);
-        } catch {
-          console.warn(`Failed to parse index value: ${valStr}`);
+        // Parse forward to find matching closing parenthesis
+        let i = match.index + match[0].length;
+        let parenCount = 1;
+        let inString = false;
+        let stringChar: string | null = null;
+        const start = i;
+
+        while (i < content.length && parenCount > 0) {
+          const char = content[i];
+          const prevChar = i > 0 ? content[i - 1] : "";
+
+          if (!inString && (char === '"' || char === "'")) {
+            inString = true;
+            stringChar = char;
+          } else if (inString && char === stringChar && prevChar !== "\\") {
+            inString = false;
+            stringChar = null;
+          }
+
+          if (!inString) {
+            if (char === "(") parenCount++;
+            if (char === ")") parenCount--;
+          }
+          i++;
+        }
+
+        if (parenCount === 0) {
+          const valStr = content.substring(start, i - 1).trim();
+          try {
+            const val = new Function(`return ${valStr}`)();
+            getUpdate(colInfo.name).indexesToAdd.push(val);
+          } catch {
+            console.warn(`Failed to parse index value: ${valStr}`);
+          }
         }
       }
     }
@@ -514,15 +544,15 @@ function parseMigrationOperationsFromContent(content: string): {
     // if (idxVar !== -1) col.indexes.splice(idxVar, 1);
     // So we should look for the findIndex call to identify the index string being removed.
     const idxFindMatches = content.matchAll(
-      /const\s+(\w+)\s*=\s*(\w+)\.indexes\.findIndex\s*\(\s*idx\s*=>\s*idx\s*===\s*(.+?)\s*\)/g
+      /const\s+(\w+)\s*=\s*(\w+)\.indexes\.findIndex\s*\(\s*idx\s*=>\s*idx\s*===\s*"((?:[^"\\]|\\.)*)"\s*\)/g
     );
     for (const match of idxFindMatches) {
       const [_, idxVar, colVar, idxStr] = match;
       const colInfo = variables.get(colVar);
       if (colInfo && colInfo.type === "collection") {
         try {
-          const val = new Function(`return ${idxStr}`)();
-          getUpdate(colInfo.name).indexesToRemove.push(val);
+          // idxStr contains the JavaScript string value (escape sequences already processed)
+          getUpdate(colInfo.name).indexesToRemove.push(idxStr);
         } catch {
           console.warn(`Failed to parse index value: ${idxStr} ${idxVar} ${colVar}`);
         }
