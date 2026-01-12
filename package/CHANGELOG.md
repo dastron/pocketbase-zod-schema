@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.3...pocketbase-zod-schema-v0.3.4) (2026-01-12)
+
+
+### Bug Fixes
+
+* run precommit ([ba29ad8](https://github.com/dastron/pocketbase-zod-schema/commit/ba29ad8fed889e70f07d65bc370283decc6a3fd9))
+
 ## [0.3.3](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.2...pocketbase-zod-schema-v0.3.3) (2026-01-06)
 
 
