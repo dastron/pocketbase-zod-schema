@@ -554,6 +554,8 @@ export function applyMigrationOperations(
       for (const fieldUpdate of update.fieldsToUpdate) {
         const field = collection.fields.find((f) => f.name === fieldUpdate.fieldName);
         if (field) {
+          const topLevelFieldProps = ["name", "type", "required", "unique", "system", "id", "presentable"];
+
           for (const [key, value] of Object.entries(fieldUpdate.changes)) {
             if (key.startsWith("options.")) {
               const optionKey = key.replace("options.", "");
@@ -568,8 +570,13 @@ export function applyMigrationOperations(
               if (field.relation) {
                 (field.relation as any)[relationKey] = value;
               }
-            } else {
+            } else if (topLevelFieldProps.includes(key)) {
               (field as any)[key] = value;
+            } else {
+              // It's likely an option (e.g. 'values', 'min', 'max') being set directly
+              // as produced by the generator or PocketBase SDK
+              if (!field.options) field.options = {};
+              field.options[key] = value;
             }
           }
         }
@@ -738,9 +745,9 @@ export function loadBaseMigration(migrationPath: string): SchemaSnapshot {
     if (!fs.existsSync(migrationPath)) {
       throw new SnapshotError(
         `Base migration file not found: ${migrationPath}\n\n` +
-          `This file should contain PocketBase's initial schema.\n` +
-          `Please ensure PocketBase is properly set up by running 'yarn setup'.\n` +
-          `If the file exists in a different location, update the configuration.`,
+        `This file should contain PocketBase's initial schema.\n` +
+        `Please ensure PocketBase is properly set up by running 'yarn setup'.\n` +
+        `If the file exists in a different location, update the configuration.`,
         migrationPath,
         "read"
       );
@@ -763,8 +770,8 @@ export function loadBaseMigration(migrationPath: string): SchemaSnapshot {
     if ((error as any).code === "ENOENT") {
       throw new SnapshotError(
         `Base migration file not found: ${migrationPath}\n\n` +
-          `This file should contain PocketBase's initial schema.\n` +
-          `Please ensure PocketBase is properly set up by running 'yarn setup'.`,
+        `This file should contain PocketBase's initial schema.\n` +
+        `Please ensure PocketBase is properly set up by running 'yarn setup'.`,
         migrationPath,
         "read",
         error as Error

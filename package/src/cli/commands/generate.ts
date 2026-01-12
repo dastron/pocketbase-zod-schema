@@ -181,11 +181,11 @@ export async function executeGenerate(options: any): Promise<void> {
     logSection("📝 Generating Migration");
 
     const migrationPaths = await withProgress("Creating migration file...", () =>
-      Promise.resolve(generate(diff, migrationsDir))
+      Promise.resolve(generate(diff, { migrationDir: migrationsDir, force: options.force }))
     );
 
     if (migrationPaths.length === 0) {
-      logWarning("No migration files were generated (no changes detected).");
+      logWarning("No migration files were generated (no changes detected or duplicate migration).");
       return;
     }
 
@@ -282,7 +282,7 @@ export function createGenerateCommand(): Command {
   return new Command("generate")
     .description("Generate a migration from schema changes")
     .option("-o, --output <directory>", "Output directory for migration files")
-    .option("-f, --force", "Force generation even with destructive changes", false)
+    .option("-f, --force", "Force generation even with destructive changes or duplicates", false)
     .option("--dry-run", "Show what would be generated without creating files", false)
     .option("--schema-dir <directory>", "Directory containing Zod schema files")
     .addHelpText(

@@ -430,6 +430,11 @@ function normalizeOptionValue(key: string, value: any, fieldType: string): any {
     return undefined;
   }
 
+  // min: 1 can be a default for some PocketBase versions/number fields
+  if (key === "min" && value === 1 && fieldType === "number") {
+    return undefined;
+  }
+
   // Empty arrays are defaults for file fields
   if (fieldType === "file") {
     if (key === "mimeTypes" && Array.isArray(value) && value.length === 0) {

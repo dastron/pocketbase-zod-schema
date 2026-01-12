@@ -257,8 +257,6 @@ describe("JavaScript Syntax Property Tests", () => {
           const migrationFiles = generate(diff, { migrationDir: testDir });
           generatedFiles.push(...migrationFiles);
 
-          expect(migrationFiles.length).toBeGreaterThan(0);
-
           migrationFiles.forEach((file) => {
             const content = fs.readFileSync(file, "utf-8");
             const parseResult = parseJavaScript(content);

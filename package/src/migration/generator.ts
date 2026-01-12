@@ -48,7 +48,17 @@ export interface MigrationGeneratorConfig {
    * Path to types.d.ts file for reference comment
    * Defaults to '../pb_data/types.d.ts'
    */
+  /**
+   * Path to types.d.ts file for reference comment
+   * Defaults to '../pb_data/types.d.ts'
+   */
   typesPath?: string;
+
+  /**
+   * Whether to force generation even if duplicate migration exists
+   * Defaults to false
+   */
+  force?: boolean;
 }
 
 /**
@@ -65,7 +75,7 @@ migrate((app) => {
 /**
  * Default configuration values
  */
-const DEFAULT_CONFIG: Omit<Required<MigrationGeneratorConfig>, "migrationDir"> = {
+const DEFAULT_CONFIG: Omit<Required<MigrationGeneratorConfig>, "migrationDir" | "force"> = {
   workspaceRoot: process.cwd(),
   timestampGenerator: () => Math.floor(Date.now() / 1000).toString(),
   template: DEFAULT_TEMPLATE,
@@ -79,6 +89,7 @@ const DEFAULT_CONFIG: Omit<Required<MigrationGeneratorConfig>, "migrationDir"> =
 function mergeConfig(config: MigrationGeneratorConfig): Required<MigrationGeneratorConfig> {
   return {
     ...DEFAULT_CONFIG,
+    force: false,
     ...config,
   };
 }
@@ -1827,6 +1838,14 @@ export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | st
     // Generate migration file for each operation
     const filePaths: string[] = [];
 
+    // Read existing files for duplicate check
+    let existingFiles: string[] = [];
+    if (!normalizedConfig.force && fs.existsSync(migrationDir)) {
+      existingFiles = fs.readdirSync(migrationDir)
+        .filter(f => f.endsWith('.js') || f.endsWith('.ts'))
+        .map(f => fs.readFileSync(path.join(migrationDir, f), 'utf-8'));
+    }
+
     for (const operation of operations) {
       // Generate up and down migration code for this operation
       const upCode = generateOperationUpMigration(operation, collectionIdMap);
@@ -1834,6 +1853,13 @@ export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | st
 
       // Create migration file structure
       const content = createMigrationFileStructure(upCode, downCode, normalizedConfig);
+
+      // Check for duplicates
+      if (!normalizedConfig.force && existingFiles.some(existingContent => existingContent === content)) {
+        console.warn(`Duplicate migration detected for ${operation.type} ${typeof operation.collection === 'string' ? operation.collection : operation.collection.name
+          }. Skipping...`);
+        continue;
+      }
 
       // Generate filename for this operation
       const filename = generateCollectionMigrationFilename(operation);

@@ -84,7 +84,7 @@ describe("Object Syntax Property Tests", () => {
               collectionsToDelete: [],
             };
 
-            const migrationFiles = generate(diff, { migrationDir: testDir });
+            const migrationFiles = generate(diff, { migrationDir: testDir, force: true });
             generatedFiles.push(...migrationFiles);
 
             expect(migrationFiles.length).toBeGreaterThan(0);
@@ -139,7 +139,7 @@ describe("Object Syntax Property Tests", () => {
               collectionsToDelete: [],
             };
 
-            const migrationFiles = generate(diff, { migrationDir: testDir });
+            const migrationFiles = generate(diff, { migrationDir: testDir, force: true });
             generatedFiles.push(...migrationFiles);
 
             expect(migrationFiles.length).toBeGreaterThan(0);
@@ -193,7 +193,7 @@ describe("Object Syntax Property Tests", () => {
               collectionsToDelete: [],
             };
 
-            const migrationFiles = generate(diff, { migrationDir: testDir });
+            const migrationFiles = generate(diff, { migrationDir: testDir, force: true });
             generatedFiles.push(...migrationFiles);
 
             expect(migrationFiles.length).toBeGreaterThan(0);
@@ -250,7 +250,7 @@ describe("Object Syntax Property Tests", () => {
               collectionsToDelete: [],
             };
 
-            const migrationFiles = generate(diff, { migrationDir: testDir });
+            const migrationFiles = generate(diff, { migrationDir: testDir, force: true });
             generatedFiles.push(...migrationFiles);
 
             expect(migrationFiles.length).toBeGreaterThan(0);
