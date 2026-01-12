@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.5](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.4...pocketbase-zod-schema-v0.3.5) (2026-01-12)
+
+
+### Bug Fixes
+
+* failing migrations ([019455a](https://github.com/dastron/pocketbase-zod-schema/commit/019455a2d908cf018859525f4bbff622ada622c4))
+
 ## [0.3.4](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.3...pocketbase-zod-schema-v0.3.4) (2026-01-12)
 
 
