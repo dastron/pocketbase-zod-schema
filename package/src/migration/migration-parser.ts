@@ -112,6 +112,11 @@ function parseMigrationOperationsFromContent(content: string): {
   const collectionsToDelete: string[] = [];
   const collectionsToUpdate: ParsedCollectionUpdate[] = [];
 
+  // Mock app object for eval
+  const mockApp = {
+    findCollectionByNameOrId: (name: string) => ({ id: name, name }),
+  };
+
   // Helper to get or create update object
   const getUpdate = (name: string) => {
     let update = collectionsToUpdate.find((u) => u.collectionName === name);
@@ -249,7 +254,8 @@ function parseMigrationOperationsFromContent(content: string): {
       if (bCount === 0) {
         const objStr = content.substring(startObj, i);
         try {
-          const collectionObj = new Function(`return ${objStr}`)();
+          // Pass mockApp as 'app' to the function
+          const collectionObj = new Function("app", `return ${objStr}`)(mockApp);
           if (collectionObj && collectionObj.name) {
             const schema = convertPocketBaseCollection(collectionObj);
             collectionsToCreate.push(schema);
@@ -399,7 +405,7 @@ function parseMigrationOperationsFromContent(content: string): {
               // But `new TextField({...})` usually doesn't have `type: 'text'` inside.
               // It's inferred from constructor.
 
-              const rawObj = new Function(`return ${objStr}`)();
+              const rawObj = new Function("app", `return ${objStr}`)(mockApp);
 
               // Map constructor name to type string if needed
               // Valid types: text, number, bool, email, url, date, select, json, file, relation
@@ -466,9 +472,9 @@ function parseMigrationOperationsFromContent(content: string): {
 
           try {
             // Parse value
-            const value = new Function(`return ${valueStr}`)();
+            const value = new Function("app", `return ${valueStr}`)(mockApp);
             fieldUpdate.changes[propPath] = value;
-          } catch  {
+          } catch {
             // console.warn("Failed to parse value:", valueStr);
             // Use string if eval fails?
             fieldUpdate.changes[propPath] = valueStr.trim();
@@ -482,7 +488,7 @@ function parseMigrationOperationsFromContent(content: string): {
             // ignore direct assignment to indexes for now, usually it's push/splice
           } else if (propPath.endsWith("Rule")) {
             try {
-              const value = new Function(`return ${valueStr}`)();
+              const value = new Function("app", `return ${valueStr}`)(mockApp);
               update.rulesToUpdate[propPath] = value;
             } catch {
               update.rulesToUpdate[propPath] = valueStr.trim();
