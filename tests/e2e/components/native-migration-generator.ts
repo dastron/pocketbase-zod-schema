@@ -75,6 +75,39 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
       const authResponse = await this.authenticateAdmin(adminUrl);
       const authToken = authResponse.token;
 
+      // Check if collection exists (e.g. 'users' is created by default)
+      try {
+        const checkResponse = await fetch(`${adminUrl}/api/collections/${definition.name}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+          signal: AbortSignal.timeout(5000), // Short timeout for check
+        });
+
+        if (checkResponse.ok) {
+          logger.debug(`Collection '${definition.name}' already exists. Deleting it...`);
+          const existing = await checkResponse.json();
+
+          const deleteResponse = await fetch(`${adminUrl}/api/collections/${existing.id}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+            },
+            signal: AbortSignal.timeout(this.adminApiTimeout),
+          });
+
+          if (!deleteResponse.ok) {
+            logger.warn(`Failed to delete existing collection '${definition.name}': ${deleteResponse.statusText}`);
+          } else {
+             // Wait a bit for deletion to propagate
+             await sleep(500);
+          }
+        }
+      } catch (error) {
+        // Ignore check errors, proceed to create
+      }
+
       // Create the collection
       const createResponse = await fetch(`${adminUrl}/api/collections`, {
         method: 'POST',
@@ -226,7 +259,7 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
     const collectionData: any = {
       name: definition.name,
       type: definition.type,
-      schema: definition.fields.map(field => this.buildFieldData(field)),
+      fields: definition.fields.map(field => this.buildFieldData(field)),
     };
 
     // Add rules if specified
@@ -265,33 +298,8 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
    * Authenticate with PocketBase admin API
    */
   private async authenticateAdmin(adminUrl: string): Promise<{ token: string }> {
-    // First, try to create an admin user since PocketBase starts without any admins
-    try {
-      const createResponse = await fetch(`${adminUrl}/api/admins`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: 'test@example.com',
-          password: 'testpassword123',
-          passwordConfirm: 'testpassword123',
-        }),
-        signal: AbortSignal.timeout(this.adminApiTimeout),
-      });
-
-      // Admin creation might fail if admin already exists, which is fine
-      if (createResponse.ok) {
-        logger.debug('Admin user created successfully');
-      } else {
-        logger.debug('Admin user creation failed (might already exist)');
-      }
-    } catch (error) {
-      logger.debug('Error creating admin user:', error);
-    }
-
-    // Now try to authenticate
-    const authResponse = await fetch(`${adminUrl}/api/admins/auth-with-password`, {
+    // Try to authenticate as superuser (v0.23+)
+    let authResponse = await fetch(`${adminUrl}/api/collections/_superusers/auth-with-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -302,6 +310,21 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
       }),
       signal: AbortSignal.timeout(this.adminApiTimeout),
     });
+
+    // Fallback for older versions (pre v0.23)
+    if (authResponse.status === 404) {
+      authResponse = await fetch(`${adminUrl}/api/admins/auth-with-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          identity: 'test@example.com',
+          password: 'testpassword123',
+        }),
+        signal: AbortSignal.timeout(this.adminApiTimeout),
+      });
+    }
 
     if (!authResponse.ok) {
       const errorText = await authResponse.text();
@@ -341,21 +364,30 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
   private applyCollectionChanges(existingCollection: any, changes: CollectionChanges): any {
     const updated = { ...existingCollection };
 
+    // Helper to get fields array (handle both old schema and new fields format)
+    const getFields = (col: any) => col.fields || col.schema || [];
+
     // Apply field changes
+    let fields = [...getFields(updated)];
+
     if (changes.addFields) {
-      updated.schema = [...updated.schema, ...changes.addFields.map(field => this.buildFieldData(field))];
+      fields = [...fields, ...changes.addFields.map(field => this.buildFieldData(field))];
     }
 
     if (changes.removeFields) {
-      updated.schema = updated.schema.filter((field: any) => !changes.removeFields!.includes(field.name));
+      fields = fields.filter((field: any) => !changes.removeFields!.includes(field.name));
     }
 
     if (changes.updateFields) {
-      updated.schema = updated.schema.map((field: any) => {
+      fields = fields.map((field: any) => {
         const update = changes.updateFields!.find(u => u.name === field.name);
         return update ? { ...field, ...update.changes } : field;
       });
     }
+
+    // Set fields (using new format)
+    updated.fields = fields;
+    delete updated.schema; // Ensure we don't send both
 
     // Apply index changes
     if (changes.addIndexes) {
