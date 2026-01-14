@@ -36,13 +36,12 @@ jobs:
 
       - name: Run E2E tests
         id: test
-        run: yarn test:e2e 2>&1 | tee test-output.txt
+        run: yarn test:e2e
         env:
           E2E_LOG_LEVEL: info
           PB_VERSION: 0.35.0
           E2E_PORT_START: 8090
           E2E_PORT_END: 8290
-        continue-on-error: true
 
       - name: Upload test results
         if: always()
@@ -63,49 +62,4 @@ jobs:
           path: tests/e2e/coverage
           retention-days: 7
 
-      - name: Comment PR with test results
-        if: always() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            
-            // Strip ANSI escape codes from text
-            function stripAnsi(text) {
-              return text.replace(/\u001b\[[0-9;]*m/g, '');
-            }
-            
-            // Read test output
-            let summary = '';
-            try {
-              const outputPath = path.join(process.cwd(), 'test-output.txt');
-              if (fs.existsSync(outputPath)) {
-                const output = fs.readFileSync(outputPath, 'utf-8');
-                // Strip ANSI codes and get last 20 lines
-                const cleanOutput = stripAnsi(output);
-                const lines = cleanOutput.split('\n');
-                summary = lines.slice(-20).join('\n').trim();
-              }
-            } catch (error) {
-              console.log('Could not read test output:', error.message);
-              summary = 'Unable to read test output';
-            }
-            
-            // Get test outcome
-            const testPassed = '${{ steps.test.outcome }}' === 'success';
-            
-            // Build comment
-            const status = testPassed ? '✅ **PASSED**' : '❌ **FAILED**';
-            let comment = `## E2E Test Results ${status}\n\n`;
-            comment += `\n### Test Output Summary\n\n`;
-            comment += `\`\`\`\n${summary || 'No output available'}\n\`\`\`\n`;
-            
-            // Post comment
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
 
