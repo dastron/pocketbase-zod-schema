@@ -1,0 +1,147 @@
+
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { createWorkspaceManager, WorkspaceManager, TestWorkspace } from '../components/workspace-manager.js';
+import { createPBDownloader, PBDownloader } from '../components/pb-downloader.js';
+import { createNativeMigrationGenerator, NativeMigrationGenerator } from '../components/native-migration-generator.js';
+import { createLibraryCLI, LibraryCLI, LibraryWorkspace } from '../components/library-cli.js';
+import { createCLIResponseAnalyzer, CLIResponseAnalyzer } from '../components/cli-response-analyzer.js';
+import { ScenarioRunner, createComprehensiveRunner } from '../utils/scenario-runner.js';
+import { logger } from '../utils/test-helpers.js';
+import { TestScenario } from '../fixtures/test-scenarios.js';
+
+// Set higher timeout for E2E tests
+const TEST_TIMEOUT = 120000; // 2 minutes per test
+
+describe('E2E Migration Workflow', () => {
+  let pbDownloader: PBDownloader;
+  let workspaceManager: WorkspaceManager;
+  let nativeGen: NativeMigrationGenerator;
+  let libraryCLI: LibraryCLI;
+  let analyzer: CLIResponseAnalyzer;
+  let runner: ScenarioRunner;
+
+  beforeAll(async () => {
+    logger.info('Starting E2E Migration Tests');
+
+    // Initialize components
+    pbDownloader = createPBDownloader();
+    workspaceManager = createWorkspaceManager(pbDownloader);
+    nativeGen = createNativeMigrationGenerator();
+    libraryCLI = createLibraryCLI();
+    analyzer = createCLIResponseAnalyzer();
+
+    // Initialize scenario runner
+    // Exclude updates category for now as it requires special handling
+    runner = createComprehensiveRunner({
+        config: {
+            enabledCategories: ['basic', 'field-types', 'indexes', 'rules', 'auth', 'relations'],
+            minimumScore: 70
+        }
+    });
+
+    // Ensure PocketBase is downloaded once before tests start
+    await pbDownloader.downloadPocketBase();
+  }, 300000); // 5 minutes setup timeout
+
+  afterAll(async () => {
+    // Cleanup any remaining resources
+    await pbDownloader.cleanup();
+  });
+
+  // Get scenarios to run
+  const scenarios = createComprehensiveRunner({
+        config: {
+            enabledCategories: ['basic', 'field-types', 'indexes', 'rules', 'auth', 'relations'],
+            minimumScore: 70
+        }
+    }).getScenarios();
+
+  if (scenarios.length === 0) {
+    it('should have scenarios to run', () => {
+      throw new Error('No scenarios found matching configuration');
+    });
+  }
+
+  // Generate test cases for each scenario
+  for (const scenario of scenarios) {
+    it(`should match migrations for scenario: ${scenario.name}`, async () => {
+      await runTestScenario(scenario);
+    }, TEST_TIMEOUT);
+  }
+
+  async function runTestScenario(scenario: TestScenario) {
+    logger.info(`Running scenario: ${scenario.name}`);
+
+    let nativeWorkspace: TestWorkspace | undefined;
+    let libraryWorkspace: LibraryWorkspace | undefined;
+
+    try {
+      // 1. Setup Workspaces
+      [nativeWorkspace, libraryWorkspace] = await Promise.all([
+        workspaceManager.createWorkspace(),
+        libraryCLI.createLibraryWorkspace()
+      ]);
+
+      // 2. Native Migration Generation
+      logger.debug(`Starting native generation for ${scenario.name}`);
+      await workspaceManager.initializePocketBase(nativeWorkspace);
+      await workspaceManager.startPocketBase(nativeWorkspace);
+
+      const nativeMigrationFile = await nativeGen.createCollection(
+        nativeWorkspace,
+        scenario.collectionDefinition
+      );
+
+      const nativeMigration = await nativeGen.parseMigrationFile(nativeMigrationFile);
+
+      // 3. Library Migration Generation
+      logger.debug(`Starting library generation for ${scenario.name}`);
+      const libraryMigrationFile = await libraryCLI.generateFromSchema(
+        libraryWorkspace,
+        scenario.collectionDefinition
+      );
+
+      const libraryMigration = await libraryCLI.parseMigrationFile(libraryMigrationFile);
+
+      // 4. Compare Migrations
+      logger.debug(`Comparing migrations for ${scenario.name}`);
+      const comparison = await analyzer.compareMigrations(
+        nativeMigration,
+        libraryMigration,
+        scenario.name
+      );
+
+      // 5. Assertions
+
+      // Check overall score
+      expect(comparison.overallScore).toBeGreaterThanOrEqual(scenario.minimumScore);
+
+      // Check for critical differences
+      if (comparison.criticalDifferences.length > 0) {
+        logger.warn(`Critical differences in ${scenario.name}:`, comparison.criticalDifferences);
+      }
+      expect(comparison.criticalDifferences).toHaveLength(0);
+
+      // Check that all expected collections exist
+      const collectionNames = nativeMigration.collections.map(c => c.name);
+      expect(collectionNames).toContain(scenario.collectionDefinition.name);
+
+      const libCollectionNames = libraryMigration.collections.map(c => c.name);
+      expect(libCollectionNames).toContain(scenario.collectionDefinition.name);
+
+      logger.info(`Scenario ${scenario.name} passed with score ${comparison.overallScore}`);
+
+    } catch (error) {
+      logger.error(`Scenario ${scenario.name} failed:`, error);
+      throw error;
+    } finally {
+      // 6. Cleanup
+      if (nativeWorkspace) {
+        await workspaceManager.cleanupWorkspace(nativeWorkspace);
+      }
+      if (libraryWorkspace) {
+        await libraryCLI.cleanupLibraryWorkspace(libraryWorkspace);
+      }
+    }
+  }
+});

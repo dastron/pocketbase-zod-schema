@@ -44,41 +44,6 @@ jobs:
           E2E_PORT_END: 8290
         continue-on-error: true
 
-      - name: Get test output summary
-        id: output
-        if: always()
-        run: |
-          # Get last 20 lines of test output
-          if [ -f "test-output.txt" ]; then
-            tail -n 20 test-output.txt > test-summary.txt
-          else
-            echo "No test output file found" > test-summary.txt
-          fi
-          
-          # Try to get average diff percentage from results file using node
-          if [ -f "tests/e2e/results/test-results.json" ]; then
-            node << 'EOF' > output-vars.txt
-            const fs = require('fs');
-            try {
-              const data = JSON.parse(fs.readFileSync('tests/e2e/results/test-results.json', 'utf-8'));
-              const avgDiff = data.averageDiffPercentage || '';
-              const totalTests = data.totalTests || 0;
-              console.log(`avg_diff=${avgDiff}`);
-              console.log(`total_tests=${totalTests}`);
-            } catch (error) {
-              console.log('avg_diff=');
-              console.log('total_tests=0');
-            }
-            EOF
-            cat output-vars.txt >> $GITHUB_OUTPUT
-          else
-            echo "avg_diff=" >> $GITHUB_OUTPUT
-            echo "total_tests=0" >> $GITHUB_OUTPUT
-          fi
-          
-          # Get test exit status
-          echo "test_passed=${{ steps.test.outcome == 'success' }}" >> $GITHUB_OUTPUT
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -106,34 +71,33 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             
-            // Read test output summary
+            // Strip ANSI escape codes from text
+            function stripAnsi(text) {
+              return text.replace(/\u001b\[[0-9;]*m/g, '');
+            }
+            
+            // Read test output
             let summary = '';
             try {
-              const summaryPath = path.join(process.cwd(), 'test-summary.txt');
-              if (fs.existsSync(summaryPath)) {
-                summary = fs.readFileSync(summaryPath, 'utf-8').trim();
+              const outputPath = path.join(process.cwd(), 'test-output.txt');
+              if (fs.existsSync(outputPath)) {
+                const output = fs.readFileSync(outputPath, 'utf-8');
+                // Strip ANSI codes and get last 20 lines
+                const cleanOutput = stripAnsi(output);
+                const lines = cleanOutput.split('\n');
+                summary = lines.slice(-20).join('\n').trim();
               }
             } catch (error) {
-              console.log('Could not read test summary:', error.message);
+              console.log('Could not read test output:', error.message);
               summary = 'Unable to read test output';
             }
             
-            // Get average diff percentage and total tests from outputs
-            const avgDiff = '${{ steps.output.outputs.avg_diff }}';
-            const totalTests = '${{ steps.output.outputs.total_tests }}';
-            const testPassed = '${{ steps.output.outputs.test_passed }}' === 'true';
+            // Get test outcome
+            const testPassed = '${{ steps.test.outcome }}' === 'success';
             
             // Build comment
             const status = testPassed ? '✅ **PASSED**' : '❌ **FAILED**';
             let comment = `## E2E Test Results ${status}\n\n`;
-            
-            if (avgDiff && avgDiff !== '' && !isNaN(parseFloat(avgDiff))) {
-              comment += `**Average Diff Percentage:** ${parseFloat(avgDiff).toFixed(2)}%\n`;
-            }
-            if (totalTests && totalTests !== '0') {
-              comment += `**Total Tests:** ${totalTests}\n`;
-            }
-            
             comment += `\n### Test Output Summary\n\n`;
             comment += `\`\`\`\n${summary || 'No output available'}\n\`\`\`\n`;
             
