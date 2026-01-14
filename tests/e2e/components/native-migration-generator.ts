@@ -286,9 +286,9 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
       unique: field.unique || false,
     };
 
-    // Add field-specific options
+    // Add field-specific options (flattened for v0.23+)
     if (field.options) {
-      fieldData.options = field.options;
+      Object.assign(fieldData, field.options);
     }
 
     return fieldData;

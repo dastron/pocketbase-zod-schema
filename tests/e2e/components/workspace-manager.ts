@@ -150,6 +150,8 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
 
     logger.debug(`Starting PocketBase for workspace ${workspace.workspaceId} on port ${workspace.pocketbasePort}`);
 
+    let startupError: Error | null = null;
+
     try {
       const process = spawn(workspace.pocketbasePath, [
         'serve',
@@ -164,17 +166,6 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       // Store the process for later cleanup
       this.activeWorkspaces.set(workspace.workspaceId, process);
 
-      // Set up process event handlers
-      process.on('error', (error) => {
-        logger.error(`PocketBase process error for workspace ${workspace.workspaceId}:`, error);
-        this.activeWorkspaces.delete(workspace.workspaceId);
-      });
-
-      process.on('exit', (code, signal) => {
-        logger.debug(`PocketBase process exited for workspace ${workspace.workspaceId} with code ${code}, signal ${signal}`);
-        this.activeWorkspaces.delete(workspace.workspaceId);
-      });
-
       // Capture output for debugging
       let stdout = '';
       let stderr = '';
@@ -187,9 +178,30 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
         stderr += data.toString();
       });
 
+      // Set up process event handlers
+      process.on('error', (error) => {
+        logger.error(`PocketBase process error for workspace ${workspace.workspaceId}:`, error);
+        startupError = error;
+      });
+
+      process.on('exit', (code, signal) => {
+        logger.debug(`PocketBase process exited for workspace ${workspace.workspaceId} with code ${code}, signal ${signal}`);
+        if (code !== 0 && code !== null) {
+          startupError = new Error(`PocketBase exited with code ${code}. Stdout: ${stdout}, Stderr: ${stderr}`);
+        } else if (signal) {
+          startupError = new Error(`PocketBase killed with signal ${signal}. Stdout: ${stdout}, Stderr: ${stderr}`);
+        } else {
+          startupError = new Error(`PocketBase exited unexpectedly with code ${code}. Stdout: ${stdout}, Stderr: ${stderr}`);
+        }
+        this.activeWorkspaces.delete(workspace.workspaceId);
+      });
+
       // Wait for PocketBase to be ready
       await waitFor(
         async () => {
+          if (startupError) {
+            throw startupError;
+          }
           try {
             const response = await fetch(`http://127.0.0.1:${workspace.pocketbasePort}/api/health`);
             return response.ok;
@@ -227,16 +239,26 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
     logger.debug(`Stopping PocketBase for workspace ${workspace.workspaceId}`);
 
     try {
+      // Create a promise that resolves when the process exits
+      const exitPromise = new Promise<void>((resolve) => {
+        if (process.exitCode !== null) {
+          resolve();
+          return;
+        }
+        process.once('exit', () => resolve());
+      });
+
       // Try graceful shutdown first
       process.kill('SIGTERM');
       
-      // Wait for graceful shutdown
-      await sleep(2000);
+      // Wait for graceful shutdown or timeout
+      const timeoutPromise = sleep(2000);
+      await Promise.race([exitPromise, timeoutPromise]);
       
       // Force kill if still running
-      if (!process.killed) {
+      if (process.exitCode === null) {
         process.kill('SIGKILL');
-        await sleep(1000);
+        await exitPromise; // Wait for it to actually die
       }
       
       this.activeWorkspaces.delete(workspace.workspaceId);

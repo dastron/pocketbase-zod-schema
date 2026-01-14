@@ -126,7 +126,7 @@ export const fieldTypeScenarios: TestScenario[] = [
         { name: 'date_field', type: 'date', required: false, options: { min: '', max: '' } },
         { name: 'select_field', type: 'select', required: false, options: { maxSelect: 1, values: ['option1', 'option2', 'option3'] } },
         { name: 'json_field', type: 'json', required: false, options: { maxSize: 2000000 } },
-        { name: 'autodate_field', type: 'autodate', required: false, options: { onCreate: true, onUpdate: false } }
+        { name: 'autodate_field', type: 'autodate', required: false, options: { onCreate: true, onUpdate: true } }
       ]
     },
     expectedFeatures: [
@@ -350,7 +350,7 @@ export const authScenarios: TestScenario[] = [
     description: 'Auth collection with special system fields',
     category: 'auth',
     collectionDefinition: {
-      name: 'users',
+      name: 'users_test_final',
       type: 'auth',
       fields: [
         { name: 'name', type: 'text', required: true, options: { min: 2, max: 50 } },
@@ -376,7 +376,7 @@ export const authScenarios: TestScenario[] = [
     description: 'Auth collection with manageRule for user management',
     category: 'auth',
     collectionDefinition: {
-      name: 'admins',
+      name: 'admins_test_final',
       type: 'auth',
       fields: [
         { name: 'role', type: 'select', required: true, options: { maxSelect: 1, values: ['admin', 'moderator', 'user'] } },
