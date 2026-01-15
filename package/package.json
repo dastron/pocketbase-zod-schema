@@ -122,18 +122,10 @@
   "author": "dastron <erik.danford@gmail.com>",
   "license": "MIT",
   "sideEffects": false,
-  "peerDependencies": {
-    "zod": "^3.20.0"
-  },
-  "peerDependenciesMeta": {
-    "zod": {
-      "optional": false
-    }
-  },
   "devDependencies": {
     "@babel/parser": "^7.28.6",
     "@eslint/js": "^9.39.2",
-    "@types/node": "^25.0.8",
+    "@types/node": "^25.0.9",
     "@typescript-eslint/eslint-plugin": "^8.53.0",
     "@typescript-eslint/parser": "^8.53.0",
     "@vitest/coverage-v8": "^3.2.4",
