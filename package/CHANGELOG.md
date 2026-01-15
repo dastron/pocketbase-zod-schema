@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.8](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.7...pocketbase-zod-schema-v0.3.8) (2026-01-15)
+
+
+### Bug Fixes
+
+* remove peer dep ([a5b85f6](https://github.com/dastron/pocketbase-zod-schema/commit/a5b85f65b2acd6e04f93a600e812204066ed5d2e))
+
 ## [0.3.7](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.6...pocketbase-zod-schema-v0.3.7) (2026-01-15)
 
 
