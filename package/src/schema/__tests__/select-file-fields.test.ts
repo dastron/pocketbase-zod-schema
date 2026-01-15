@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { FileField, FilesField, SelectField, extractFieldMetadata } from "../fields";
+import { z } from "zod";
+import {
+  FileField,
+  FilesField,
+  MultiSelectField,
+  SelectField,
+  SingleSelectField,
+  extractFieldMetadata,
+} from "../fields";
 
 describe("SelectField", () => {
   it("should create a single select field with metadata", () => {
@@ -24,12 +32,53 @@ describe("SelectField", () => {
 
   it("should return enum schema for single select", () => {
     const field = SelectField(["draft", "published"]);
-    expect(field._def.typeName).toBe("ZodEnum");
+    expect(field).toBeInstanceOf(z.ZodEnum);
   });
 
   it("should return array schema for multiple select", () => {
     const field = SelectField(["tag1", "tag2"], { maxSelect: 2 });
-    expect(field._def.typeName).toBe("ZodArray");
+    expect(field).toBeInstanceOf(z.ZodArray);
+  });
+});
+
+describe("SingleSelectField", () => {
+  it("should create a single select field with metadata", () => {
+    const field = SingleSelectField(["draft", "published"]);
+    const metadata = extractFieldMetadata(field.description);
+
+    expect(metadata).toBeDefined();
+    expect(metadata?.type).toBe("select");
+    expect(metadata?.options?.values).toEqual(["draft", "published"]);
+    expect(metadata?.options?.maxSelect).toBe(1);
+  });
+
+  it("should return enum schema", () => {
+    const field = SingleSelectField(["draft", "published"]);
+    expect(field).toBeInstanceOf(z.ZodEnum);
+  });
+});
+
+describe("MultiSelectField", () => {
+  it("should create a multiple select field with metadata", () => {
+    const field = MultiSelectField(["tag1", "tag2"], { maxSelect: 3 });
+    const metadata = extractFieldMetadata(field.description);
+
+    expect(metadata).toBeDefined();
+    expect(metadata?.type).toBe("select");
+    expect(metadata?.options?.values).toEqual(["tag1", "tag2"]);
+    expect(metadata?.options?.maxSelect).toBe(3);
+  });
+
+  it("should default maxSelect to 999", () => {
+    const field = MultiSelectField(["tag1", "tag2"]);
+    const metadata = extractFieldMetadata(field.description);
+
+    expect(metadata?.options?.maxSelect).toBe(999);
+  });
+
+  it("should return array schema", () => {
+    const field = MultiSelectField(["tag1", "tag2"], { maxSelect: 2 });
+    expect(field).toBeInstanceOf(z.ZodArray);
   });
 });
 
@@ -97,11 +146,10 @@ describe("FilesField", () => {
 
   it("should return array schema", () => {
     const field = FilesField();
-    // FilesField uses z.preprocess, so it returns ZodEffects wrapping a ZodArray
-    expect((field as any)._def.typeName).toBe("ZodEffects");
-    // Verify the inner schema is an array
-    const innerSchema = (field as any)._def.schema;
-    expect((innerSchema as any)._def.typeName).toBe("ZodArray");
+    // FilesField uses z.preprocess, so it returns a ZodPipe wrapping a ZodArray
+    expect(field).toBeInstanceOf(z.ZodPipe);
+    // Verify the output schema is an array
+    expect((field as z.ZodPipe).out).toBeInstanceOf(z.ZodArray);
   });
 
   it("should support minSelect option", () => {

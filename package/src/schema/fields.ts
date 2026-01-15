@@ -167,6 +167,8 @@ export interface SelectFieldOptions {
   maxSelect?: number;
 }
 
+type EnumFromArray<T extends readonly [string, ...string[]]> = z.ZodEnum<z.core.util.ToEnum<T[number]>>;
+
 /**
  * Human-friendly byte size input.
  *
@@ -561,29 +563,71 @@ export function AutodateField(options?: AutodateFieldOptions): z.ZodString {
  *   categories: SelectField(["electronics", "clothing", "food"], { maxSelect: 3 }),
  * });
  */
-export function SelectField<T extends [string, ...string[]]>(
+export function SelectField<const T extends readonly [string, ...string[]]>(
   values: T,
   options?: SelectFieldOptions
-): z.ZodEnum<T> | z.ZodArray<z.ZodEnum<T>> {
+): EnumFromArray<T> | z.ZodArray<EnumFromArray<T>> {
+  // Return array schema if maxSelect > 1
+  if (options?.maxSelect && options.maxSelect > 1) {
+    return MultiSelectField(values, options);
+  }
+
+  return SingleSelectField(values);
+}
+
+/**
+ * Creates a single select field schema from enum values
+ * Maps to PocketBase 'select' field type with maxSelect=1
+ *
+ * @param values - Array of allowed string values
+ * @returns Zod enum schema with PocketBase metadata
+ */
+export function SingleSelectField<const T extends readonly [string, ...string[]]>(values: T): EnumFromArray<T> {
   const enumSchema = z.enum(values);
 
-  // Build metadata
   const metadata = {
     [FIELD_METADATA_KEY]: {
       type: "select" as const,
       options: {
         values,
-        maxSelect: options?.maxSelect ?? 1,
+        maxSelect: 1,
       },
     },
   };
 
-  // Return array schema if maxSelect > 1
-  if (options?.maxSelect && options.maxSelect > 1) {
-    return z.array(enumSchema).describe(JSON.stringify(metadata));
+  return enumSchema.describe(JSON.stringify(metadata)) as EnumFromArray<T>;
+}
+
+/**
+ * Creates a multiple select field schema from enum values
+ * Maps to PocketBase 'select' field type with maxSelect>1
+ *
+ * @param values - Array of allowed string values
+ * @param options - Optional select configuration
+ * @returns Zod array schema with PocketBase metadata
+ */
+export function MultiSelectField<const T extends readonly [string, ...string[]]>(
+  values: T,
+  options?: SelectFieldOptions
+): z.ZodArray<EnumFromArray<T>> {
+  const enumSchema = z.enum(values);
+  const maxSelect = options?.maxSelect ?? 999;
+
+  if (maxSelect <= 1) {
+    throw new Error("MultiSelectField: maxSelect must be greater than 1");
   }
 
-  return enumSchema.describe(JSON.stringify(metadata));
+  const metadata = {
+    [FIELD_METADATA_KEY]: {
+      type: "select" as const,
+      options: {
+        values,
+        maxSelect,
+      },
+    },
+  };
+
+  return z.array(enumSchema).describe(JSON.stringify(metadata)) as z.ZodArray<EnumFromArray<T>>;
 }
 
 /**
@@ -603,14 +647,14 @@ export function SelectField<T extends [string, ...string[]]>(
  * - When creating/updating records: accepts File objects
  * - When reading from PocketBase: returns string (filename)
  */
-export function FileField(options?: FileFieldOptions): z.ZodType<string, z.ZodTypeDef, File | string> {
+export function FileField(options?: FileFieldOptions): z.ZodType<string, File | string> {
   // Accept File for input (when creating/updating) or string (when reading from DB)
   // Output is always string (as returned by PocketBase)
   const schema = z.preprocess((val) => {
     // If it's a File, return its name (or empty string if no name)
     // If it's already a string (from DB), return as-is
     return val instanceof File ? val.name || "" : val;
-  }, z.string()) as z.ZodType<string, z.ZodTypeDef, File | string>;
+  }, z.string()) as z.ZodType<string, File | string>;
 
   const normalizedOptions = normalizeFileFieldOptions(options, "FileField");
 
@@ -642,7 +686,7 @@ export function FileField(options?: FileFieldOptions): z.ZodType<string, z.ZodTy
  * - When creating/updating records: accepts File[]
  * - When reading from PocketBase: returns string[] (filenames)
  */
-export function FilesField(options?: FilesFieldOptions): z.ZodType<string[], z.ZodTypeDef, (File | string)[]> {
+export function FilesField(options?: FilesFieldOptions): z.ZodType<string[], (File | string)[]> {
   // Validate options
   if (options?.minSelect !== undefined && options?.maxSelect !== undefined) {
     if (options.minSelect > options.maxSelect) {
@@ -680,7 +724,7 @@ export function FilesField(options?: FilesFieldOptions): z.ZodType<string[], z.Z
     },
   };
 
-  return schema.describe(JSON.stringify(metadata)) as z.ZodType<string[], z.ZodTypeDef, (File | string)[]>;
+  return schema.describe(JSON.stringify(metadata)) as z.ZodType<string[], (File | string)[]>;
 }
 
 /**

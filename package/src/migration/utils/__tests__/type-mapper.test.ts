@@ -87,7 +87,7 @@ describe("Type Mapper - Zod to PocketBase", () => {
 
   describe("mapZodRecordType", () => {
     it("should map record to json", () => {
-      const zodType = z.record(z.string());
+      const zodType = z.record(z.string(), z.string());
       expect(mapZodRecordType(zodType)).toBe("json");
     });
 
@@ -126,7 +126,7 @@ describe("Type Mapper - Zod to PocketBase", () => {
     });
 
     it("should map record types correctly", () => {
-      expect(mapZodTypeToPocketBase(z.record(z.string()), "metadata")).toBe("json");
+      expect(mapZodTypeToPocketBase(z.record(z.string(), z.any()), "metadata")).toBe("json");
     });
 
     it("should unwrap optional types", () => {
@@ -197,17 +197,13 @@ describe("Type Mapper - Zod to PocketBase", () => {
     it("should extract array min constraint", () => {
       const zodType = z.array(z.string()).min(1);
       const options = extractFieldOptions(zodType);
-      // Note: Zod array min/max are stored differently than other constraints
-      // The implementation extracts them but they may not be in _def.checks
-      expect(options).toBeDefined();
+      expect(options.minSelect).toBe(1);
     });
 
     it("should extract array max constraint", () => {
       const zodType = z.array(z.string()).max(5);
       const options = extractFieldOptions(zodType);
-      // Note: Zod array min/max are stored differently than other constraints
-      // The implementation extracts them but they may not be in _def.checks
-      expect(options).toBeDefined();
+      expect(options.maxSelect).toBe(5);
     });
 
     it("should handle optional types", () => {

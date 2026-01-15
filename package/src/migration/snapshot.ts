@@ -745,9 +745,9 @@ export function loadBaseMigration(migrationPath: string): SchemaSnapshot {
     if (!fs.existsSync(migrationPath)) {
       throw new SnapshotError(
         `Base migration file not found: ${migrationPath}\n\n` +
-        `This file should contain PocketBase's initial schema.\n` +
-        `Please ensure PocketBase is properly set up by running 'yarn setup'.\n` +
-        `If the file exists in a different location, update the configuration.`,
+          `This file should contain PocketBase's initial schema.\n` +
+          `Please ensure PocketBase is properly set up by running 'yarn setup'.\n` +
+          `If the file exists in a different location, update the configuration.`,
         migrationPath,
         "read"
       );
@@ -770,8 +770,8 @@ export function loadBaseMigration(migrationPath: string): SchemaSnapshot {
     if ((error as any).code === "ENOENT") {
       throw new SnapshotError(
         `Base migration file not found: ${migrationPath}\n\n` +
-        `This file should contain PocketBase's initial schema.\n` +
-        `Please ensure PocketBase is properly set up by running 'yarn setup'.`,
+          `This file should contain PocketBase's initial schema.\n` +
+          `Please ensure PocketBase is properly set up by running 'yarn setup'.`,
         migrationPath,
         "read",
         error as Error

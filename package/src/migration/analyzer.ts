@@ -16,7 +16,7 @@ import { PermissionAnalyzer } from "./permission-analyzer";
 import type { CollectionSchema, FieldDefinition, SchemaDefinition } from "./types";
 import { toCollectionName } from "./utils/pluralize";
 import { getMaxSelect, getMinSelect, isRelationField, resolveTargetCollection } from "./utils/relation-detector";
-import { extractFieldOptions, isFieldRequired, mapZodTypeToPocketBase } from "./utils/type-mapper";
+import { extractFieldOptions, isFieldRequired, mapZodTypeToPocketBase, unwrapZodType } from "./utils/type-mapper";
 
 // Register tsx loader for TypeScript file support
 // This allows dynamic imports of .ts files to work
@@ -495,7 +495,8 @@ export function isAuthCollection(fields: Array<{ name: string; zodType: z.ZodTyp
  */
 export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): FieldDefinition {
   // Check for explicit field metadata first (from field helper functions)
-  const fieldMetadata = extractFieldMetadata(zodType.description);
+  const unwrappedType = unwrapZodType(zodType);
+  const fieldMetadata = extractFieldMetadata(unwrappedType.description ?? zodType.description);
 
   if (fieldMetadata) {
     // Use explicit metadata from field helpers
@@ -528,7 +529,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
 
     // If it's a relation type from metadata, we still need to extract relation config
     if (fieldMetadata.type === "relation") {
-      const relationMetadata = extractRelationMetadata(zodType.description);
+      const relationMetadata = extractRelationMetadata(unwrappedType.description ?? zodType.description);
       if (relationMetadata) {
         fieldDef.relation = {
           collection: relationMetadata.collection,
@@ -555,7 +556,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
   };
 
   // Check for explicit relation metadata first (from relation() or relations() helpers)
-  const relationMetadata = extractRelationMetadata(zodType.description);
+  const relationMetadata = extractRelationMetadata(unwrappedType.description ?? zodType.description);
 
   if (relationMetadata) {
     // Explicit relation definition found

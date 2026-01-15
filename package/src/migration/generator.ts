@@ -1841,9 +1841,10 @@ export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | st
     // Read existing files for duplicate check
     let existingFiles: string[] = [];
     if (!normalizedConfig.force && fs.existsSync(migrationDir)) {
-      existingFiles = fs.readdirSync(migrationDir)
-        .filter(f => f.endsWith('.js') || f.endsWith('.ts'))
-        .map(f => fs.readFileSync(path.join(migrationDir, f), 'utf-8'));
+      existingFiles = fs
+        .readdirSync(migrationDir)
+        .filter((f) => f.endsWith(".js") || f.endsWith(".ts"))
+        .map((f) => fs.readFileSync(path.join(migrationDir, f), "utf-8"));
     }
 
     for (const operation of operations) {
@@ -1855,9 +1856,12 @@ export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | st
       const content = createMigrationFileStructure(upCode, downCode, normalizedConfig);
 
       // Check for duplicates
-      if (!normalizedConfig.force && existingFiles.some(existingContent => existingContent === content)) {
-        console.warn(`Duplicate migration detected for ${operation.type} ${typeof operation.collection === 'string' ? operation.collection : operation.collection.name
-          }. Skipping...`);
+      if (!normalizedConfig.force && existingFiles.some((existingContent) => existingContent === content)) {
+        console.warn(
+          `Duplicate migration detected for ${operation.type} ${
+            typeof operation.collection === "string" ? operation.collection : operation.collection.name
+          }. Skipping...`
+        );
         continue;
       }
 

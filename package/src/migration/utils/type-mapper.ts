@@ -133,26 +133,42 @@ export const FIELD_TYPE_INFO: Record<PocketBaseFieldType, FieldTypeInfo> = {
   },
 };
 
+function getChecks(zodType: z.ZodTypeAny): any[] {
+  const def = (zodType as any).def ?? (zodType as any)._def;
+  return (def?.checks ?? []) as any[];
+}
+
+function getJsonSchema(zodType: z.ZodTypeAny): any | null {
+  try {
+    const toJSONSchema = (zodType as any).toJSONSchema;
+    return typeof toJSONSchema === "function" ? toJSONSchema.call(zodType) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Maps Zod string types to PocketBase field types
  */
 export function mapZodStringType(zodType: z.ZodString): PocketBaseFieldType {
-  const checks = (zodType as any)._def.checks || [];
+  const checks = getChecks(zodType);
 
   // Check for email validation
-  const hasEmail = checks.some((check: any) => check.kind === "email");
+  const hasEmail = checks.some((check: any) => check.kind === "email" || check.def?.format === "email");
   if (hasEmail) {
     return "email";
   }
 
   // Check for URL validation
-  const hasUrl = checks.some((check: any) => check.kind === "url");
+  const hasUrl = checks.some((check: any) => check.kind === "url" || check.def?.format === "url");
   if (hasUrl) {
     return "url";
   }
 
   // Check for datetime validation (could be date field)
-  const hasDatetime = checks.some((check: any) => check.kind === "datetime");
+  const hasDatetime = checks.some(
+    (check: any) => check.kind === "datetime" || check.def?.format === "datetime" || check.def?.format === "date-time"
+  );
   if (hasDatetime) {
     return "date";
   }
@@ -187,25 +203,10 @@ export function mapZodEnumType(_zodType: z.ZodEnum<any>): PocketBaseFieldType {
  * Arrays of strings could be relations or file fields depending on context
  */
 export function mapZodArrayType(zodType: z.ZodArray<any>, _fieldName: string): PocketBaseFieldType {
-  const elementType = zodType._def.type;
+  const elementType = zodType.element as z.ZodTypeAny;
 
-  // Check if it's an array of File instances (file upload)
-  if (elementType instanceof z.ZodType) {
-    const typeName = elementType._def.typeName;
-    if (typeName === "ZodType" && (elementType as any)._def?.innerType?.name === "File") {
-      return "file";
-    }
-  }
-
-  // Check for instanceof File
-  if (elementType._def?.typeName === "ZodType") {
-    const checks = (elementType as any)._def?.checks || [];
-    const isFileInstance = checks.some(
-      (check: any) => check.kind === "instanceof" || (elementType as any)._def?.innerType?.name === "File"
-    );
-    if (isFileInstance) {
-      return "file";
-    }
+  if (elementType instanceof z.ZodFile) {
+    return "file";
   }
 
   // Array of strings - could be relation (will be determined by relation detector)
@@ -239,42 +240,19 @@ export function mapZodTypeToPocketBase(zodType: z.ZodTypeAny, fieldName: string)
   let unwrappedType = zodType;
 
   if (zodType instanceof z.ZodOptional) {
-    unwrappedType = zodType._def.innerType;
+    unwrappedType = zodType.unwrap() as z.ZodTypeAny;
   }
 
   if (unwrappedType instanceof z.ZodNullable) {
-    unwrappedType = unwrappedType._def.innerType;
+    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
   }
 
   if (unwrappedType instanceof z.ZodDefault) {
-    unwrappedType = unwrappedType._def.innerType;
+    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
   }
 
-  // Check for ZodEffects (which is what z.instanceof() creates)
-  if ((unwrappedType as any)._def?.typeName === "ZodEffects") {
-    const effect = (unwrappedType as any)._def?.effect;
-
-    // z.instanceof(File) creates a refinement effect
-    // We need to check if this is a File instance check
-    // The field name 'avatar', 'image', 'file', 'attachment' etc. are hints
-    if (effect?.type === "refinement") {
-      // Common file field names
-      const fileFieldNames = ["avatar", "image", "file", "attachment", "photo", "picture", "document", "upload"];
-      if (fileFieldNames.some((name) => fieldName.toLowerCase().includes(name))) {
-        return "file";
-      }
-    }
-  }
-
-  // Check for instanceof File (z.instanceof(File)) - legacy check
-  if ((unwrappedType as any)._def?.typeName === "ZodType") {
-    const checks = (unwrappedType as any)._def?.checks || [];
-    const innerType = (unwrappedType as any)._def?.innerType;
-
-    // Check if it's instanceof File
-    if (innerType?.name === "File" || checks.some((check: any) => check.kind === "instanceof")) {
-      return "file";
-    }
+  if (unwrappedType instanceof z.ZodFile) {
+    return "file";
   }
 
   // Map based on Zod type
@@ -319,16 +297,16 @@ export function extractFieldOptions(zodType: z.ZodTypeAny): Record<string, any> 
   // Unwrap optional/nullable/default
   let unwrappedType = zodType;
   if (zodType instanceof z.ZodOptional) {
-    unwrappedType = zodType._def.innerType;
+    unwrappedType = zodType.unwrap() as z.ZodTypeAny;
   }
   if (unwrappedType instanceof z.ZodNullable) {
-    unwrappedType = unwrappedType._def.innerType;
+    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
   }
   if (unwrappedType instanceof z.ZodDefault) {
-    unwrappedType = unwrappedType._def.innerType;
+    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
   }
 
-  const checks = (unwrappedType as any)._def?.checks || [];
+  const checks = getChecks(unwrappedType);
 
   // Extract string constraints
   if (unwrappedType instanceof z.ZodString) {
@@ -343,6 +321,21 @@ export function extractFieldOptions(zodType: z.ZodTypeAny): Record<string, any> 
         options.pattern = check.regex.source;
       }
     }
+
+    if (options.min === undefined || options.max === undefined || options.pattern === undefined) {
+      const schema = getJsonSchema(unwrappedType);
+      if (schema) {
+        if (options.min === undefined && typeof schema.minLength === "number") {
+          options.min = schema.minLength;
+        }
+        if (options.max === undefined && typeof schema.maxLength === "number") {
+          options.max = schema.maxLength;
+        }
+        if (options.pattern === undefined && typeof schema.pattern === "string") {
+          options.pattern = schema.pattern;
+        }
+      }
+    }
   }
 
   // Extract number constraints
@@ -355,22 +348,46 @@ export function extractFieldOptions(zodType: z.ZodTypeAny): Record<string, any> 
         options.max = check.value;
       }
     }
+
+    if (options.min === undefined || options.max === undefined) {
+      const schema = getJsonSchema(unwrappedType);
+      if (schema) {
+        if (options.min === undefined && typeof schema.minimum === "number") {
+          options.min = schema.minimum;
+        }
+        if (options.max === undefined && typeof schema.maximum === "number") {
+          options.max = schema.maximum;
+        }
+      }
+    }
   }
 
   // Extract enum values
   if (unwrappedType instanceof z.ZodEnum) {
-    options.values = unwrappedType._def.values;
+    options.values = unwrappedType.options.map(String);
   }
 
   // Extract array constraints
   if (unwrappedType instanceof z.ZodArray) {
-    const arrayChecks = (unwrappedType as any)._def?.checks || [];
+    const arrayChecks = getChecks(unwrappedType);
     for (const check of arrayChecks) {
       if (check.kind === "min") {
         options.minSelect = check.value;
       }
       if (check.kind === "max") {
         options.maxSelect = check.value;
+      }
+    }
+
+    if (options.minSelect === undefined || options.maxSelect === undefined) {
+      const schema = getJsonSchema(unwrappedType);
+      if (schema) {
+        if (options.minSelect === undefined && typeof schema.minItems === "number") {
+          options.minSelect = schema.minItems;
+        }
+        if (options.maxSelect === undefined && typeof schema.maxItems === "number") {
+          options.maxSelect = schema.maxItems;
+        }
       }
     }
   }
@@ -408,15 +425,15 @@ export function unwrapZodType(zodType: z.ZodTypeAny): z.ZodTypeAny {
   let unwrapped = zodType;
 
   if (unwrapped instanceof z.ZodOptional) {
-    unwrapped = unwrapped._def.innerType;
+    unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
   }
 
   if (unwrapped instanceof z.ZodNullable) {
-    unwrapped = unwrapped._def.innerType;
+    unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
   }
 
   if (unwrapped instanceof z.ZodDefault) {
-    unwrapped = unwrapped._def.innerType;
+    unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
   }
 
   return unwrapped;
@@ -427,7 +444,7 @@ export function unwrapZodType(zodType: z.ZodTypeAny): z.ZodTypeAny {
  */
 export function getDefaultValue(zodType: z.ZodTypeAny): any {
   if (zodType instanceof z.ZodDefault) {
-    return zodType._def.defaultValue();
+    return zodType.def.defaultValue;
   }
   return undefined;
 }
@@ -446,7 +463,7 @@ export function isArrayType(zodType: z.ZodTypeAny): boolean {
 export function getArrayElementType(zodType: z.ZodTypeAny): z.ZodTypeAny | null {
   const unwrapped = unwrapZodType(zodType);
   if (unwrapped instanceof z.ZodArray) {
-    return unwrapped._def.type;
+    return unwrapped.element as z.ZodTypeAny;
   }
   return null;
 }
@@ -460,7 +477,7 @@ export function isGeoPointType(zodType: z.ZodTypeAny): boolean {
     return false;
   }
 
-  const shape = unwrapped._def.shape();
+  const shape = unwrapped.shape;
   const hasLon = "lon" in shape && shape.lon instanceof z.ZodNumber;
   const hasLat = "lat" in shape && shape.lat instanceof z.ZodNumber;
 
@@ -489,7 +506,7 @@ export interface ExtractedFieldOptions {
 export function extractComprehensiveFieldOptions(zodType: z.ZodTypeAny): ExtractedFieldOptions {
   const options: ExtractedFieldOptions = {};
   const unwrapped = unwrapZodType(zodType);
-  const checks = (unwrapped as any)._def?.checks || [];
+  const checks = getChecks(unwrapped);
 
   // Extract string constraints
   if (unwrapped instanceof z.ZodString) {
@@ -504,6 +521,21 @@ export function extractComprehensiveFieldOptions(zodType: z.ZodTypeAny): Extract
         options.pattern = check.regex.source;
       }
     }
+
+    if (options.min === undefined || options.max === undefined || options.pattern === undefined) {
+      const schema = getJsonSchema(unwrapped);
+      if (schema) {
+        if (options.min === undefined && typeof schema.minLength === "number") {
+          options.min = schema.minLength;
+        }
+        if (options.max === undefined && typeof schema.maxLength === "number") {
+          options.max = schema.maxLength;
+        }
+        if (options.pattern === undefined && typeof schema.pattern === "string") {
+          options.pattern = schema.pattern;
+        }
+      }
+    }
   }
 
   // Extract number constraints
@@ -516,27 +548,53 @@ export function extractComprehensiveFieldOptions(zodType: z.ZodTypeAny): Extract
         options.max = check.value;
       }
     }
+
+    if (options.min === undefined || options.max === undefined) {
+      const schema = getJsonSchema(unwrapped);
+      if (schema) {
+        if (options.min === undefined && typeof schema.minimum === "number") {
+          options.min = schema.minimum;
+        }
+        if (options.max === undefined && typeof schema.maximum === "number") {
+          options.max = schema.maximum;
+        }
+      }
+    }
   }
 
   // Extract enum values
   if (unwrapped instanceof z.ZodEnum) {
-    options.values = unwrapped._def.values;
+    options.values = unwrapped.options.map(String);
   }
 
   // Extract array constraints
   if (unwrapped instanceof z.ZodArray) {
-    const arrayDef = unwrapped._def;
-    if (arrayDef.minLength) {
-      options.minSelect = arrayDef.minLength.value;
+    const arrayChecks = getChecks(unwrapped);
+    for (const check of arrayChecks) {
+      if (check.kind === "min") {
+        options.minSelect = check.value;
+      }
+      if (check.kind === "max") {
+        options.maxSelect = check.value;
+      }
     }
-    if (arrayDef.maxLength) {
-      options.maxSelect = arrayDef.maxLength.value;
+
+    if (options.minSelect === undefined || options.maxSelect === undefined) {
+      const schema = getJsonSchema(unwrapped);
+      if (schema) {
+        if (options.minSelect === undefined && typeof schema.minItems === "number") {
+          options.minSelect = schema.minItems;
+        }
+        if (options.maxSelect === undefined && typeof schema.maxItems === "number") {
+          options.maxSelect = schema.maxItems;
+        }
+      }
     }
 
     // Check for enum element type
-    const elementType = arrayDef.type;
+    const elementType = unwrapped.element as z.ZodTypeAny;
     if (elementType instanceof z.ZodEnum) {
-      options.values = elementType._def.values;
+      options.values = elementType.options.map(String);
     }
   }
 

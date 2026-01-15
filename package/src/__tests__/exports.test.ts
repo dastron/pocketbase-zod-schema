@@ -46,7 +46,7 @@ describe("Permission Exports", () => {
     });
 
     expect(schemaWithPermissions).toBeDefined();
-    expect(schemaWithPermissions._def.description).toBeDefined();
+    expect(schemaWithPermissions.description).toBeDefined();
   });
 
   it("should allow using PermissionTemplates directly", () => {

@@ -9,18 +9,38 @@ import { pluralize } from "./pluralize";
  * Detects if a field is a single relation based on naming convention
  * Single relation: field name matches a collection name (e.g., "User" -> "Users" collection)
  */
-export function isSingleRelationField(fieldName: string, zodType: z.ZodTypeAny): boolean {
-  // Unwrap optional/nullable/default
+function unwrapType(zodType: z.ZodTypeAny): z.ZodTypeAny {
   let unwrappedType = zodType;
-  if (zodType instanceof z.ZodOptional) {
-    unwrappedType = zodType._def.innerType;
+
+  if (unwrappedType instanceof z.ZodOptional) {
+    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
   }
   if (unwrappedType instanceof z.ZodNullable) {
-    unwrappedType = unwrappedType._def.innerType;
+    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
   }
   if (unwrappedType instanceof z.ZodDefault) {
-    unwrappedType = unwrappedType._def.innerType;
+    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
   }
+
+  return unwrappedType;
+}
+
+function getChecks(zodType: z.ZodTypeAny): any[] {
+  const def = (zodType as any).def ?? (zodType as any)._def;
+  return (def?.checks ?? []) as any[];
+}
+
+function getJsonSchema(zodType: z.ZodTypeAny): any | null {
+  try {
+    const toJSONSchema = (zodType as any).toJSONSchema;
+    return typeof toJSONSchema === "function" ? toJSONSchema.call(zodType) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isSingleRelationField(fieldName: string, zodType: z.ZodTypeAny): boolean {
+  const unwrappedType = unwrapType(zodType);
 
   // Must be a string type
   if (!(unwrappedType instanceof z.ZodString)) {
@@ -44,17 +64,7 @@ export function isSingleRelationField(fieldName: string, zodType: z.ZodTypeAny):
  * (e.g., "SubscriberUsers" -> "Users" collection)
  */
 export function isMultipleRelationField(fieldName: string, zodType: z.ZodTypeAny): boolean {
-  // Unwrap optional/nullable/default
-  let unwrappedType = zodType;
-  if (zodType instanceof z.ZodOptional) {
-    unwrappedType = zodType._def.innerType;
-  }
-  if (unwrappedType instanceof z.ZodNullable) {
-    unwrappedType = unwrappedType._def.innerType;
-  }
-  if (unwrappedType instanceof z.ZodDefault) {
-    unwrappedType = unwrappedType._def.innerType;
-  }
+  const unwrappedType = unwrapType(zodType);
 
   // Must be an array type
   if (!(unwrappedType instanceof z.ZodArray)) {
@@ -62,7 +72,7 @@ export function isMultipleRelationField(fieldName: string, zodType: z.ZodTypeAny
   }
 
   // Element type must be string
-  const elementType = unwrappedType._def.type;
+  const elementType = unwrappedType.element;
   if (!(elementType instanceof z.ZodString)) {
     return false;
   }
@@ -120,23 +130,16 @@ export function getMaxSelect(fieldName: string, zodType: z.ZodTypeAny): number {
   }
 
   if (isMultipleRelationField(fieldName, zodType)) {
-    // Unwrap to get to the array type
-    let unwrappedType = zodType;
-    if (zodType instanceof z.ZodOptional) {
-      unwrappedType = zodType._def.innerType;
-    }
-    if (unwrappedType instanceof z.ZodNullable) {
-      unwrappedType = unwrappedType._def.innerType;
-    }
-    if (unwrappedType instanceof z.ZodDefault) {
-      unwrappedType = unwrappedType._def.innerType;
-    }
-
+    const unwrappedType = unwrapType(zodType);
     if (unwrappedType instanceof z.ZodArray) {
-      // Access the checks array from the array definition
-      const arrayDef = unwrappedType._def;
-      if (arrayDef.maxLength) {
-        return arrayDef.maxLength.value;
+      const checks = getChecks(unwrappedType);
+      const maxCheck = checks.find((check) => check.kind === "max");
+      if (maxCheck) {
+        return maxCheck.value;
+      }
+      const schema = getJsonSchema(unwrappedType);
+      if (schema && typeof schema.maxItems === "number") {
+        return schema.maxItems;
       }
       // Default to 999 for multiple relations without explicit max
       return 999;
@@ -159,23 +162,16 @@ export function getMinSelect(fieldName: string, zodType: z.ZodTypeAny): number {
 
   // For multiple relations, check for explicit min constraint
   if (isMultipleRelationField(fieldName, zodType)) {
-    // Unwrap to get to the array type
-    let unwrappedType = zodType;
-    if (zodType instanceof z.ZodOptional) {
-      unwrappedType = zodType._def.innerType;
-    }
-    if (unwrappedType instanceof z.ZodNullable) {
-      unwrappedType = unwrappedType._def.innerType;
-    }
-    if (unwrappedType instanceof z.ZodDefault) {
-      unwrappedType = unwrappedType._def.innerType;
-    }
-
+    const unwrappedType = unwrapType(zodType);
     if (unwrappedType instanceof z.ZodArray) {
-      // Access the minLength from the array definition
-      const arrayDef = unwrappedType._def;
-      if (arrayDef.minLength) {
-        return arrayDef.minLength.value;
+      const checks = getChecks(unwrappedType);
+      const minCheck = checks.find((check) => check.kind === "min");
+      if (minCheck) {
+        return minCheck.value;
+      }
+      const schema = getJsonSchema(unwrappedType);
+      if (schema && typeof schema.minItems === "number") {
+        return schema.minItems;
       }
     }
   }
