@@ -20,8 +20,14 @@ export class TypeGenerator {
     lines.push(` * Do not modify it manually.`);
     lines.push(` */`);
     lines.push(``);
-    lines.push(`import type { RecordModel } from "pocketbase";`);
-    lines.push(``);
+
+    // Check if RecordModel is needed (used as fallback for relations to collections not in schema)
+    const needsRecordModel = this.checkIfRecordModelNeeded();
+
+    if (needsRecordModel) {
+      lines.push(`import type { RecordModel } from "pocketbase";`);
+      lines.push(``);
+    }
 
     // Generate types for each collection
     const collectionNames = Array.from(this.schema.collections.keys());
@@ -189,5 +195,24 @@ export class TypeGenerator {
         return word.toUpperCase();
       })
       .replace(/[\s_-]+/g, '');
+  }
+
+  /**
+   * Checks if RecordModel is needed as a fallback type for relations
+   * to collections that don't exist in the schema
+   */
+  private checkIfRecordModelNeeded(): boolean {
+    for (const [_, collection] of this.schema.collections) {
+      for (const field of collection.fields) {
+        if (field.type === 'relation' && field.relation) {
+          const targetCollection = field.relation.collection;
+          // If target collection is not in schema, RecordModel will be used
+          if (!this.schema.collections.has(targetCollection)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 }

@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.4.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.4.0...pocketbase-zod-schema-v0.4.1) (2026-01-19)
+
+
+### Features
+
+* enhance migration generation with collection IDs and rename detection ([074fe14](https://github.com/dastron/pocketbase-zod-schema/commit/074fe1409148c0ea33656e50c5c198bb7d57a853))
+
+
+### Bug Fixes
+
+* remove typegen unused dep ([86401ef](https://github.com/dastron/pocketbase-zod-schema/commit/86401ef3d7fb8d29f5805099d9b442e7cf22120f))
+
+## [0.4.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.9...pocketbase-zod-schema-v0.4.0) (2026-01-19)
+
+
+### Features
+
+* add strongly typed expand support and type generation CLI ([2ca3f39](https://github.com/dastron/pocketbase-zod-schema/commit/2ca3f39d0af6bcf92f212ed64bab20e368c1297d))
+* add strongly typed expand support and type generation CLI ([f8a1b4b](https://github.com/dastron/pocketbase-zod-schema/commit/f8a1b4bfbe3da3fc5b98977b53bc211fb3d44f0d))
+
+## [0.3.9](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.8...pocketbase-zod-schema-v0.3.9) (2026-01-19)
+
+
+### Bug Fixes
+
+* recursive unwrap of zod types for correct field type mapping ([212c2d1](https://github.com/dastron/pocketbase-zod-schema/commit/212c2d189ae27b57146075dc4481f794538c7a53))
+* update @vitest/coverage-v8 version to match vitest ([f4d0fa6](https://github.com/dastron/pocketbase-zod-schema/commit/f4d0fa6060319742042e250bb7078f34deb1f788))
+
 ## [0.3.8](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.7...pocketbase-zod-schema-v0.3.8) (2026-01-15)
 
 

@@ -3,8 +3,6 @@
  * Do not modify it manually.
  */
 
-import type { RecordModel } from "pocketbase";
-
 export interface ProjectsRecord {
   id: string;
   created: string;

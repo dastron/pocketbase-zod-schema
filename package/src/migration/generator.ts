@@ -821,6 +821,21 @@ function generateFieldConstructorOptions(field: FieldDefinition, collectionIdMap
 }
 
 /**
+ * Generates the code to find a collection by ID if available, otherwise by name
+ *
+ * @param name - Collection name
+ * @param collectionIdMap - Map of collection names to IDs
+ * @returns Code string like `app.findCollectionByNameOrId("id") // name` or `app.findCollectionByNameOrId("name")`
+ */
+function generateFindCollectionCode(name: string, collectionIdMap?: Map<string, string>): string {
+  if (collectionIdMap && collectionIdMap.has(name)) {
+    const id = collectionIdMap.get(name);
+    return `app.findCollectionByNameOrId("${id}") // ${name}`;
+  }
+  return `app.findCollectionByNameOrId("${name}")`;
+}
+
+/**
  * Generates code for adding a field to an existing collection
  * Uses the appropriate Field constructor based on field type
  *
@@ -842,7 +857,7 @@ export function generateFieldAddition(
   const constructorName = getFieldConstructorName(field.type);
   const collectionVar = varName || `collection_${collectionName}_${field.name}`;
 
-  lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
+  lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(``);
   lines.push(`  ${collectionVar}.fields.add(new ${constructorName}({`);
   lines.push(generateFieldConstructorOptions(field, collectionIdMap));
@@ -874,7 +889,7 @@ export function generateFieldModification(
   const collectionVar = varName || `collection_${collectionName}_${modification.fieldName}`;
   const fieldVar = `${collectionVar}_field`;
 
-  lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
+  lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(`  const ${fieldVar} = ${collectionVar}.fields.getByName("${modification.fieldName}");`);
   lines.push(``);
 
@@ -933,12 +948,13 @@ export function generateFieldDeletion(
   collectionName: string,
   fieldName: string,
   varName?: string,
-  isLast: boolean = false
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${fieldName}`;
 
-  lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
+  lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(``);
   lines.push(`  ${collectionVar}.fields.removeByName("${fieldName}");`);
   lines.push(``);
@@ -960,12 +976,13 @@ function generateIndexAddition(
   collectionName: string,
   index: string,
   varName?: string,
-  isLast: boolean = false
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_idx`;
 
-  lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
+  lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(`  ${collectionVar}.indexes.push(${JSON.stringify(index)});`);
   lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
@@ -985,13 +1002,14 @@ function generateIndexRemoval(
   collectionName: string,
   index: string,
   varName?: string,
-  isLast: boolean = false
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_idx`;
   const indexVar = `${collectionVar}_indexToRemove`;
 
-  lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
+  lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(`  const ${indexVar} = ${collectionVar}.indexes.findIndex(idx => idx === ${JSON.stringify(index)});`);
   lines.push(`  if (${indexVar} !== -1) {`);
   lines.push(`    ${collectionVar}.indexes.splice(${indexVar}, 1);`);
@@ -1016,12 +1034,13 @@ function generateRuleUpdate(
   ruleType: string,
   newValue: string | null,
   varName?: string,
-  isLast: boolean = false
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${ruleType}`;
 
-  lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
+  lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(`  ${collectionVar}.${ruleType} = ${formatValue(newValue)};`);
   lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
@@ -1044,12 +1063,13 @@ export function generatePermissionUpdate(
   ruleType: string,
   newValue: string | null,
   varName?: string,
-  isLast: boolean = false
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
 ): string {
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${ruleType}`;
 
-  lines.push(`  const ${collectionVar} = app.findCollectionByNameOrId("${collectionName}");`);
+  lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(`  ${collectionVar}.${ruleType} = ${formatValue(newValue)};`);
   lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
@@ -1067,11 +1087,12 @@ export function generatePermissionUpdate(
 function generateCollectionDeletion(
   collectionName: string,
   varName: string = "collection",
-  isLast: boolean = false
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
 ): string {
   const lines: string[] = [];
 
-  lines.push(`  const ${varName} = app.findCollectionByNameOrId("${collectionName}");`);
+  lines.push(`  const ${varName} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(isLast ? `  return app.delete(${varName});` : `  app.delete(${varName});`);
 
   return lines.join("\n");
@@ -1138,7 +1159,7 @@ export function generateOperationUpMigration(
       operationCount++;
       const varName = `collection_${collectionName}_remove_${field.name}`;
       const isLast = operationCount === totalOperations;
-      lines.push(generateFieldDeletion(collectionName, field.name, varName, isLast));
+      lines.push(generateFieldDeletion(collectionName, field.name, varName, isLast, collectionIdMap));
       if (!isLast) lines.push("");
     }
 
@@ -1148,7 +1169,7 @@ export function generateOperationUpMigration(
       const index = modification.indexesToAdd[i];
       const varName = `collection_${collectionName}_addidx_${i}`;
       const isLast = operationCount === totalOperations;
-      lines.push(generateIndexAddition(collectionName, index, varName, isLast));
+      lines.push(generateIndexAddition(collectionName, index, varName, isLast, collectionIdMap));
       if (!isLast) lines.push("");
     }
 
@@ -1158,7 +1179,7 @@ export function generateOperationUpMigration(
       const index = modification.indexesToRemove[i];
       const varName = `collection_${collectionName}_rmidx_${i}`;
       const isLast = operationCount === totalOperations;
-      lines.push(generateIndexRemoval(collectionName, index, varName, isLast));
+      lines.push(generateIndexRemoval(collectionName, index, varName, isLast, collectionIdMap));
       if (!isLast) lines.push("");
     }
 
@@ -1168,7 +1189,9 @@ export function generateOperationUpMigration(
         operationCount++;
         const varName = `collection_${collectionName}_perm_${permission.ruleType}`;
         const isLast = operationCount === totalOperations;
-        lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName, isLast));
+        lines.push(
+          generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName, isLast, collectionIdMap)
+        );
         if (!isLast) lines.push("");
       }
     } else if (modification.rulesToUpdate.length > 0) {
@@ -1176,7 +1199,7 @@ export function generateOperationUpMigration(
         operationCount++;
         const varName = `collection_${collectionName}_rule_${rule.ruleType}`;
         const isLast = operationCount === totalOperations;
-        lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.newValue, varName, isLast));
+        lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.newValue, varName, isLast, collectionIdMap));
         if (!isLast) lines.push("");
       }
     }
@@ -1184,7 +1207,7 @@ export function generateOperationUpMigration(
     // Handle collection deletion
     const collectionName = typeof operation.collection === "string" ? operation.collection : operation.collection.name;
     const varName = `collection_${collectionName}`;
-    lines.push(generateCollectionDeletion(collectionName, varName, true));
+    lines.push(generateCollectionDeletion(collectionName, varName, true, collectionIdMap));
   }
 
   let code = lines.join("\n");
@@ -1276,7 +1299,9 @@ export function generateOperationDownMigration(
         operationCount++;
         const varName = `collection_${collectionName}_revert_perm_${permission.ruleType}`;
         const isLast = operationCount === totalOperations;
-        lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName, isLast));
+        lines.push(
+          generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName, isLast, collectionIdMap)
+        );
         if (!isLast) lines.push("");
       }
     } else if (modification.rulesToUpdate.length > 0) {
@@ -1284,7 +1309,7 @@ export function generateOperationDownMigration(
         operationCount++;
         const varName = `collection_${collectionName}_revert_rule_${rule.ruleType}`;
         const isLast = operationCount === totalOperations;
-        lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.oldValue, varName, isLast));
+        lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.oldValue, varName, isLast, collectionIdMap));
         if (!isLast) lines.push("");
       }
     }
@@ -1295,7 +1320,7 @@ export function generateOperationDownMigration(
       const index = modification.indexesToRemove[i];
       const varName = `collection_${collectionName}_restore_idx_${i}`;
       const isLast = operationCount === totalOperations;
-      lines.push(generateIndexAddition(collectionName, index, varName, isLast));
+      lines.push(generateIndexAddition(collectionName, index, varName, isLast, collectionIdMap));
       if (!isLast) lines.push("");
     }
 
@@ -1305,7 +1330,7 @@ export function generateOperationDownMigration(
       const index = modification.indexesToAdd[i];
       const varName = `collection_${collectionName}_revert_idx_${i}`;
       const isLast = operationCount === totalOperations;
-      lines.push(generateIndexRemoval(collectionName, index, varName, isLast));
+      lines.push(generateIndexRemoval(collectionName, index, varName, isLast, collectionIdMap));
       if (!isLast) lines.push("");
     }
 
@@ -1337,7 +1362,7 @@ export function generateOperationDownMigration(
 
       const varName = `collection_${collectionName}_revert_${fieldMod.fieldName}`;
       const isLast = operationCount === totalOperations;
-      lines.push(generateFieldModification(collectionName, reverseMod, varName, isLast));
+      lines.push(generateFieldModification(collectionName, reverseMod, varName, isLast, collectionIdMap));
       if (!isLast) lines.push("");
     }
 
@@ -1346,7 +1371,7 @@ export function generateOperationDownMigration(
       operationCount++;
       const varName = `collection_${collectionName}_revert_add_${field.name}`;
       const isLast = operationCount === totalOperations;
-      lines.push(generateFieldDeletion(collectionName, field.name, varName, isLast));
+      lines.push(generateFieldDeletion(collectionName, field.name, varName, isLast, collectionIdMap));
       if (!isLast) lines.push("");
     }
   } else if (operation.type === "delete") {
@@ -1475,7 +1500,7 @@ export function generateUpMigration(diff: SchemaDiff): string {
         lines.push(`  // Remove fields from ${collectionName}`);
         for (const field of modification.fieldsToRemove) {
           const varName = `collection_${collectionName}_remove_${field.name}`;
-          lines.push(generateFieldDeletion(collectionName, field.name, varName));
+          lines.push(generateFieldDeletion(collectionName, field.name, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1486,7 +1511,7 @@ export function generateUpMigration(diff: SchemaDiff): string {
         for (let i = 0; i < modification.indexesToAdd.length; i++) {
           const index = modification.indexesToAdd[i];
           const varName = `collection_${collectionName}_addidx_${i}`;
-          lines.push(generateIndexAddition(collectionName, index, varName));
+          lines.push(generateIndexAddition(collectionName, index, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1497,7 +1522,7 @@ export function generateUpMigration(diff: SchemaDiff): string {
         for (let i = 0; i < modification.indexesToRemove.length; i++) {
           const index = modification.indexesToRemove[i];
           const varName = `collection_${collectionName}_rmidx_${i}`;
-          lines.push(generateIndexRemoval(collectionName, index, varName));
+          lines.push(generateIndexRemoval(collectionName, index, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1507,14 +1532,16 @@ export function generateUpMigration(diff: SchemaDiff): string {
         lines.push(`  // Update permissions for ${collectionName}`);
         for (const permission of modification.permissionsToUpdate) {
           const varName = `collection_${collectionName}_perm_${permission.ruleType}`;
-          lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName));
+          lines.push(
+            generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName, false, collectionIdMap)
+          );
           lines.push(``);
         }
       } else if (modification.rulesToUpdate.length > 0) {
         lines.push(`  // Update rules for ${collectionName}`);
         for (const rule of modification.rulesToUpdate) {
           const varName = `collection_${collectionName}_rule_${rule.ruleType}`;
-          lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.newValue, varName));
+          lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.newValue, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1527,7 +1554,7 @@ export function generateUpMigration(diff: SchemaDiff): string {
     for (let i = 0; i < diff.collectionsToDelete.length; i++) {
       const collection = diff.collectionsToDelete[i];
       const varName = `collection_${collection.name}_delete`;
-      lines.push(generateCollectionDeletion(collection.name, varName));
+      lines.push(generateCollectionDeletion(collection.name, varName, false, collectionIdMap));
       lines.push(``);
     }
   }
@@ -1642,14 +1669,16 @@ export function generateDownMigration(diff: SchemaDiff): string {
         lines.push(`  // Revert permissions for ${collectionName}`);
         for (const permission of modification.permissionsToUpdate) {
           const varName = `collection_${collectionName}_revert_perm_${permission.ruleType}`;
-          lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName));
+            lines.push(
+              generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName, false, collectionIdMap)
+            );
           lines.push(``);
         }
       } else if (modification.rulesToUpdate.length > 0) {
         lines.push(`  // Revert rules for ${collectionName}`);
         for (const rule of modification.rulesToUpdate) {
           const varName = `collection_${collectionName}_revert_rule_${rule.ruleType}`;
-          lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.oldValue, varName));
+            lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.oldValue, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1660,7 +1689,7 @@ export function generateDownMigration(diff: SchemaDiff): string {
         for (let i = 0; i < modification.indexesToRemove.length; i++) {
           const index = modification.indexesToRemove[i];
           const varName = `collection_${collectionName}_restore_idx_${i}`;
-          lines.push(generateIndexAddition(collectionName, index, varName));
+            lines.push(generateIndexAddition(collectionName, index, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1671,7 +1700,7 @@ export function generateDownMigration(diff: SchemaDiff): string {
         for (let i = 0; i < modification.indexesToAdd.length; i++) {
           const index = modification.indexesToAdd[i];
           const varName = `collection_${collectionName}_revert_idx_${i}`;
-          lines.push(generateIndexRemoval(collectionName, index, varName));
+            lines.push(generateIndexRemoval(collectionName, index, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1705,7 +1734,7 @@ export function generateDownMigration(diff: SchemaDiff): string {
           };
 
           const varName = `collection_${collectionName}_revert_${fieldMod.fieldName}`;
-          lines.push(generateFieldModification(collectionName, reverseMod, varName));
+          lines.push(generateFieldModification(collectionName, reverseMod, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1715,7 +1744,7 @@ export function generateDownMigration(diff: SchemaDiff): string {
         lines.push(`  // Remove added fields from ${collectionName}`);
         for (const field of modification.fieldsToAdd) {
           const varName = `collection_${collectionName}_revert_add_${field.name}`;
-          lines.push(generateFieldDeletion(collectionName, field.name, varName));
+          lines.push(generateFieldDeletion(collectionName, field.name, varName, false, collectionIdMap));
           lines.push(``);
         }
       }
@@ -1728,7 +1757,7 @@ export function generateDownMigration(diff: SchemaDiff): string {
     for (let i = 0; i < diff.collectionsToCreate.length; i++) {
       const collection = diff.collectionsToCreate[i];
       const varName = `collection_${collection.name}_rollback`;
-      lines.push(generateCollectionDeletion(collection.name, varName));
+        lines.push(generateCollectionDeletion(collection.name, varName, false, collectionIdMap));
       lines.push(``);
     }
   }

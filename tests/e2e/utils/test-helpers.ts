@@ -63,11 +63,10 @@ export async function waitFor(
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
 /**
  * Get available port in the specified range
  */
-export async function getAvailablePort(startPort: number = 8090, endPort: number = 8190): Promise<number> {
+export async function getAvailablePort(startPort: number = 60536, endPort: number = 65536): Promise<number> {
   for (let port = startPort; port <= endPort; port++) {
     if (await isPortAvailable(port)) {
       return port;
@@ -158,8 +157,8 @@ export const env = {
   
   getPortRange(): { start: number; end: number } {
     return {
-      start: parseInt(process.env.E2E_PORT_START || '8090', 10),
-      end: parseInt(process.env.E2E_PORT_END || '8190', 10),
+      start: parseInt(process.env.E2E_PORT_START || '60536', 10),
+      end: parseInt(process.env.E2E_PORT_END || '64536', 10),
     };
   },
 };
