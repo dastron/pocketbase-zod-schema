@@ -1,6 +1,11 @@
 #!/usr/bin/env sh
 . "$(dirname -- "$0")/_/husky.sh"
 
+# Skip validation for merge commits
+if grep -qE '^Merge ' "$1"; then
+  exit 0
+fi
+
 # Validate commit message format
 commit_regex='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore)(\(.+\))?(!)?: .{1,50}'
 
