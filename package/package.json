@@ -1,6 +1,6 @@
 {
   "name": "pocketbase-zod-schema",
-  "version": "0.3.9",
+  "version": "0.4.0",
   "description": "PocketBase migration generator using Zod schemas for type-safe database migrations",
   "type": "module",
   "main": "dist/index.js",
