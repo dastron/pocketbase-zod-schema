@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.9](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.8...pocketbase-zod-schema-v0.3.9) (2026-01-19)
+
+
+### Bug Fixes
+
+* recursive unwrap of zod types for correct field type mapping ([212c2d1](https://github.com/dastron/pocketbase-zod-schema/commit/212c2d189ae27b57146075dc4481f794538c7a53))
+* update @vitest/coverage-v8 version to match vitest ([f4d0fa6](https://github.com/dastron/pocketbase-zod-schema/commit/f4d0fa6060319742042e250bb7078f34deb1f788))
+
 ## [0.3.8](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.7...pocketbase-zod-schema-v0.3.8) (2026-01-15)
 
 
