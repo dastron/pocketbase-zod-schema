@@ -26,6 +26,7 @@
     "prepare": "husky install",
     "db:generate": "npx --yes tsx package/src/cli/migrate.ts generate",
     "db:status": "npx --yes tsx package/src/cli/migrate.ts status",
+    "db:typegen": "npx --yes tsx package/src/cli/migrate.ts generate-types",
     "db:download": "node scripts/download-pocketbase.js",
     "db:start": "node scripts/start-pocketbase.js",
     "db:stop": "node scripts/stop-pocketbase.js"
