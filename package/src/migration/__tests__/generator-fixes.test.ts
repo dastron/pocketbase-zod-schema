@@ -1,6 +1,6 @@
 
 import { describe, it, expect } from "vitest";
-import { generate, splitDiffByCollection, generateCollectionMigrationFilename, generateOperationDownMigration } from "../generator";
+import { splitDiffByCollection, generateCollectionMigrationFilename, generateOperationDownMigration } from "../generator";
 import type { SchemaDiff, CollectionSchema } from "../types";
 
 describe("Reproduction of Issues", () => {
