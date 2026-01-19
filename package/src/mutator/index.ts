@@ -1,1 +1,1 @@
-export { BaseMutator, type MutatorOptions } from "./baseMutator";
+export { BaseMutator, type MutatorOptions, type Expanded } from "./baseMutator";
