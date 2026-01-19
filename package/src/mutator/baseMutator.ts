@@ -15,6 +15,21 @@ export interface MutatorOptions {
   sort: string[];
 }
 
+// Helper to infer the type of the expanded resource
+export type Expanded<
+  T extends RecordModel,
+  E extends keyof NonNullable<T["expand"]> | string
+> = [E] extends [never]
+  ? T
+  : T & {
+      expand: Required<
+        Pick<
+          NonNullable<T["expand"]>,
+          E extends keyof NonNullable<T["expand"]> ? E : never
+        >
+      >;
+    };
+
 // T represents the output model type that extends RecordModel
 // InputType represents the input type for creation operations
 export abstract class BaseMutator<T extends RecordModel, InputType> {
@@ -83,11 +98,17 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Create a new entity
    */
-  async create(input: InputType): Promise<T> {
+  async create<E extends keyof NonNullable<T["expand"]> | string = never>(
+    input: InputType,
+    expand?: E | E[] | string
+  ): Promise<Expanded<T, E>> {
     try {
       const data = await this.validateInput(input);
-      const record = await this.entityCreate(data);
-      return await this.processRecord(record);
+      const finalExpand = this.prepareExpand(expand as string | string[]);
+      const options: RecordOptions = finalExpand ? { expand: finalExpand } : {};
+
+      const record = await this.entityCreate(data, options);
+      return (await this.processRecord(record)) as Expanded<T, E>;
     } catch (error) {
       return this.errorWrapper(error);
     }
@@ -96,10 +117,17 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Update an existing entity
    */
-  async update(id: string, input: Partial<T>): Promise<T> {
+  async update<E extends keyof NonNullable<T["expand"]> | string = never>(
+    id: string,
+    input: Partial<T>,
+    expand?: E | E[] | string
+  ): Promise<Expanded<T, E>> {
     try {
-      const record = await this.entityUpdate(id, input);
-      return await this.processRecord(record);
+      const finalExpand = this.prepareExpand(expand as string | string[]);
+      const options: RecordOptions = finalExpand ? { expand: finalExpand } : {};
+
+      const record = await this.entityUpdate(id, input, options);
+      return (await this.processRecord(record)) as Expanded<T, E>;
     } catch (error) {
       return this.errorWrapper(error);
     }
@@ -108,23 +136,29 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Create or update entity (upsert)
    */
-  async upsert(input: InputType & { id?: string }): Promise<T> {
+  async upsert<E extends keyof NonNullable<T["expand"]> | string = never>(
+    input: InputType & { id?: string },
+    expand?: E | E[] | string
+  ): Promise<Expanded<T, E>> {
     if (input?.id) {
-      return await this.update(input.id, input as Partial<T>);
+      return await this.update(input.id, input as Partial<T>, expand);
     }
 
     // Implementations should override this method if they need
     // more specific upsert logic like checking for existing entities
-    return await this.create(input);
+    return await this.create(input, expand);
   }
 
   /**
    * Get entity by ID
    */
-  async getById(id: string, expand?: string | string[]): Promise<T | null> {
+  async getById<E extends keyof NonNullable<T["expand"]> | string = never>(
+    id: string,
+    expand?: E | E[] | string
+  ): Promise<Expanded<T, E> | null> {
     try {
-      const record = await this.entityGetById(id, expand);
-      return await this.processRecord(record);
+      const record = await this.entityGetById(id, expand as string | string[]);
+      return (await this.processRecord(record)) as Expanded<T, E>;
     } catch (error) {
       return this.handleError(error, { allowNotFound: true });
     }
@@ -133,10 +167,18 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Get first entity by filter
    */
-  async getFirstByFilter(filter: string | string[], expand?: string | string[], sort?: string): Promise<T | null> {
+  async getFirstByFilter<E extends keyof NonNullable<T["expand"]> | string = never>(
+    filter: string | string[],
+    expand?: E | E[] | string,
+    sort?: string
+  ): Promise<Expanded<T, E> | null> {
     try {
-      const record = await this.entityGetFirstByFilter(filter, expand, sort);
-      return await this.processRecord(record);
+      const record = await this.entityGetFirstByFilter(
+        filter,
+        expand as string | string[],
+        sort
+      );
+      return (await this.processRecord(record)) as Expanded<T, E>;
     } catch (error) {
       return this.handleError(error, { allowNotFound: true });
     }
@@ -145,16 +187,26 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Get list of entities
    */
-  async getList(
+  async getList<E extends keyof NonNullable<T["expand"]> | string = never>(
     page = 1,
     perPage = 100,
     filter?: string | string[],
     sort?: string,
-    expand?: string | string[]
-  ): Promise<ListResult<T>> {
+    expand?: E | E[] | string
+  ): Promise<ListResult<Expanded<T, E>>> {
     try {
-      const result = await this.entityGetList(page, perPage, filter, sort, expand);
-      return await this.processListResult(result);
+      const result = await this.entityGetList(
+        page,
+        perPage,
+        filter,
+        sort,
+        expand as string | string[]
+      );
+      // processListResult expects ListResult<T>, but we are returning ListResult<Expanded<T, E>>
+      // processRecord needs to handle T.
+      // We cast the result of processListResult.
+      const processed = await this.processListResult(result);
+      return processed as unknown as ListResult<Expanded<T, E>>;
     } catch (error) {
       return this.errorWrapper(error);
     }
@@ -185,7 +237,9 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    */
   protected async processListResult(result: ListResult<T>): Promise<ListResult<T>> {
     // Process each item in the list
-    const processedItems = await Promise.all(result.items.map((item) => this.processRecord(item)));
+    const processedItems = await Promise.all(
+      result.items.map((item) => this.processRecord(item))
+    );
 
     return {
       ...result,
@@ -218,7 +272,9 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
     }
 
     // Filter out duplicates, empty strings, and undefined values
-    const uniqueExpands = [...new Set(expandArray)].filter((e) => e !== "" && e !== undefined);
+    const uniqueExpands = [...new Set(expandArray)].filter(
+      (e) => e !== "" && e !== undefined
+    );
 
     // If no valid expands, return undefined
     if (!uniqueExpands.length) {
@@ -278,7 +334,9 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
     // If no explicit sort but we have defaults
     if (this.options.sort.length) {
       // Filter out empty and undefined values
-      const validSorts = this.options.sort.filter((s) => s !== "" && s !== undefined);
+      const validSorts = this.options.sort.filter(
+        (s) => s !== "" && s !== undefined
+      );
 
       // If we have valid sort items after filtering
       if (validSorts.length) {
@@ -293,21 +351,24 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Perform the actual create operation
    */
-  protected async entityCreate(data: InputType): Promise<T> {
-    return await this.getCollection().create(data as Record<string, any>);
+  protected async entityCreate(data: InputType, options?: RecordOptions): Promise<T> {
+    return await this.getCollection().create(data as Record<string, any>, options);
   }
 
   /**
    * Perform the actual update operation
    */
-  protected async entityUpdate(id: string, data: Partial<T>): Promise<T> {
-    return await this.getCollection().update(id, data);
+  protected async entityUpdate(id: string, data: Partial<T>, options?: RecordOptions): Promise<T> {
+    return await this.getCollection().update(id, data, options);
   }
 
   /**
    * Perform the actual getById operation
    */
-  protected async entityGetById(id: string, expand?: string | string[]): Promise<T> {
+  protected async entityGetById(
+    id: string,
+    expand?: string | string[]
+  ): Promise<T> {
     const finalExpand = this.prepareExpand(expand);
     const options: RecordOptions = finalExpand ? { expand: finalExpand } : {};
     return await this.getCollection().getOne(id, options);
@@ -403,7 +464,9 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    */
   protected isNotFoundError(error: any): boolean {
     return (
-      error instanceof Error && (error.message.includes("404") || error.message.toLowerCase().includes("not found"))
+      error instanceof Error &&
+      (error.message.includes("404") ||
+        error.message.toLowerCase().includes("not found"))
     );
   }
 
@@ -428,15 +491,17 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    * @param expand Optional expand parameters
    * @returns Promise that resolves to an unsubscribe function
    */
-  async subscribeToRecord(
+  async subscribeToRecord<E extends keyof NonNullable<T["expand"]> | string = never>(
     id: string,
-    callback: (data: RecordSubscription<T>) => void,
-    expand?: string | string[]
+    callback: (data: RecordSubscription<Expanded<T, E>>) => void,
+    expand?: E | E[] | string
   ): Promise<UnsubscribeFunc> {
-    const finalExpand = this.prepareExpand(expand);
-    const options: RecordSubscribeOptions = finalExpand ? { expand: finalExpand } : {};
+    const finalExpand = this.prepareExpand(expand as string | string[]);
+    const options: RecordSubscribeOptions = finalExpand
+      ? { expand: finalExpand }
+      : {};
 
-    return this.getCollection().subscribe(id, callback, options);
+    return this.getCollection().subscribe(id, callback as any, options);
   }
 
   /**
@@ -445,14 +510,18 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    * @param expand Optional expand parameters
    * @returns Promise that resolves to an unsubscribe function
    */
-  async subscribeToCollection(
-    callback: (data: RecordSubscription<T>) => void,
-    expand?: string | string[]
+  async subscribeToCollection<
+    E extends keyof NonNullable<T["expand"]> | string = never
+  >(
+    callback: (data: RecordSubscription<Expanded<T, E>>) => void,
+    expand?: E | E[] | string
   ): Promise<UnsubscribeFunc> {
-    const finalExpand = this.prepareExpand(expand);
-    const options: RecordSubscribeOptions = finalExpand ? { expand: finalExpand } : {};
+    const finalExpand = this.prepareExpand(expand as string | string[]);
+    const options: RecordSubscribeOptions = finalExpand
+      ? { expand: finalExpand }
+      : {};
 
-    return this.getCollection().subscribe("*", callback, options);
+    return this.getCollection().subscribe("*", callback as any, options);
   }
 
   /**

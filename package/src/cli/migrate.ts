@@ -16,6 +16,7 @@ import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { createGenerateCommand } from "./commands/generate.js";
+import { createGenerateTypesCommand } from "./commands/generate-types.js";
 import { createStatusCommand } from "./commands/status.js";
 
 // Get package version from package.json
@@ -83,6 +84,7 @@ program
 
 // Add commands
 program.addCommand(createGenerateCommand());
+program.addCommand(createGenerateTypesCommand());
 program.addCommand(createStatusCommand());
 
 // Add examples to help output
@@ -92,6 +94,7 @@ program.addHelpText(
 ${chalk.bold("Examples:")}
   $ pocketbase-migrate status              Check for pending schema changes
   $ pocketbase-migrate generate            Generate migration from schema changes
+  $ pocketbase-migrate generate-types      Generate TypeScript definitions
   $ pocketbase-migrate generate --force    Generate migration with destructive changes
   $ pocketbase-migrate --help              Show this help message
 
