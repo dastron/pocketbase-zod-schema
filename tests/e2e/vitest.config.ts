@@ -41,10 +41,10 @@ export default defineConfig({
     globals: true,
     
     // Extended timeout for E2E tests (they involve real PocketBase instances)
-    testTimeout: 120000, // 2 minutes
+    testTimeout: 60000, // 1 minute
     
     // Hook timeout for setup/teardown
-    hookTimeout: 60000, // 1 minute
+    hookTimeout: 30000, // 30 seconds
     
     // Reporter configuration
     reporters: ['verbose'],

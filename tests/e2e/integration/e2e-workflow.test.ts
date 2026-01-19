@@ -10,7 +10,7 @@ import { logger } from '../utils/test-helpers.js';
 import { TestScenario } from '../fixtures/test-scenarios.js';
 
 // Set higher timeout for E2E tests
-const TEST_TIMEOUT = 120000; // 2 minutes per test
+const TEST_TIMEOUT = 60000; // 1 minute per test
 
 describe('E2E Migration Workflow', () => {
   let pbDownloader: PBDownloader;
@@ -31,7 +31,7 @@ describe('E2E Migration Workflow', () => {
 
     // Ensure PocketBase is downloaded once before tests start
     await pbDownloader.downloadPocketBase();
-  }, 300000); // 5 minutes setup timeout
+  }, 120000); // 2 minutes setup timeout
 
   afterAll(async () => {
     // Cleanup any remaining resources

@@ -444,7 +444,7 @@ export const relationScenarios: TestScenario[] = [
           type: 'relation', 
           required: false,
           relationConfig: {
-            collectionId: 'tags',
+            collectionId: 'users',
             cascadeDelete: false,
             minSelect: 0,
             maxSelect: 10,
@@ -456,11 +456,11 @@ export const relationScenarios: TestScenario[] = [
           type: 'relation', 
           required: true,
           relationConfig: {
-            collectionId: 'categories',
+            collectionId: 'users',
             cascadeDelete: false,
             minSelect: 1,
             maxSelect: 3,
-            displayFields: ['name', 'description']
+            displayFields: ['name', 'email']
           }
         }
       ]
@@ -485,10 +485,10 @@ export const relationScenarios: TestScenario[] = [
           type: 'relation', 
           required: true,
           relationConfig: {
-            collectionId: 'posts',
+            collectionId: 'users',
             cascadeDelete: true,
             maxSelect: 1,
-            displayFields: ['title']
+            displayFields: ['name']
           }
         },
         { 
