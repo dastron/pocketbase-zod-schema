@@ -46,10 +46,10 @@ describe('PBDownloader', () => {
 
   it('should generate correct path for different versions', () => {
     const path1 = downloader.getPocketBasePath('0.35.0');
-    const path2 = downloader.getPocketBasePath('0.35.0');
+    const path2 = downloader.getPocketBasePath('0.36.0');
     
     expect(path1).toContain('0.35.0');
-    expect(path2).toContain('0.35.0');
+    expect(path2).toContain('0.36.0');
     expect(path1).not.toBe(path2);
   });
 

@@ -76,5 +76,6 @@ Thumbs.db
 pocketbase/pocketbase
 pocketbase/LICENSE.md
 pocketbase/CHANGELOG.md
+pocketbase/pb_data/
 
 .pb-cache/
