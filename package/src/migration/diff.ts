@@ -784,8 +784,6 @@ function compareCollectionFields(
 
   // Detect Renames (Heuristic)
   // If we have single removed and added fields of the same type, consider it a rename
-  const remainingFieldsToAdd: FieldDefinition[] = [];
-  const remainingFieldsToRemove: FieldDefinition[] = [];
   const processedAddIndices = new Set<number>();
   const processedRemoveIndices = new Set<number>();
 
