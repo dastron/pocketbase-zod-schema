@@ -75,9 +75,9 @@ export default defineConfig({
       // Logging level for E2E tests
       E2E_LOG_LEVEL: process.env.E2E_LOG_LEVEL || 'info',
       
-      // Port range for test PocketBase instances
-      E2E_PORT_START: process.env.E2E_PORT_START || '8090',
-      E2E_PORT_END: process.env.E2E_PORT_END || '8190',
+      // Port range for test PocketBase instances (6-digit ports)
+      E2E_PORT_START: process.env.E2E_PORT_START || '60536',
+      E2E_PORT_END: process.env.E2E_PORT_END || '64536',
     },
     
     // Global setup for E2E tests (can return teardown function)
