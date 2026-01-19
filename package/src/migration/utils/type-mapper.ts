@@ -236,20 +236,7 @@ export function mapZodRecordType(_zodType: z.ZodRecord | z.ZodObject<any>): Pock
  * Main type mapping function that determines PocketBase field type from Zod type
  */
 export function mapZodTypeToPocketBase(zodType: z.ZodTypeAny, fieldName: string): PocketBaseFieldType {
-  // Handle optional and nullable types by unwrapping
-  let unwrappedType = zodType;
-
-  if (zodType instanceof z.ZodOptional) {
-    unwrappedType = zodType.unwrap() as z.ZodTypeAny;
-  }
-
-  if (unwrappedType instanceof z.ZodNullable) {
-    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
-  }
-
-  if (unwrappedType instanceof z.ZodDefault) {
-    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
-  }
+  const unwrappedType = unwrapZodType(zodType);
 
   if (unwrappedType instanceof z.ZodFile) {
     return "file";
@@ -294,18 +281,7 @@ export function mapZodTypeToPocketBase(zodType: z.ZodTypeAny, fieldName: string)
 export function extractFieldOptions(zodType: z.ZodTypeAny): Record<string, any> {
   const options: Record<string, any> = {};
 
-  // Unwrap optional/nullable/default
-  let unwrappedType = zodType;
-  if (zodType instanceof z.ZodOptional) {
-    unwrappedType = zodType.unwrap() as z.ZodTypeAny;
-  }
-  if (unwrappedType instanceof z.ZodNullable) {
-    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
-  }
-  if (unwrappedType instanceof z.ZodDefault) {
-    unwrappedType = unwrappedType.unwrap() as z.ZodTypeAny;
-  }
-
+  const unwrappedType = unwrapZodType(zodType);
   const checks = getChecks(unwrappedType);
 
   // Extract string constraints
@@ -423,17 +399,17 @@ export function isFieldRequired(zodType: z.ZodTypeAny): boolean {
  */
 export function unwrapZodType(zodType: z.ZodTypeAny): z.ZodTypeAny {
   let unwrapped = zodType;
+  let previous = null;
 
-  if (unwrapped instanceof z.ZodOptional) {
-    unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
-  }
-
-  if (unwrapped instanceof z.ZodNullable) {
-    unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
-  }
-
-  if (unwrapped instanceof z.ZodDefault) {
-    unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
+  while (unwrapped !== previous) {
+    previous = unwrapped;
+    if (unwrapped instanceof z.ZodOptional) {
+      unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
+    } else if (unwrapped instanceof z.ZodNullable) {
+      unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
+    } else if (unwrapped instanceof z.ZodDefault) {
+      unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
+    }
   }
 
   return unwrapped;
