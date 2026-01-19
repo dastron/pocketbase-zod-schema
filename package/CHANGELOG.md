@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.4.0...pocketbase-zod-schema-v0.4.1) (2026-01-19)
+
+
+### Features
+
+* enhance migration generation with collection IDs and rename detection ([074fe14](https://github.com/dastron/pocketbase-zod-schema/commit/074fe1409148c0ea33656e50c5c198bb7d57a853))
+
+
+### Bug Fixes
+
+* remove typegen unused dep ([86401ef](https://github.com/dastron/pocketbase-zod-schema/commit/86401ef3d7fb8d29f5805099d9b442e7cf22120f))
+
 ## [0.4.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.9...pocketbase-zod-schema-v0.4.0) (2026-01-19)
 
 
