@@ -288,11 +288,12 @@ function parseMigrationOperationsFromContent(content: string): {
           // I'll stick to what was there: try to find definition.
           const varName = `collection_${varMatch[1]}`;
           const defRegex = new RegExp(
-            `const\\s+${varName}\\s*=\\s*app\\.findCollectionByNameOrId\\(["']([^"']+)["']\\)`
+            `const\\s+${varName}\\s*=\\s*app\\.findCollectionByNameOrId\\(["']([^"']+)["']\\)(?:\\s*//\\s*([^\\n\\r;]+))?`
           );
           const defMatch = content.match(defRegex);
           if (defMatch) {
-            collectionsToDelete.push(defMatch[1]);
+            const name = defMatch[2] ? defMatch[2].trim() : defMatch[1];
+            collectionsToDelete.push(name);
           } else {
             // Try new Collection assignment
             // const newColRegex = new RegExp(
@@ -308,10 +309,11 @@ function parseMigrationOperationsFromContent(content: string): {
     // Check assignments: const col = app.findCollectionByNameOrId("name"); app.delete(col);
     const varAssignments = new Map<string, string>();
     const assignmentMatches = content.matchAll(
-      /const\s+(\w+)\s*=\s*app\.findCollectionByNameOrId\s*\(\s*["']([^"']+)["']\s*\)/g
+      /const\s+(\w+)\s*=\s*app\.findCollectionByNameOrId\s*\(\s*["']([^"']+)["']\s*\)(?:\s*\/\/\s*([^\n\r;]+))?/g
     );
     for (const match of assignmentMatches) {
-      varAssignments.set(match[1], match[2]);
+      const name = match[3] ? match[3].trim() : match[2];
+      varAssignments.set(match[1], name);
     }
 
     const varDeleteMatches = content.matchAll(/app\.delete\s*\(\s*(\w+)\s*\)/g);

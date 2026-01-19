@@ -756,7 +756,7 @@ function compareCollectionFields(
   fieldsToModify: FieldModification[];
 } {
   let fieldsToAdd = findNewFields(currentCollection.fields, previousCollection.fields);
-  const fieldsToRemove = findRemovedFields(currentCollection.fields, previousCollection.fields);
+  let fieldsToRemove = findRemovedFields(currentCollection.fields, previousCollection.fields);
   const fieldsToModify: FieldModification[] = [];
 
   // For users collection, filter out system fields from fieldsToAdd
@@ -781,6 +781,84 @@ function compareCollectionFields(
       });
     }
   }
+
+  // Detect Renames (Heuristic)
+  // If we have single removed and added fields of the same type, consider it a rename
+  const remainingFieldsToAdd: FieldDefinition[] = [];
+  const remainingFieldsToRemove: FieldDefinition[] = [];
+  const processedAddIndices = new Set<number>();
+  const processedRemoveIndices = new Set<number>();
+
+  // Helper to resolve collection name from ID/expression
+  const resolveCollectionName = (val: string): string => {
+    if (!val) return val;
+    if (collectionIdToName && collectionIdToName.has(val)) return collectionIdToName.get(val)!;
+    const match = val.match(/app\.findCollectionByNameOrId\s*\(\s*["']([^"']+)["']\s*\)/);
+    return match ? match[1] : val;
+  };
+
+  // Group fields by type
+  const addedByType = new Map<string, number[]>();
+  fieldsToAdd.forEach((field, index) => {
+    const type = field.type;
+    if (!addedByType.has(type)) addedByType.set(type, []);
+    addedByType.get(type)!.push(index);
+  });
+
+  const removedByType = new Map<string, number[]>();
+  fieldsToRemove.forEach((field, index) => {
+    const type = field.type;
+    if (!removedByType.has(type)) removedByType.set(type, []);
+    removedByType.get(type)!.push(index);
+  });
+
+  // Check each type for potential renames
+  for (const [type, removedIndices] of removedByType) {
+    const addedIndices = addedByType.get(type);
+
+    // Heuristic: Only rename if exactly one field of this type was removed and one added
+    if (addedIndices && addedIndices.length === 1 && removedIndices.length === 1) {
+      const addedIndex = addedIndices[0];
+      const removedIndex = removedIndices[0];
+      const addedField = fieldsToAdd[addedIndex];
+      const removedField = fieldsToRemove[removedIndex];
+
+      // For relations, ensure target collection matches
+      let isMatch = true;
+      if (type === "relation") {
+        const addedTarget = resolveCollectionName(addedField.relation?.collection || "");
+        const removedTarget = resolveCollectionName(removedField.relation?.collection || "");
+        if (addedTarget.toLowerCase() !== removedTarget.toLowerCase()) {
+          isMatch = false;
+        }
+      }
+
+      if (isMatch) {
+        // It's a rename!
+        processedAddIndices.add(addedIndex);
+        processedRemoveIndices.add(removedIndex);
+
+        // Calculate changes (including name change)
+        const changes = detectFieldChanges(addedField, removedField, collectionIdToName);
+        changes.push({
+          property: "name",
+          oldValue: removedField.name,
+          newValue: addedField.name,
+        });
+
+        fieldsToModify.push({
+          fieldName: removedField.name, // Use OLD name so generator can find it
+          currentDefinition: removedField, // OLD definition
+          newDefinition: addedField, // NEW definition
+          changes,
+        });
+      }
+    }
+  }
+
+  // Filter out processed fields
+  fieldsToAdd = fieldsToAdd.filter((_, index) => !processedAddIndices.has(index));
+  fieldsToRemove = fieldsToRemove.filter((_, index) => !processedRemoveIndices.has(index));
 
   return { fieldsToAdd, fieldsToRemove, fieldsToModify };
 }
