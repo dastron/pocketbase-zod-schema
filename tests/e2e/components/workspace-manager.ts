@@ -117,12 +117,6 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       // Create superuser BEFORE starting PocketBase to prevent browser popup
       await this.createSuperuser(workspace);
       
-      // After superuser creation, PocketBase may have created a database file
-      // Clean it up to ensure we start with a fresh database that only has our initial migration
-      await rm(dataDbFile, { force: true }).catch(() => {});
-      await rm(dataDbWalFile, { force: true }).catch(() => {});
-      await rm(dataDbShmFile, { force: true }).catch(() => {});
-      
       logger.debug(`PocketBase initialized for workspace ${workspace.workspaceId}`);
     } catch (error) {
       logger.error(`Failed to initialize PocketBase for workspace ${workspace.workspaceId}:`, error);
@@ -138,7 +132,7 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
     
     try {
       // Use PocketBase CLI command to create superuser
-      const command = `"${workspace.pocketbasePath}" superuser create test@example.com testpassword123 --dir "${workspace.workspaceDir}"`;
+      const command = `"${workspace.pocketbasePath}" superuser create test@example.com testpassword123 --dir "${workspace.dataDir}"`;
       
       logger.debug(`Executing command: ${command}`);
       
@@ -193,10 +187,9 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
     try {
       const process = spawn(workspace.pocketbasePath, [
         'serve',
-        '--dir', workspace.workspaceDir,
+        '--dir', workspace.dataDir,
         '--http', `127.0.0.1:${workspace.pocketbasePort}`,
-        // Note: --dev flag removed as it may cause issues with migration handling
-        // PocketBase will automatically apply migrations on startup
+        '--dev',
       ], {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: workspace.workspaceDir,
