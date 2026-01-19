@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.4.0...pocketbase-zod-schema-v0.5.0) (2026-01-19)
+## [0.4.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.4.0...pocketbase-zod-schema-v0.4.1) (2026-01-19)
 
 
 ### Features
