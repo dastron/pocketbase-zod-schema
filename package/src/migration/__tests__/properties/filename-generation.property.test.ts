@@ -47,7 +47,7 @@ describe("Filename Generation Property Tests", () => {
             expect(filename).toMatch(/\.js$/);
 
             // Should match the general pattern: {timestamp}_{operation}_{name}.js
-            expect(filename).toMatch(/^\d+_(created|updated|deleted)_[a-z0-9_]+\.js$/);
+            expect(filename).toMatch(/^\d+_(created|updated|deleted)_[a-zA-Z0-9_]+\.js$/);
 
             // Should start with the timestamp
             expect(filename).toMatch(new RegExp(`^${timestamp}_`));
@@ -131,7 +131,7 @@ describe("Filename Generation Property Tests", () => {
 
             // Should only contain safe filesystem characters
             // Pattern: timestamp_operation_sanitized_name.js
-            expect(filename).toMatch(/^[0-9]+_[a-z]+_[a-z0-9_]+\.js$/);
+            expect(filename).toMatch(/^[0-9]+_[a-z]+_[a-zA-Z0-9_]+\.js$/);
 
             // Should not contain spaces or special characters (except underscore and dot for extension)
             // Note: We're checking the filename doesn't have problematic characters
@@ -178,8 +178,8 @@ describe("Filename Generation Property Tests", () => {
             const filename = generateCollectionMigrationFilename(operation);
 
             // The filename should contain a sanitized version of the collection name
-            // Sanitization converts to lowercase and replaces special chars with underscores
-            const sanitizedName = collectionName.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
+            // Sanitization replaces special chars with underscores, but preserves case
+            const sanitizedName = collectionName.replace(/[^a-zA-Z0-9_]/g, "_");
             expect(filename).toContain(sanitizedName);
           }
         ),
@@ -211,9 +211,8 @@ describe("Filename Generation Property Tests", () => {
 
             const filename = generateCollectionMigrationFilename(operation);
 
-            // For safe collection names, the lowercase version should appear in filename
-            const lowercaseName = collectionName.toLowerCase();
-            expect(filename).toContain(lowercaseName);
+            // For safe collection names, the original name should appear in filename
+            expect(filename).toContain(collectionName);
           }
         ),
         { numRuns: 100 }
@@ -230,7 +229,7 @@ describe("Filename Generation Property Tests", () => {
           ({ timestamp, type }) => {
             // Test with various special characters
             const testCases = [
-              { name: "My Collection", expected: "my_collection" },
+              { name: "My Collection", expected: "My_Collection" },
               { name: "user-profile", expected: "user_profile" },
               { name: "data.table", expected: "data_table" },
               { name: "test@collection", expected: "test_collection" },

@@ -158,7 +158,7 @@ export function splitDiffByCollection(diff: SchemaDiff, baseTimestamp: string): 
   for (const collection of diff.collectionsToDelete) {
     operations.push({
       type: "delete",
-      collection: collection.name || collection, // Handle both object and string
+      collection: collection, // Handle both object and string
       timestamp: currentTimestamp.toString(),
     });
     currentTimestamp += 1; // Increment by 1 second
@@ -187,7 +187,7 @@ export function generateCollectionMigrationFilename(operation: CollectionOperati
   }
 
   // Sanitize collection name for filename (replace spaces and special chars with underscores)
-  const sanitizedName = collectionName.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase();
+  const sanitizedName = collectionName.replace(/[^a-zA-Z0-9_]/g, "_");
 
   return `${timestamp}_${operationType}_${sanitizedName}.js`;
 }
