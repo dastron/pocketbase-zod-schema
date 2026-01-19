@@ -91,6 +91,42 @@ This will create a migration file in your PocketBase migrations directory.
 
 **TypeScript Support:** You can use TypeScript (`.ts`) schema files directly - no compilation needed! The tool automatically handles TypeScript files using `tsx`.
 
+### 4. Generate TypeScript types
+
+Generate type-safe TypeScript definitions from your schemas:
+
+```bash
+# Generate types to pocketbase-types.ts
+npx pocketbase-migrate generate-types
+
+# Or specify a custom output path
+npx pocketbase-migrate generate-types --output ./src/types/pocketbase.ts
+```
+
+This creates a `pocketbase-types.ts` file with:
+- Type-safe record interfaces for each collection (e.g., `PostsRecord`, `UsersRecord`)
+- Response types with expand support (e.g., `PostsResponse`, `UsersResponse`)
+- A `TypedPocketBase` interface for type-safe PocketBase client usage
+
+**Usage in your application:**
+
+```typescript
+import PocketBase from "pocketbase";
+import { TypedPocketBase } from "./pocketbase-types";
+
+const pb = new PocketBase("http://localhost:8090") as TypedPocketBase;
+
+// Full type safety with autocomplete!
+const post = await pb.collection("posts").getOne("post-id");
+// post is typed as PostsResponse with full autocomplete
+
+// Expand relations with type safety
+const postWithAuthor = await pb.collection("posts").getOne("post-id", {
+  expand: "author"
+});
+// postWithAuthor.expand?.author is typed as UsersResponse
+```
+
 ---
 
 ## Schema Definition
@@ -521,8 +557,81 @@ npx pocketbase-migrate generate
 # Show what would be generated without writing files
 npx pocketbase-migrate status
 
+# Generate TypeScript definitions from schemas
+npx pocketbase-migrate generate-types
+
 # Force generation even with destructive changes
 npx pocketbase-migrate generate --force
+```
+
+### `generate-types` Command
+
+Generate type-safe TypeScript definitions from your Zod schemas.
+
+```bash
+pocketbase-migrate generate-types [options]
+
+Options:
+  -c, --config <path>        Configuration file path
+  -o, --output <path>        Output file path (default: pocketbase-types.ts)
+  --schema-dir <directory>   Directory containing Zod schema files
+  -v, --verbose              Enable verbose logging
+```
+
+**What it generates:**
+
+The `generate-types` command analyzes your Zod schemas and generates a TypeScript file (default: `pocketbase-types.ts`) containing:
+
+1. **Record interfaces** - Type-safe interfaces for each collection's data structure
+   ```typescript
+   export interface PostsRecord {
+     id: string;
+     created: string;
+     updated: string;
+     collectionId: string;
+     collectionName: "posts";
+     title: string;
+     content: string;
+     // ... other fields
+   }
+   ```
+
+2. **Response types** - Extended types with expand support for relations
+   ```typescript
+   export interface PostsResponse extends PostsRecord {
+     expand?: {
+       author?: UsersResponse;
+       tags?: TagsResponse[];
+     };
+   }
+   ```
+
+3. **TypedPocketBase interface** - Type-safe PocketBase client wrapper
+   ```typescript
+   export interface TypedPocketBase extends PocketBase {
+     collection(idOrName: "posts"): RecordService<PostsResponse>;
+     collection(idOrName: "users"): RecordService<UsersResponse>;
+     // ... other collections
+   }
+   ```
+
+**Example usage:**
+
+```typescript
+import PocketBase from "pocketbase";
+import { TypedPocketBase } from "./pocketbase-types";
+
+const pb = new PocketBase("http://localhost:8090") as TypedPocketBase;
+
+// Full type safety!
+const post = await pb.collection("posts").getOne("post-id");
+// Type: PostsResponse
+
+// Expand relations with type safety
+const postWithAuthor = await pb.collection("posts").getOne("post-id", {
+  expand: "author"
+});
+// postWithAuthor.expand?.author is typed as UsersResponse | undefined
 ```
 
 ### Configuration Options

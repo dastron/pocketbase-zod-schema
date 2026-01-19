@@ -82,7 +82,36 @@ npx pocketbase-migrate status
 npx pocketbase-migrate generate --force
 ```
 
-### 3. Apply Migrations
+### 3. Generate TypeScript Types
+
+Generate type-safe TypeScript definitions from your schemas:
+
+```bash
+# Generate types to pocketbase-types.ts
+npx pocketbase-migrate generate-types
+
+# Or specify a custom output path
+npx pocketbase-migrate generate-types --output ./src/types/pocketbase.ts
+```
+
+This creates a `pocketbase-types.ts` file with:
+- Type-safe record interfaces for each collection
+- Response types with expand support
+- A `TypedPocketBase` interface for type-safe PocketBase client usage
+
+**Usage:**
+
+```typescript
+import PocketBase from "pocketbase";
+import { TypedPocketBase } from "./pocketbase-types";
+
+const pb = new PocketBase("http://localhost:8090") as TypedPocketBase;
+
+// Full type safety with autocomplete!
+const post = await pb.collection("posts").getOne("post-id");
+```
+
+### 4. Apply Migrations
 
 ```bash
 ./pocketbase migrate
@@ -114,6 +143,47 @@ pocketbase-migrate status [options]
 Options:
   -c, --config <path>     Configuration file path
   -v, --verbose          Enable verbose logging
+```
+
+### `generate-types`
+
+Generate TypeScript definitions from your Zod schemas. This creates a `pocketbase-types.ts` file with type-safe interfaces for all your collections.
+
+```bash
+pocketbase-migrate generate-types [options]
+
+Options:
+  -c, --config <path>     Configuration file path
+  -o, --output <path>     Output file path (default: pocketbase-types.ts)
+  --schema-dir <directory>  Directory containing Zod schema files
+  -v, --verbose          Enable verbose logging
+```
+
+**Example:**
+
+```bash
+# Generate types to the default location (pocketbase-types.ts)
+npx pocketbase-migrate generate-types
+
+# Generate types to a custom location
+npx pocketbase-migrate generate-types --output ./src/types/pocketbase.ts
+```
+
+The generated file includes:
+- Type-safe record interfaces for each collection
+- Response types with expand support
+- A `TypedPocketBase` interface for type-safe PocketBase client usage
+
+**Usage in your application:**
+
+```typescript
+import { TypedPocketBase } from "./pocketbase-types";
+
+const pb = new PocketBase("http://localhost:8090") as TypedPocketBase;
+
+// Now you get full type safety!
+const post = await pb.collection("posts").getOne("post-id");
+// post is typed as PostsResponse with full autocomplete
 ```
 
 ## Configuration
