@@ -5,7 +5,7 @@ import { createPBDownloader, PBDownloader } from '../components/pb-downloader.js
 import { createNativeMigrationGenerator, NativeMigrationGenerator } from '../components/native-migration-generator.js';
 import { createLibraryCLI, LibraryCLI, LibraryWorkspace } from '../components/library-cli.js';
 import { createCLIResponseAnalyzer, CLIResponseAnalyzer } from '../components/cli-response-analyzer.js';
-import { ScenarioRunner, createComprehensiveRunner } from '../utils/scenario-runner.js';
+import { ScenarioRunner } from '../utils/scenario-runner.js';
 import { logger } from '../utils/test-helpers.js';
 import { TestScenario } from '../fixtures/test-scenarios.js';
 
@@ -18,7 +18,6 @@ describe('E2E Migration Workflow', () => {
   let nativeGen: NativeMigrationGenerator;
   let libraryCLI: LibraryCLI;
   let analyzer: CLIResponseAnalyzer;
-  let runner: ScenarioRunner;
 
   beforeAll(async () => {
     logger.info('Starting E2E Migration Tests');
@@ -30,15 +29,6 @@ describe('E2E Migration Workflow', () => {
     libraryCLI = createLibraryCLI();
     analyzer = createCLIResponseAnalyzer();
 
-    // Initialize scenario runner
-    // Exclude updates category for now as it requires special handling
-    runner = createComprehensiveRunner({
-        config: {
-            enabledCategories: ['basic', 'field-types', 'indexes', 'rules', 'auth', 'relations'],
-            minimumScore: 70
-        }
-    });
-
     // Ensure PocketBase is downloaded once before tests start
     await pbDownloader.downloadPocketBase();
   }, 300000); // 5 minutes setup timeout
@@ -49,12 +39,14 @@ describe('E2E Migration Workflow', () => {
   });
 
   // Get scenarios to run
-  const scenarios = createComprehensiveRunner({
-        config: {
-            enabledCategories: ['basic', 'field-types', 'indexes', 'rules', 'auth', 'relations'],
-            minimumScore: 70
-        }
-    }).getScenarios();
+  // Exclude updates category for now as it requires special handling
+  const scenarioRunner = new ScenarioRunner({
+    config: {
+      enabledCategories: ['basic', 'field-types', 'indexes', 'rules', 'auth', 'relations'],
+      minimumScore: 70
+    }
+  });
+  const scenarios = scenarioRunner.getScenarios();
 
   if (scenarios.length === 0) {
     it('should have scenarios to run', () => {

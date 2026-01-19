@@ -5,7 +5,7 @@
  * directories, port allocation, PocketBase initialization, and automatic cleanup.
  */
 
-import { mkdir, rm, writeFile, readFile } from 'fs/promises';
+import { mkdir, rm, writeFile, readFile, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { spawn, ChildProcess, execSync } from 'child_process';
@@ -65,8 +65,18 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
     const migrationDir = join(workspaceDir, 'pb_migrations');
     const dataDir = join(workspaceDir, 'pb_data');
     
+    // Ensure directories are clean (remove any existing files)
+    await rm(migrationDir, { recursive: true, force: true });
+    await rm(dataDir, { recursive: true, force: true });
+    
     await mkdir(migrationDir, { recursive: true });
     await mkdir(dataDir, { recursive: true });
+    
+    // Verify migration directory is empty after creation
+    const filesAfterClean = await readdir(migrationDir).catch(() => []);
+    if (filesAfterClean.length > 0) {
+      logger.warn(`Migration directory not empty after cleanup for workspace ${workspaceId}: ${filesAfterClean.join(', ')}`);
+    }
     
     const workspace: TestWorkspace = {
       workspaceId,
@@ -89,6 +99,15 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
     logger.debug(`Initializing PocketBase for workspace ${workspace.workspaceId}`);
     
     try {
+      // Ensure data directory is completely clean (remove any existing database files)
+      const dataDbFile = join(workspace.dataDir, 'data.db');
+      const dataDbWalFile = join(workspace.dataDir, 'data.db-wal');
+      const dataDbShmFile = join(workspace.dataDir, 'data.db-shm');
+      
+      await rm(dataDbFile, { force: true }).catch(() => {});
+      await rm(dataDbWalFile, { force: true }).catch(() => {});
+      await rm(dataDbShmFile, { force: true }).catch(() => {});
+      
       // Create initial migration to set up the database structure
       await this.createInitialMigration(workspace);
       
@@ -97,6 +116,12 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       
       // Create superuser BEFORE starting PocketBase to prevent browser popup
       await this.createSuperuser(workspace);
+      
+      // After superuser creation, PocketBase may have created a database file
+      // Clean it up to ensure we start with a fresh database that only has our initial migration
+      await rm(dataDbFile, { force: true }).catch(() => {});
+      await rm(dataDbWalFile, { force: true }).catch(() => {});
+      await rm(dataDbShmFile, { force: true }).catch(() => {});
       
       logger.debug(`PocketBase initialized for workspace ${workspace.workspaceId}`);
     } catch (error) {
@@ -148,16 +173,30 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       return;
     }
 
-    logger.debug(`Starting PocketBase for workspace ${workspace.workspaceId} on port ${workspace.pocketbasePort}`);
+      logger.debug(`Starting PocketBase for workspace ${workspace.workspaceId} on port ${workspace.pocketbasePort}`);
+      
+      // Debug: List migration files before starting PocketBase
+      const migrationFilesBeforeStart = await readdir(workspace.migrationDir).catch(() => []);
+      if (migrationFilesBeforeStart.length > 0) {
+        logger.warn(`Migration files found before PocketBase start for workspace ${workspace.workspaceId}: ${migrationFilesBeforeStart.join(', ')}`);
+        // Remove any migration files that aren't our initial setup
+        for (const file of migrationFilesBeforeStart) {
+          if (file.endsWith('.js') && !file.includes('initial_setup')) {
+            logger.warn(`Removing unexpected migration file: ${file}`);
+            await rm(join(workspace.migrationDir, file), { force: true }).catch(() => {});
+          }
+        }
+      }
 
-    let startupError: Error | null = null;
+      let startupError: Error | null = null;
 
     try {
       const process = spawn(workspace.pocketbasePath, [
         'serve',
         '--dir', workspace.workspaceDir,
         '--http', `127.0.0.1:${workspace.pocketbasePort}`,
-        '--dev', // Enable dev mode for easier testing
+        // Note: --dev flag removed as it may cause issues with migration handling
+        // PocketBase will automatically apply migrations on startup
       ], {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: workspace.workspaceDir,
@@ -204,7 +243,12 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
           }
           try {
             const response = await fetch(`http://127.0.0.1:${workspace.pocketbasePort}/api/health`);
-            return response.ok;
+            if (!response.ok) {
+              return false;
+            }
+            // Give PocketBase a moment to finish applying migrations
+            await sleep(1000);
+            return true;
           } catch {
             return false;
           }
@@ -318,6 +362,18 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
    * Create initial migration for clean database setup
    */
   private async createInitialMigration(workspace: TestWorkspace): Promise<void> {
+    // List any existing migration files before creating initial one
+    const existingFiles = await readdir(workspace.migrationDir).catch(() => []);
+    if (existingFiles.length > 0) {
+      logger.warn(`Found ${existingFiles.length} existing migration files in workspace ${workspace.workspaceId}: ${existingFiles.join(', ')}`);
+      // Remove any existing migration files to ensure clean state
+      for (const file of existingFiles) {
+        if (file.endsWith('.js')) {
+          await rm(join(workspace.migrationDir, file), { force: true }).catch(() => {});
+        }
+      }
+    }
+    
     const timestamp = Date.now();
     const migrationFile = join(workspace.migrationDir, `${timestamp}_initial_setup.js`);
     
