@@ -275,28 +275,26 @@ export default {
 
     // Generate database schema (with base fields)
     const schemaName = `${this.capitalize(definition.name)}Schema`;
+
+    // Create the metadata object
+    const metadata: any = {
+      collectionName: definition.name,
+      type: definition.type,
+    };
+
+    if (definition.rules) {
+      metadata.rules = definition.rules;
+    }
+
+    if (definition.indexes && definition.indexes.length > 0) {
+      metadata.indexes = definition.indexes;
+    }
+
     lines.push(`export const ${schemaName} = ${inputSchemaName}.extend({`);
     lines.push(`  id: z.string(),`);
     lines.push(`  created: z.string(),`);
     lines.push(`  updated: z.string(),`);
-    lines.push(`});`);
-    lines.push(``);
-
-    // Add collection metadata
-    lines.push(`// Collection metadata`);
-    lines.push(`${schemaName}._def.collectionName = '${definition.name}';`);
-    lines.push(`${schemaName}._def.collectionType = '${definition.type}';`);
-
-    // Add rules if specified
-    if (definition.rules) {
-      lines.push(`${schemaName}._def.rules = ${JSON.stringify(definition.rules, null, 2)};`);
-    }
-
-    // Add indexes if specified
-    if (definition.indexes && definition.indexes.length > 0) {
-      lines.push(`${schemaName}._def.indexes = ${JSON.stringify(definition.indexes, null, 2)};`);
-    }
-
+    lines.push(`}).describe(${JSON.stringify(JSON.stringify(metadata))});`);
     lines.push(``);
 
     return lines.join('\n');

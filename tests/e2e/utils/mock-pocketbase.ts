@@ -181,7 +181,7 @@ export function createMockWorkspace(overrides: Partial<MockWorkspace> = {}): Moc
   return {
     workspaceId: 'mock_workspace_123',
     workspaceDir: '/tmp/mock-workspace',
-    pocketbasePort: 8090,
+    pocketbasePort: 60536,
     pocketbasePath: '/tmp/mock-workspace/pocketbase',
     migrationDir: '/tmp/mock-workspace/pb_migrations',
     dataDir: '/tmp/mock-workspace/pb_data',
