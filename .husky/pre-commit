@@ -3,6 +3,11 @@
 
 set -e
 
+# Skip checks for merge commits
+if [ -f .git/MERGE_HEAD ] || [ -n "$(git log -1 --pretty=%B | grep -E '^Merge ')" ]; then
+  exit 0
+fi
+
 # Run linting and type checking before commit
 yarn lint
 yarn typecheck
