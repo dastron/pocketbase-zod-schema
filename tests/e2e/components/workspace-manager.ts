@@ -114,8 +114,9 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       // Create PocketBase configuration
       await this.createPocketBaseConfig(workspace);
       
-      // Create superuser BEFORE starting PocketBase to prevent browser popup
-      await this.createSuperuser(workspace);
+      // Create superuser BEFORE starting PocketBase using CLI
+      // The CLI command will create the database if it doesn't exist
+      await this.createSuperuserBeforeStart(workspace);
       
       logger.debug(`PocketBase initialized for workspace ${workspace.workspaceId}`);
     } catch (error) {
@@ -125,13 +126,15 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
   }
 
   /**
-   * Create a superuser admin for the workspace using CLI command
+   * Create a superuser admin for the workspace using CLI command BEFORE PocketBase starts
+   * This works because the CLI command will create the database if it doesn't exist
    */
-  async createSuperuser(workspace: TestWorkspace): Promise<void> {
-    logger.info(`Creating superuser for workspace ${workspace.workspaceId} using CLI command`);
+  async createSuperuserBeforeStart(workspace: TestWorkspace): Promise<void> {
+    logger.info(`Creating superuser for workspace ${workspace.workspaceId} using CLI command (before PocketBase start)`);
     
     try {
       // Use PocketBase CLI command to create superuser
+      // This will create the database if it doesn't exist
       const command = `"${workspace.pocketbasePath}" superuser create test@example.com testpassword123 --dir "${workspace.dataDir}"`;
       
       logger.debug(`Executing command: ${command}`);
@@ -148,13 +151,88 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       
     } catch (error: any) {
       // Check if the error is because superuser already exists
-      if (error.stderr && error.stderr.includes('already exists')) {
+      if (error.stderr && typeof error.stderr === 'string' && error.stderr.includes('already exists')) {
         logger.debug(`Superuser already exists for workspace ${workspace.workspaceId}`);
         return;
       }
       
-      logger.error(`Error creating superuser for workspace ${workspace.workspaceId}:`, error);
+      logger.error(`Error creating superuser for workspace ${workspace.workspaceId}:`, {
+        message: error.message,
+        stderr: error.stderr,
+        stdout: error.stdout,
+      });
       throw new Error(`Failed to create superuser: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verify superuser exists and can authenticate
+   * Superuser should be created via initial migration
+   */
+  async verifySuperuser(workspace: TestWorkspace): Promise<void> {
+    logger.debug(`Verifying superuser for workspace ${workspace.workspaceId}`);
+    
+    const adminUrl = `http://127.0.0.1:${workspace.pocketbasePort}`;
+    
+    // Wait a moment for migrations to complete and superuser to be available
+    await sleep(1000);
+    
+    // Verify authentication works (this is the real test)
+    const maxAuthAttempts = 5;
+    for (let attempt = 1; attempt <= maxAuthAttempts; attempt++) {
+      try {
+        // Try to authenticate as superuser (v0.23+)
+        let authResponse = await fetch(`${adminUrl}/api/collections/_superusers/auth-with-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            identity: 'test@example.com',
+            password: 'testpassword123',
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+        
+        // Fallback for older versions (pre v0.23)
+        if (authResponse.status === 404) {
+          authResponse = await fetch(`${adminUrl}/api/admins/auth-with-password`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              identity: 'test@example.com',
+              password: 'testpassword123',
+            }),
+            signal: AbortSignal.timeout(5000),
+          });
+        }
+        
+        if (authResponse.ok) {
+          logger.debug(`Superuser verified for workspace ${workspace.workspaceId}`);
+          return;
+        }
+        
+        // If not successful and not the last attempt, wait and retry
+        if (attempt < maxAuthAttempts) {
+          const errorText = await authResponse.text();
+          logger.debug(`Authentication attempt ${attempt} failed (${authResponse.status}), retrying...`);
+          await sleep(500 * attempt);
+          continue;
+        }
+        
+        // Last attempt failed
+        const errorText = await authResponse.text();
+        throw new Error(`Failed to verify superuser after ${maxAuthAttempts} attempts: ${authResponse.status} - ${errorText}`);
+        
+      } catch (error: any) {
+        if (attempt === maxAuthAttempts) {
+          logger.error(`Failed to verify superuser for workspace ${workspace.workspaceId}:`, error);
+          throw new Error(`Failed to verify superuser: ${error.message}`);
+        }
+        await sleep(500 * attempt);
+      }
     }
   }
 
@@ -375,13 +453,14 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
 migrate((db) => {
   // Initial setup migration - creates clean database structure
   // This migration is automatically generated for E2E test workspace isolation
+  // Note: Superuser is created via CLI command before PocketBase starts
 }, (db) => {
   // Down migration - no-op for initial setup
 });
 `;
 
     await writeFile(migrationFile, migrationContent.trim());
-    logger.debug(`Created initial migration: ${migrationFile}`);
+    logger.debug(`Created initial migration with superuser: ${migrationFile}`);
   }
 
   /**

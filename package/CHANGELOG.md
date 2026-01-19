@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.9...pocketbase-zod-schema-v0.4.0) (2026-01-19)
+
+
+### Features
+
+* add strongly typed expand support and type generation CLI ([2ca3f39](https://github.com/dastron/pocketbase-zod-schema/commit/2ca3f39d0af6bcf92f212ed64bab20e368c1297d))
+* add strongly typed expand support and type generation CLI ([f8a1b4b](https://github.com/dastron/pocketbase-zod-schema/commit/f8a1b4bfbe3da3fc5b98977b53bc211fb3d44f0d))
+
 ## [0.3.9](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.3.8...pocketbase-zod-schema-v0.3.9) (2026-01-19)
 
 
