@@ -271,6 +271,21 @@ export function mapZodTypeToPocketBase(zodType: z.ZodTypeAny, fieldName: string)
     return mapZodRecordType(unwrappedType);
   }
 
+  // Complex types that should be mapped to JSON
+  if (
+    unwrappedType instanceof z.ZodDiscriminatedUnion ||
+    unwrappedType instanceof z.ZodUnion ||
+    unwrappedType instanceof z.ZodIntersection ||
+    unwrappedType instanceof z.ZodTuple ||
+    unwrappedType instanceof z.ZodMap ||
+    unwrappedType instanceof z.ZodSet ||
+    unwrappedType instanceof z.ZodLazy ||
+    unwrappedType instanceof z.ZodAny ||
+    unwrappedType instanceof z.ZodUnknown
+  ) {
+    return "json";
+  }
+
   // Default to text for unknown types
   return "text";
 }
@@ -409,6 +424,20 @@ export function unwrapZodType(zodType: z.ZodTypeAny): z.ZodTypeAny {
       unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
     } else if (unwrapped instanceof z.ZodDefault) {
       unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
+    } else if (z.ZodPipe && unwrapped instanceof z.ZodPipe) {
+      // Use input schema from pipe (transform, pipe)
+      // Check if ZodPipe exists to be safe across versions
+      unwrapped = (unwrapped as any)._def.in as z.ZodTypeAny;
+    } else if (z.ZodReadonly && unwrapped instanceof z.ZodReadonly) {
+      unwrapped = unwrapped.unwrap() as z.ZodTypeAny;
+    } else if (unwrapped instanceof z.ZodCatch) {
+      // Check if removeCatch exists (Zod 3.20+)
+      if (typeof (unwrapped as any).removeCatch === "function") {
+        unwrapped = (unwrapped as any).removeCatch() as z.ZodTypeAny;
+      } else {
+        // Fallback for older Zod versions
+        unwrapped = (unwrapped as any)._def.innerType as z.ZodTypeAny;
+      }
     }
   }
 
