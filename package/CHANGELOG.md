@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.4.1...pocketbase-zod-schema-v0.4.2) (2026-01-21)
+
+
+### Bug Fixes
+
+* create server export ([fda62fb](https://github.com/dastron/pocketbase-zod-schema/commit/fda62fb7fe359901e346de56247e37294f405f1f))
+
 ## [0.4.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.4.0...pocketbase-zod-schema-v0.4.1) (2026-01-19)
 
 
