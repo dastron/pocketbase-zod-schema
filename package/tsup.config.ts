@@ -16,9 +16,9 @@ export default defineConfig({
 
     // Migration utilities - granular exports for tree-shaking
     'migration/index': 'src/migration/index.ts',
-    'migration/analyzer': 'src/migration/analyzer.ts',
-    'migration/diff': 'src/migration/diff.ts',
-    'migration/generator': 'src/migration/generator.ts',
+    'migration/analyzer': 'src/migration/analyzer/index.ts',
+    'migration/diff': 'src/migration/diff/index.ts',
+    'migration/generator': 'src/migration/generator/index.ts',
     'migration/snapshot': 'src/migration/snapshot.ts',
     'migration/utils/index': 'src/migration/utils/index.ts',
   },
