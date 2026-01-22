@@ -1,7 +1,8 @@
 import { Command } from "commander";
 import * as fs from "fs";
 import * as path from "path";
-import { parseSchemaFiles } from "../../migration/analyzer.js";
+import { parseSchemaFiles } from "../../migration/index.js";
+import type { SchemaDefinition } from "../../migration/types.js";
 import { TypeGenerator } from "../../type-gen/generator.js";
 import { getSchemaDirectory, loadConfig } from "../utils/config.js";
 import { logDebug, logError, logSection, logSuccess, setVerbosity, withProgress } from "../utils/logger.js";
@@ -31,7 +32,7 @@ export async function executeGenerateTypes(options: any): Promise<void> {
       excludePatterns: config.schema.exclude,
       useCompiledFiles: false,
     };
-    const currentSchema = await withProgress("Parsing Zod schemas...", () => parseSchemaFiles(analyzerConfig));
+    const currentSchema: SchemaDefinition = await withProgress("Parsing Zod schemas...", () => parseSchemaFiles(analyzerConfig));
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s)`);
 

@@ -5,11 +5,10 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
-import { parseSchemaFiles } from "../../migration/analyzer.js";
-import { categorizeChangesBySeverity, compare } from "../../migration/diff.js";
+import { categorizeChangesBySeverity, compare, parseSchemaFiles } from "../../migration/index.js";
 import { ConfigurationError, SchemaParsingError, SnapshotError } from "../../migration/errors.js";
 import { loadSnapshotWithMigrations } from "../../migration/snapshot.js";
-import type { SchemaDiff } from "../../migration/types.js";
+import type { SchemaDefinition, SchemaDiff } from "../../migration/types.js";
 import { getMigrationsDirectory, getSchemaDirectory, loadConfig } from "../utils/config.js";
 import {
   formatChangeSummary,
@@ -187,7 +186,7 @@ export async function executeStatus(options: any): Promise<void> {
       excludePatterns: config.schema.exclude,
       useCompiledFiles: false, // Use source files since we're in development/testing
     };
-    const currentSchema = await withProgress("Parsing Zod schemas...", () => parseSchemaFiles(analyzerConfig));
+    const currentSchema: SchemaDefinition = await withProgress("Parsing Zod schemas...", () => parseSchemaFiles(analyzerConfig));
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s) in schema`);
 

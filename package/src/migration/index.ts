@@ -93,6 +93,16 @@ export * from "./types.js";
 // Errors
 export * from "./errors.js";
 
+// Validation module
+export {
+  detectDestructiveChanges as detectDestructiveChangesValidation,
+  formatDestructiveChanges,
+  hasDestructiveChanges,
+  requiresForceFlag as requiresForceFlagValidation,
+  summarizeDestructiveChanges,
+} from "./validation.js";
+export type { DestructiveChange as ValidationDestructiveChange, DestructiveChangeType } from "./validation.js";
+
 // Migration utilities
 export * from "./utils/pluralize.js";
 export * from "./utils/relation-detector.js";

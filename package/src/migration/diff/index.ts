@@ -17,12 +17,11 @@ import {
 import { mergeConfig, type DiffEngineConfig } from "./config";
 import {
   categorizeChangesBySeverity,
-  detectDestructiveChanges,
   generateChangeSummary,
   type ChangeSummary,
 } from "./summary";
 import { isSystemCollection } from "./utils";
-import { type DestructiveChange, requiresForceFlag } from "./destructiveness";
+import { detectDestructiveChanges, type DestructiveChange, requiresForceFlag } from "./destructiveness";
 
 // Export everything from submodules
 export * from "./collections";
