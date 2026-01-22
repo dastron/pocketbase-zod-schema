@@ -5,8 +5,15 @@
 
 import { Command } from "commander";
 import * as path from "path";
-import { parseSchemaFiles } from "../../migration/analyzer.js";
-import { compare } from "../../migration/diff.js";
+import {
+  compare,
+  detectDestructiveChangesValidation as detectDestructiveChanges,
+  formatDestructiveChanges,
+  generate,
+  parseSchemaFiles,
+  requiresForceFlagValidation as requiresForceFlag,
+  summarizeDestructiveChanges,
+} from "../../migration/index.js";
 import {
   ConfigurationError,
   FileSystemError,
@@ -14,14 +21,8 @@ import {
   SchemaParsingError,
   SnapshotError,
 } from "../../migration/errors.js";
-import { generate } from "../../migration/generator.js";
 import { loadSnapshotWithMigrations } from "../../migration/snapshot.js";
-import {
-  detectDestructiveChanges,
-  formatDestructiveChanges,
-  requiresForceFlag,
-  summarizeDestructiveChanges,
-} from "../../migration/validation.js";
+import type { SchemaDefinition } from "../../migration/types.js";
 import { getMigrationsDirectory, getSchemaDirectory, loadConfig, type MigrationConfig } from "../utils/config.js";
 import {
   formatChangeSummary,
@@ -139,7 +140,7 @@ export async function executeGenerate(options: any): Promise<void> {
       excludePatterns: config.schema.exclude,
       useCompiledFiles: false, // Use source files since we're in development/testing
     };
-    const currentSchema = await withProgress("Parsing Zod schemas...", () => parseSchemaFiles(analyzerConfig));
+    const currentSchema: SchemaDefinition = await withProgress("Parsing Zod schemas...", () => parseSchemaFiles(analyzerConfig));
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s)`);
 
@@ -202,7 +203,7 @@ export async function executeGenerate(options: any): Promise<void> {
     logSection("✅ Next Steps");
     console.log();
     console.log("  1. Review the generated migration file(s):");
-    migrationPaths.forEach((migrationPath) => {
+    migrationPaths.forEach((migrationPath: string) => {
       console.log(`     ${migrationPath}`);
     });
     console.log();
