@@ -15,8 +15,8 @@ export {
   isAuthCollection,
   parseSchemaFiles,
   selectSchemaForCollection,
-} from "./analyzer.js";
-export type { SchemaAnalyzerConfig } from "./analyzer.js";
+} from "./analyzer/index.js";
+export type { SchemaAnalyzerConfig } from "./analyzer/index.js";
 
 // Snapshot module
 export {
@@ -60,8 +60,8 @@ export {
   matchCollectionsByName,
   matchFieldsByName,
   requiresForceFlag,
-} from "./diff.js";
-export type { ChangeSummary, DestructiveChange, DiffEngineConfig } from "./diff.js";
+} from "./diff/index.js";
+export type { ChangeSummary, DestructiveChange, DiffEngineConfig } from "./diff/index.js";
 
 // Generator module
 export {
@@ -84,8 +84,8 @@ export {
   generateTimestamp,
   generateUpMigration,
   writeMigrationFile,
-} from "./generator.js";
-export type { MigrationGeneratorConfig } from "./generator.js";
+} from "./generator/index.js";
+export type { MigrationGeneratorConfig } from "./generator/index.js";
 
 // Types
 export * from "./types.js";
