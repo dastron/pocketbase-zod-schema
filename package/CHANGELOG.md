@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.4.2...pocketbase-zod-schema-v0.5.0) (2026-01-23)
+
+
+### Features
+
+* sort migration creation by relation dependencies ([40a461a](https://github.com/dastron/pocketbase-zod-schema/commit/40a461a9269a167c41f03b53db9ef324f4e266ee))
+
+
+### Bug Fixes
+
+* refactor migration to be modular ([ae101dc](https://github.com/dastron/pocketbase-zod-schema/commit/ae101dca161bfa378d341f73522cf3d29b114417))
+
 ## [0.4.2](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.4.1...pocketbase-zod-schema-v0.4.2) (2026-01-21)
 
 
