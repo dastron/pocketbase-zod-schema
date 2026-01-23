@@ -1,4 +1,5 @@
 import type { CollectionOperation, SchemaDiff } from "../types";
+import { sortCollectionsByDependency } from "../utils";
 import { type MigrationGeneratorConfig } from "./config";
 import { generateTimestamp } from "./utils";
 
@@ -15,7 +16,9 @@ export function splitDiffByCollection(diff: SchemaDiff, baseTimestamp: string): 
   let currentTimestamp = parseInt(baseTimestamp, 10);
 
   // Split collectionsToCreate into individual operations
-  for (const collection of diff.collectionsToCreate) {
+  // Sort collections by dependency to ensure collections are created in the correct order
+  const sortedCollections = sortCollectionsByDependency(diff.collectionsToCreate);
+  for (const collection of sortedCollections) {
     operations.push({
       type: "create",
       collection: collection,
