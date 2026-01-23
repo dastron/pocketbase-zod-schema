@@ -41,6 +41,14 @@ export function discoverSchemaFiles(config: SchemaAnalyzerConfig | string): stri
 
     const files = fs.readdirSync(schemaDir);
 
+    // Pre-compile exclusion patterns to regexes for performance
+    const excludeMatchers = mergedConfig.excludePatterns.map((pattern) => {
+      if (pattern.includes("*")) {
+        return new RegExp("^" + pattern.replace(/\*/g, ".*") + "$");
+      }
+      return pattern; // For exact match
+    });
+
     // Filter files based on configuration
     const schemaFiles = files.filter((file) => {
       // Check extension
@@ -48,23 +56,23 @@ export function discoverSchemaFiles(config: SchemaAnalyzerConfig | string): stri
       if (!hasValidExtension) return false;
 
       // Check exclusion patterns
-      const isExcluded = mergedConfig.excludePatterns.some((pattern) => {
-        // Support both exact match and glob-like patterns
-        if (pattern.includes("*")) {
-          const regex = new RegExp("^" + pattern.replace(/\*/g, ".*") + "$");
-          return regex.test(file);
+      const isExcluded = excludeMatchers.some((matcher) => {
+        if (typeof matcher === "string") {
+          return file === matcher;
         }
-        return file === pattern;
+        return matcher.test(file); // It's a regex
       });
       if (isExcluded) return false;
 
       return true;
     });
 
+    // Create a single regex to remove any of the valid extensions
+    const extensionRemovalRegex = new RegExp(`(${mergedConfig.includeExtensions.join("|").replace(/\./g, "\\.")})$`);
+
     // Return full paths without extension (for dynamic import)
     return schemaFiles.map((file) => {
-      const ext = mergedConfig.includeExtensions.find((ext) => file.endsWith(ext)) || ".ts";
-      return path.join(schemaDir, file.replace(new RegExp(`\\${ext}$`), ""));
+      return path.join(schemaDir, file.replace(extensionRemovalRegex, ""));
     });
   } catch (error) {
     if (error instanceof FileSystemError) {
