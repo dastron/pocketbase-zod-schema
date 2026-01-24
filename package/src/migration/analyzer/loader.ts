@@ -67,8 +67,10 @@ export function discoverSchemaFiles(config: SchemaAnalyzerConfig | string): stri
       return true;
     });
 
-    // Create a single regex to remove any of the valid extensions
-    const extensionRemovalRegex = new RegExp(`(${mergedConfig.includeExtensions.join("|").replace(/\./g, "\\.")})$`);
+    // Create a single regex to remove any of the valid extensions, escaping special characters
+    const extensionRemovalRegex = new RegExp(
+      `(${mergedConfig.includeExtensions.map((ext) => ext.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})$`
+    );
 
     // Return full paths without extension (for dynamic import)
     return schemaFiles.map((file) => {
