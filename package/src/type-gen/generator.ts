@@ -4,6 +4,9 @@ export interface TypeGeneratorConfig {
   outPath?: string;
 }
 
+const PASCAL_CASE_REGEX = /(?:^\w|[A-Z]|\b\w)/g;
+const WORD_SEPARATOR_REGEX = /[\s_-]+/g;
+
 export class TypeGenerator {
   private schema: SchemaDefinition;
 
@@ -191,10 +194,10 @@ export class TypeGenerator {
 
   private toPascalCase(str: string): string {
     return str
-      .replace(/(?:^\w|[A-Z]|\b\w)/g, (word) => {
+      .replace(PASCAL_CASE_REGEX, (word) => {
         return word.toUpperCase();
       })
-      .replace(/[\s_-]+/g, '');
+      .replace(WORD_SEPARATOR_REGEX, '');
   }
 
   /**
