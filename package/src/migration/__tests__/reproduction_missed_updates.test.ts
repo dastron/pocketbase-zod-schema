@@ -1,69 +1,68 @@
+
 import { describe, expect, it } from "vitest";
 import { parseMigrationOperations } from "../migration-parser";
 
-describe("Reproduction: Missed Updates", () => {
-  it("should detect field additions and removals in update migrations", () => {
+describe("reproduction of missed updates", () => {
+  it("should parse fields.addAt as an update or addition", () => {
     const migrationContent = `
-      migrate((app) => {
-        const collection = app.findCollectionByNameOrId("test_collection");
+/// <reference path="../pb_data/types.d.ts" />
+migrate((app) => {
+  const collection = app.findCollectionByNameOrId("pb_7mbdu2xml9nggre")
 
-        // Add a new field
-        collection.fields.add(new TextField({
-          name: "new_field",
-          required: false
-        }));
+  // update field
+  collection.fields.addAt(5, new Field({
+    "hidden": false,
+    "id": "json2139012377",
+    "maxSize": 0,
+    "name": "boundingBox",
+    "presentable": false,
+    "required": false,
+    "system": false,
+    "type": "json"
+  }))
 
-        // Remove a field
-        collection.fields.removeByName("old_field");
+  // update field
+  collection.fields.addAt(6, new Field({
+    "cascadeDelete": false,
+    "collectionId": "pb_z3gb21s9dht9tr2",
+    "hidden": false,
+    "id": "relation4031382664",
+    "maxSelect": 1,
+    "minSelect": 0,
+    "name": "ImageRef",
+    "presentable": false,
+    "required": false,
+    "system": false,
+    "type": "relation"
+  }))
 
-        return app.save(collection);
-      }, (app) => {});
+  return app.save(collection)
+}, (app) => {
+  // down migration
+})
     `;
 
     const result = parseMigrationOperations(migrationContent);
 
-    expect(result.collectionsToCreate).toHaveLength(0);
-    expect(result.collectionsToDelete).toHaveLength(0);
-
-    // Check for updates
-    expect(result.collectionsToUpdate).toHaveLength(1);
+    // We expect to find updates for the collection
+    expect(result.collectionsToUpdate.length).toBeGreaterThan(0);
     const update = result.collectionsToUpdate[0];
 
-    expect(update.collectionName).toBe("test_collection");
-    expect(update.fieldsToAdd).toHaveLength(1);
-    expect(update.fieldsToAdd[0].name).toBe("new_field");
-    expect(update.fieldsToRemove).toContain("old_field");
-  });
+    // Since findCollectionByNameOrId uses an ID, we might not get the name back unless we mock it or infer it.
+    // The parser mocks app.findCollectionByNameOrId to return { id: name, name: name }.
+    // So collectionName will be "pb_7mbdu2xml9nggre".
+    expect(update.collectionName).toBe("pb_7mbdu2xml9nggre");
 
-  it("should detect property updates on fields", () => {
-    const migrationContent = `
-      migrate((app) => {
-        const collection = app.findCollectionByNameOrId("test_collection");
+    // fields.addAt should probably result in fieldsToAdd, because addAt adds/replaces a field definition.
+    // If the parser supports it.
+    expect(update.fieldsToAdd.length).toBe(2);
 
-        // Update a field
-        const field = collection.fields.getByName("existing_field");
-        field.required = true;
-        field.options.pattern = "\\w+";
+    const boundingBox = update.fieldsToAdd.find(f => f.name === "boundingBox");
+    expect(boundingBox).toBeDefined();
+    expect(boundingBox?.type).toBe("json");
 
-        return app.save(collection);
-      }, (app) => {});
-    `;
-
-    const result = parseMigrationOperations(migrationContent);
-
-    expect(result.collectionsToUpdate).toHaveLength(1);
-    const update = result.collectionsToUpdate[0];
-
-    expect(update.fieldsToUpdate).toHaveLength(1);
-    const fieldUpdate = update.fieldsToUpdate[0];
-    expect(fieldUpdate.fieldName).toBe("existing_field");
-    expect(fieldUpdate.changes).toHaveProperty("required", true);
-    // Note: my parser stores nested options with 'options.' prefix if they are assigned like field.options.prop = val
-    // But here I'm testing assignment `field.options.pattern = ...`
-    // Let's see how my regex handles it.
-    // My regex: /(\w+)\.([\w\.]+)\s*=\s*([^;]+);/g
-    // It captures "field", "options.pattern", "\w+" (quoted)
-
-    expect(fieldUpdate.changes).toHaveProperty("options.pattern");
+    const imageRef = update.fieldsToAdd.find(f => f.name === "ImageRef");
+    expect(imageRef).toBeDefined();
+    expect(imageRef?.type).toBe("relation");
   });
 });

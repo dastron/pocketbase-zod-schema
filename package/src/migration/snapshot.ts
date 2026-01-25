@@ -542,7 +542,15 @@ export function applyMigrationOperations(
     if (collection) {
       // Add fields
       if (update.fieldsToAdd.length > 0) {
-        collection.fields.push(...update.fieldsToAdd);
+        for (const newField of update.fieldsToAdd) {
+          // Check if field with same ID already exists (update/replace)
+          const existingIndex = collection.fields.findIndex((f) => f.id === newField.id);
+          if (newField.id && existingIndex !== -1) {
+            collection.fields[existingIndex] = newField;
+          } else {
+            collection.fields.push(newField);
+          }
+        }
       }
 
       // Remove fields
