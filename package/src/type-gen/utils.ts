@@ -17,7 +17,7 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     return "any";
   }
   if (schema instanceof z.ZodArray) {
-    const elemType = zodToTs(schema.element);
+    const elemType = zodToTs(schema.element as z.ZodTypeAny);
     // Wrap in parens if it looks like a union or complex type
     if (elemType.includes("|") || elemType.includes(" ") || elemType.startsWith("{")) {
       return `(${elemType})[]`;
@@ -36,11 +36,11 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     return lines.join("\n");
   }
   if (schema instanceof z.ZodOptional) {
-    const inner = zodToTs(schema.unwrap());
+    const inner = zodToTs(schema.unwrap() as z.ZodTypeAny);
     return `${inner} | undefined`;
   }
   if (schema instanceof z.ZodNullable) {
-    const inner = zodToTs(schema.unwrap());
+    const inner = zodToTs(schema.unwrap() as z.ZodTypeAny);
     return `${inner} | null`;
   }
   if (schema instanceof z.ZodUnion) {
@@ -52,7 +52,7 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     return values.map((v) => `"${v}"`).join(" | ");
   }
   if (schema instanceof z.ZodRecord) {
-    const valueType = zodToTs(schema.valueSchema);
+    const valueType = zodToTs(schema.valueType as z.ZodTypeAny);
     return `Record<string, ${valueType}>`;
   }
   if (schema instanceof z.ZodLiteral) {
@@ -61,12 +61,12 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     return String(val);
   }
 
-  // Handle Wrapped types (Effects, Default, etc.)
-  if (schema instanceof z.ZodEffects) {
-      return zodToTs(schema._def.schema);
+  // Handle Wrapped types (Pipe/Effects, Default, etc.)
+  if (schema instanceof z.ZodPipe) {
+      return zodToTs(schema._def.in as z.ZodTypeAny);
   }
   if (schema instanceof z.ZodDefault) {
-      return zodToTs(schema._def.innerType);
+      return zodToTs(schema._def.innerType as z.ZodTypeAny);
   }
   if (schema instanceof z.ZodLazy) {
       // Lazy is hard because we might recurse infinitely or need names.
