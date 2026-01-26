@@ -10,15 +10,15 @@ import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import { createPBDownloader, PBDownloader } from './pb-downloader.js';
-import { 
-  generateTestId, 
-  createTempDir, 
-  cleanupTempDir, 
-  isPortAvailable, 
-  waitFor, 
+import {
+  generateTestId,
+  createTempDir,
+  cleanupTempDir,
+  isPortAvailable,
+  waitFor,
   sleep,
-  env, 
-  logger 
+  env,
+  logger
 } from '../utils/test-helpers.js';
 
 export interface TestWorkspace {
@@ -52,40 +52,40 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
    */
   async createWorkspace(): Promise<TestWorkspace> {
     const workspaceId = generateTestId();
-    
+
     // Use persistent workspace directory instead of temp directory for investigation
     const baseWorkspaceDir = env.getWorkspaceDir();
     const workspaceDir = resolve(baseWorkspaceDir, workspaceId);
-    
+
     // Ensure the base workspace directory exists
     await mkdir(resolve(baseWorkspaceDir), { recursive: true });
-    
+
     // Allocate a unique port for this workspace
     const portRange = env.getPortRange();
     const pocketbasePort = await this.allocatePort(portRange.start, portRange.end);
-    
+
     // Download PocketBase executable if needed
     const pocketbasePath = await this.pbDownloader.downloadPocketBase();
-    
+
     // Set up workspace directory structure
     // PocketBase with --dir looks for migrations in pb_migrations relative to the working directory (cwd)
     // So pb_migrations should be a sibling of pb_data, not nested inside it
     const dataDir = join(workspaceDir, 'pb_data');
     const migrationDir = join(workspaceDir, 'pb_migrations');
-    
+
     // Ensure directories are clean (remove any existing files)
-    await rm(migrationDir, { recursive: true, force: true }).catch(() => {});
-    await rm(dataDir, { recursive: true, force: true }).catch(() => {});
-    
+    await rm(migrationDir, { recursive: true, force: true }).catch(() => { });
+    await rm(dataDir, { recursive: true, force: true }).catch(() => { });
+
     await mkdir(migrationDir, { recursive: true });
     await mkdir(dataDir, { recursive: true });
-    
+
     // Verify migration directory is empty after creation
     const filesAfterClean = await readdir(migrationDir).catch(() => []);
     if (filesAfterClean.length > 0) {
       logger.warn(`Migration directory not empty after cleanup for workspace ${workspaceId}: ${filesAfterClean.join(', ')}`);
     }
-    
+
     const workspace: TestWorkspace = {
       workspaceId,
       workspaceDir,
@@ -94,9 +94,9 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       migrationDir,
       dataDir,
     };
-    
+
     logger.debug(`Created workspace ${workspaceId} at ${workspaceDir} on port ${pocketbasePort}`);
-    
+
     return workspace;
   }
 
@@ -105,24 +105,24 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
    */
   async initializePocketBase(workspace: TestWorkspace): Promise<void> {
     logger.debug(`Initializing PocketBase for workspace ${workspace.workspaceId}`);
-    
+
     try {
       // Ensure data directory is completely clean (remove any existing database files)
       const dataDbFile = join(workspace.dataDir, 'data.db');
       const dataDbWalFile = join(workspace.dataDir, 'data.db-wal');
       const dataDbShmFile = join(workspace.dataDir, 'data.db-shm');
-      
-      await rm(dataDbFile, { force: true }).catch(() => {});
-      await rm(dataDbWalFile, { force: true }).catch(() => {});
-      await rm(dataDbShmFile, { force: true }).catch(() => {});
-      
+
+      await rm(dataDbFile, { force: true }).catch(() => { });
+      await rm(dataDbWalFile, { force: true }).catch(() => { });
+      await rm(dataDbShmFile, { force: true }).catch(() => { });
+
       // Create PocketBase configuration
       await this.createPocketBaseConfig(workspace);
-      
+
       // Create initial migration that includes superuser creation
       // This is more reliable than CLI when PocketBase is starting
       await this.createInitialMigrationWithSuperuser(workspace);
-      
+
       logger.debug(`PocketBase initialized for workspace ${workspace.workspaceId}`);
     } catch (error) {
       logger.error(`Failed to initialize PocketBase for workspace ${workspace.workspaceId}:`, error);
@@ -136,24 +136,24 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
    */
   async createSuperuserBeforeStart(workspace: TestWorkspace): Promise<void> {
     logger.info(`Creating superuser for workspace ${workspace.workspaceId} using CLI command (before PocketBase start)`);
-    
+
     try {
       // Use PocketBase CLI command to upsert superuser (creates if doesn't exist, updates if exists)
       // Use absolute path for --dir to ensure it works correctly
       const absoluteDataDir = resolve(workspace.dataDir);
-      
+
       // Use 'upsert' instead of 'create' to handle cases where superuser might already exist
       // This is safer and matches PocketBase best practices
       const command = `"${workspace.pocketbasePath}" superuser upsert test@example.com testpassword123 --dir "${absoluteDataDir}"`;
-      
+
       logger.debug(`Executing command: ${command}`);
       logger.debug(`Working directory: ${workspace.workspaceDir}`);
       logger.debug(`Data directory: ${absoluteDataDir}`);
-      
+
       let result: string = '';
       let stderrOutput: string = '';
       let exitCode: number = 0;
-      
+
       try {
         const output = execSync(command, {
           cwd: workspace.workspaceDir,
@@ -171,11 +171,11 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
         result = execError.stdout?.toString() || '';
         stderrOutput = execError.stderr?.toString() || '';
         exitCode = execError.status || execError.code || -1;
-        
+
         logger.debug(`Command exited with code: ${exitCode}`);
         logger.debug(`Command stdout: ${result || '(empty)'}`);
         logger.debug(`Command stderr: ${stderrOutput || '(empty)'}`);
-        
+
         // If the command failed, check if it's a recoverable error
         if (exitCode !== 0) {
           // Check if superuser already exists (some versions return non-zero for this)
@@ -190,33 +190,33 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
           }
         }
       }
-      
+
       // Check if the output indicates success
       const successIndicators = ['success', 'created', 'updated', 'upserted', 'saved'];
       const outputText = (result + ' ' + stderrOutput).toLowerCase();
       const hasSuccessIndicator = successIndicators.some(indicator => outputText.includes(indicator));
-      
+
       if (!hasSuccessIndicator && exitCode !== 0) {
         logger.warn(`Superuser command output doesn't clearly indicate success. Output: ${result || stderrOutput}`);
       }
-      
+
       logger.info(`Superuser created/updated successfully for workspace ${workspace.workspaceId}`);
-      
+
       // Verify the database file was created
       const dbFile = join(workspace.dataDir, 'data.db');
       if (!existsSync(dbFile)) {
         throw new Error(`Database file was not created at ${dbFile} after superuser creation`);
       }
-      
+
       // Get file stats to verify it was actually written
       const { statSync } = await import('fs');
       const stats = statSync(dbFile);
       logger.debug(`Verified database file exists at ${dbFile} (size: ${stats.size} bytes, modified: ${stats.mtime})`);
-      
+
       if (stats.size === 0) {
         throw new Error(`Database file exists but is empty at ${dbFile}`);
       }
-      
+
     } catch (error: any) {
       // Log full error details for debugging
       const errorDetails = {
@@ -226,16 +226,16 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
         code: error.code,
         signal: error.signal,
       };
-      
+
       logger.error(`Error creating superuser for workspace ${workspace.workspaceId}:`, errorDetails);
-      
+
       // Check if the error is because superuser already exists (shouldn't happen with upsert, but handle gracefully)
-      if (error.stderr && typeof error.stderr === 'string' && 
-          (error.stderr.includes('already exists') || error.stderr.includes('duplicate'))) {
+      if (error.stderr && typeof error.stderr === 'string' &&
+        (error.stderr.includes('already exists') || error.stderr.includes('duplicate'))) {
         logger.debug(`Superuser already exists for workspace ${workspace.workspaceId}, continuing...`);
         return;
       }
-      
+
       throw new Error(`Failed to create superuser: ${error.message}. Stderr: ${errorDetails.stderr}, Stdout: ${errorDetails.stdout}`);
     }
   }
@@ -246,20 +246,20 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
    */
   async verifySuperuserAfterStart(workspace: TestWorkspace): Promise<void> {
     logger.info(`Verifying superuser for workspace ${workspace.workspaceId} after PocketBase start`);
-    
+
     // Verify database file still exists and wasn't recreated
     const dbFile = join(workspace.dataDir, 'data.db');
     if (!existsSync(dbFile)) {
       throw new Error(`Database file disappeared after PocketBase start at ${dbFile}`);
     }
-    
+
     const { statSync } = await import('fs');
     const stats = statSync(dbFile);
     logger.debug(`Database file still exists after PocketBase start (size: ${stats.size} bytes)`);
-    
+
     // Wait for PocketBase to fully initialize and apply any migrations
     await sleep(3000);
-    
+
     // Verify the superuser can authenticate
     await this.verifySuperuser(workspace);
   }
@@ -270,12 +270,12 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
    */
   async verifySuperuser(workspace: TestWorkspace): Promise<void> {
     logger.debug(`Verifying superuser for workspace ${workspace.workspaceId}`);
-    
+
     const adminUrl = `http://127.0.0.1:${workspace.pocketbasePort}`;
-    
+
     // Wait a moment for migrations to complete and superuser to be available
     await sleep(1000);
-    
+
     // Verify authentication works (this is the real test)
     const maxAuthAttempts = 5;
     for (let attempt = 1; attempt <= maxAuthAttempts; attempt++) {
@@ -292,7 +292,7 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
           }),
           signal: AbortSignal.timeout(5000),
         });
-        
+
         // Fallback for older versions (pre v0.23)
         if (authResponse.status === 404) {
           authResponse = await fetch(`${adminUrl}/api/admins/auth-with-password`, {
@@ -307,12 +307,12 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
             signal: AbortSignal.timeout(5000),
           });
         }
-        
+
         if (authResponse.ok) {
           logger.debug(`Superuser verified for workspace ${workspace.workspaceId}`);
           return;
         }
-        
+
         // If not successful and not the last attempt, wait and retry
         if (attempt < maxAuthAttempts) {
           const errorText = await authResponse.text();
@@ -320,11 +320,11 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
           await sleep(500 * attempt);
           continue;
         }
-        
+
         // Last attempt failed
         const errorText = await authResponse.text();
         throw new Error(`Failed to verify superuser after ${maxAuthAttempts} attempts: ${authResponse.status} - ${errorText}`);
-        
+
       } catch (error: any) {
         if (attempt === maxAuthAttempts) {
           logger.error(`Failed to verify superuser for workspace ${workspace.workspaceId}:`, error);
@@ -344,15 +344,15 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       return;
     }
 
-      logger.debug(`Starting PocketBase for workspace ${workspace.workspaceId} on port ${workspace.pocketbasePort}`);
-      
-      // Debug: List migration files before starting PocketBase
-      const migrationFilesBeforeStart = await readdir(workspace.migrationDir).catch(() => []);
-      if (migrationFilesBeforeStart.length > 0) {
-        logger.debug(`Migration files found before PocketBase start for workspace ${workspace.workspaceId}: ${migrationFilesBeforeStart.join(', ')}`);
-      }
+    logger.debug(`Starting PocketBase for workspace ${workspace.workspaceId} on port ${workspace.pocketbasePort}`);
 
-      let startupError: Error | null = null;
+    // Debug: List migration files before starting PocketBase
+    const migrationFilesBeforeStart = await readdir(workspace.migrationDir).catch(() => []);
+    if (migrationFilesBeforeStart.length > 0) {
+      logger.debug(`Migration files found before PocketBase start for workspace ${workspace.workspaceId}: ${migrationFilesBeforeStart.join(', ')}`);
+    }
+
+    let startupError: Error | null = null;
 
     try {
       const process = spawn(workspace.pocketbasePath, [
@@ -371,7 +371,7 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       // Capture output for debugging
       let stdout = '';
       let stderr = '';
-      
+
       process.stdout?.on('data', (data) => {
         stdout += data.toString();
       });
@@ -424,13 +424,13 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       );
 
       logger.info(`PocketBase started successfully for workspace ${workspace.workspaceId} on port ${workspace.pocketbasePort}`);
-      
+
       // Wait a moment for migrations to complete
       await sleep(2000);
-      
+
       // Note: Superuser is created via migration, so it should be available
       // We'll verify it works when we try to authenticate in the test
-      
+
     } catch (error) {
       // Cleanup disabled for investigation - keep process and files
       // await this.stopPocketBase(workspace);
@@ -445,7 +445,7 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
    */
   async stopPocketBase(workspace: TestWorkspace): Promise<void> {
     const process = this.activeWorkspaces.get(workspace.workspaceId);
-    
+
     if (!process) {
       logger.debug(`No active PocketBase process for workspace ${workspace.workspaceId}`);
       return;
@@ -465,17 +465,17 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
 
       // Try graceful shutdown first
       process.kill('SIGTERM');
-      
+
       // Wait for graceful shutdown or timeout
       const timeoutPromise = sleep(2000);
       await Promise.race([exitPromise, timeoutPromise]);
-      
+
       // Force kill if still running
       if (process.exitCode === null) {
         process.kill('SIGKILL');
         await exitPromise; // Wait for it to actually die
       }
-      
+
       this.activeWorkspaces.delete(workspace.workspaceId);
       logger.debug(`PocketBase stopped for workspace ${workspace.workspaceId}`);
     } catch (error) {
@@ -516,7 +516,7 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       if (this.allocatedPorts.has(port)) {
         continue;
       }
-      
+
       // Check if port is actually available on the system
       const available = await isPortAvailable(port);
       if (available) {
@@ -524,7 +524,7 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
         return port;
       }
     }
-    
+
     throw new Error(`No available ports in range ${startPort}-${endPort}`);
   }
 
@@ -540,14 +540,14 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
       // Remove any existing migration files to ensure clean state
       for (const file of existingFiles) {
         if (file.endsWith('.js')) {
-          await rm(join(workspace.migrationDir, file), { force: true }).catch(() => {});
+          await rm(join(workspace.migrationDir, file), { force: true }).catch(() => { });
         }
       }
     }
-    
+
     const timestamp = Date.now();
     const migrationFile = join(workspace.migrationDir, `${timestamp}_initial_setup.js`);
-    
+
     // Create migration that creates the superuser
     // Using the exact pattern from PocketBase documentation
     // Note: pb_migrations is now a sibling of pb_data, so reference path is different
@@ -569,44 +569,11 @@ migrate((app) => {
   }
 });
 `;
-    
-    await writeFile(migrationFile, migrationContent.trim());
-    logger.debug(`Created initial migration with superuser: ${migrationFile}`);
-  }
-
-  /**
-   * Create initial migration for clean database setup
-   */
-  private async createInitialMigration(workspace: TestWorkspace): Promise<void> {
-    // List any existing migration files before creating initial one
-    const existingFiles = await readdir(workspace.migrationDir).catch(() => []);
-    if (existingFiles.length > 0) {
-      logger.warn(`Found ${existingFiles.length} existing migration files in workspace ${workspace.workspaceId}: ${existingFiles.join(', ')}`);
-      // Remove any existing migration files to ensure clean state
-      for (const file of existingFiles) {
-        if (file.endsWith('.js')) {
-          await rm(join(workspace.migrationDir, file), { force: true }).catch(() => {});
-        }
-      }
-    }
-    
-    const timestamp = Date.now();
-    const migrationFile = join(workspace.migrationDir, `${timestamp}_initial_setup.js`);
-    
-    const migrationContent = `
-/// <reference path="../pb_data/types.d.ts" />
-migrate((db) => {
-  // Initial setup migration - creates clean database structure
-  // This migration is automatically generated for E2E test workspace isolation
-  // Note: Superuser is created via CLI command before PocketBase starts
-}, (db) => {
-  // Down migration - no-op for initial setup
-});
-`;
 
     await writeFile(migrationFile, migrationContent.trim());
     logger.debug(`Created initial migration with superuser: ${migrationFile}`);
   }
+
 
   /**
    * Create PocketBase configuration for the workspace

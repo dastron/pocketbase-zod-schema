@@ -92,9 +92,9 @@ export function generateFieldDefinitionObject(field: FieldDefinition, collection
     const cascadeDelete = field.relation.cascadeDelete ?? false;
     parts.push(`      "cascadeDelete": ${cascadeDelete}`);
 
-    if (field.relation.displayFields) {
-      parts.push(`      "displayFields": ${formatValue(field.relation.displayFields)}`);
-    }
+    // Always include displayFields (default: null)
+    const displayFields = field.relation.displayFields ?? null;
+    parts.push(`      "displayFields": ${formatValue(displayFields)}`);
   }
 
   return `    {\n${parts.join(",\n")},\n    }`;

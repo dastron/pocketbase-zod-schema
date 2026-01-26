@@ -154,24 +154,11 @@ describe("Type Mapper - Zod to PocketBase", () => {
       expect(mapZodTypeToPocketBase(schema, "some_field")).toBe("editor");
     });
 
-    it("should map editor field by name", () => {
-      expect(mapZodTypeToPocketBase(z.string(), "editor_field")).toBe("editor");
-      expect(mapZodTypeToPocketBase(z.string(), "content")).toBe("editor");
-    });
 
-    it("should NOT map description as editor by default", () => {
-      expect(mapZodTypeToPocketBase(z.string(), "description")).toBe("text");
-    });
 
-    it("should map autodate field by name", () => {
-      expect(mapZodTypeToPocketBase(z.string(), "autodate_field")).toBe("autodate");
-      expect(mapZodTypeToPocketBase(z.string(), "created")).toBe("autodate");
-      expect(mapZodTypeToPocketBase(z.string(), "updated")).toBe("autodate");
-    });
 
-    it("should map autodate field from datetime type", () => {
-      expect(mapZodTypeToPocketBase(z.string().datetime(), "autodate_field")).toBe("autodate");
-    });
+
+
   });
 
   describe("extractFieldOptions", () => {

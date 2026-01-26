@@ -2,7 +2,7 @@ import type { CollectionSchema } from "../types";
 import { generateFieldsArray } from "./fields";
 import { generateIndexesArray } from "./indexes";
 import { generateCollectionPermissions, generateCollectionRules } from "./rules";
-import { formatValue, generateFindCollectionCode, getSystemFields } from "./utils";
+import { formatValue, generateFindCollectionCode, getAuthSystemFields, getAuthSystemIndexes, getSystemFields } from "./utils";
 
 /**
  * Generates Collection constructor call for creating a new collection
@@ -29,8 +29,8 @@ export function generateCollectionCreation(
 
   // Add permissions (preferred) or rules
   // Permissions take precedence if both are defined
-  const permissionsCode = generateCollectionPermissions(collection.permissions);
-  const rulesCode = generateCollectionRules(collection.rules);
+  const permissionsCode = generateCollectionPermissions(collection.permissions, collection.type);
+  const rulesCode = generateCollectionRules(collection.rules, collection.type);
 
   if (permissionsCode) {
     lines.push(`    ${permissionsCode},`);
@@ -38,16 +38,27 @@ export function generateCollectionCreation(
     lines.push(`    ${rulesCode},`);
   }
 
-  // Prepend only 'id' system field to user-defined fields
-  // PocketBase includes 'id' in generated migrations but excludes 'created' and 'updated'
-  const systemFields = getSystemFields().filter(f => f.name === 'id');
-  const allFields = [...systemFields, ...collection.fields];
+  // Filter out system fields (they will be added back in correct order)
+  const userFields = collection.fields.filter((f) => f.name !== "created" && f.name !== "updated" && f.name !== "id");
+
+  // Build field list in correct order: id, [auth fields], user fields
+  const allFields = [...getSystemFields().filter((f) => f.name === "id")];
+
+  if (collection.type === "auth") {
+    allFields.push(...getAuthSystemFields());
+  }
+
+  allFields.push(...userFields);
 
   // Add fields
   lines.push(`    "fields": ${generateFieldsArray(allFields, collectionIdMap)},`);
 
   // Add indexes
-  lines.push(`    "indexes": ${generateIndexesArray(collection.indexes)},`);
+  let allIndexes = [...(collection.indexes || [])];
+  if (collection.type === "auth") {
+    allIndexes = [...getAuthSystemIndexes(collection.name), ...allIndexes];
+  }
+  lines.push(`    "indexes": ${generateIndexesArray(allIndexes)},`);
 
   lines.push(`  });`);
   lines.push(``);

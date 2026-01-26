@@ -141,6 +141,21 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     }
   }
 
+  // Special handling for autodate fields
+  if (fieldDef.type === "autodate") {
+    // Autodate fields shouldn't have pattern or other string options
+    // and should have onCreate/onUpdate set by default
+    fieldDef.options = {
+      onCreate: true,
+      onUpdate: true,
+      ...(fieldDef.options || {}),
+    };
+    // Remove options that don't apply to autodate
+    delete fieldDef.options.pattern;
+    delete fieldDef.options.min;
+    delete fieldDef.options.max;
+  }
+
   return fieldDef;
 }
 
@@ -164,7 +179,11 @@ export function convertZodSchemaToCollectionSchema(
   const collectionType = explicitType ?? (isAuthCollection(rawFields) ? "auth" : "base");
 
   // Build field definitions with constraints
-  const fields: FieldDefinition[] = rawFields.map(({ name, zodType }) => buildFieldDefinition(name, zodType));
+  const fields: FieldDefinition[] = rawFields
+    // Explicitly filter out system fields that might have slipped through
+    // This can happen if the schema was constructed manually without base schema
+    .filter((f) => !["created", "updated"].includes(f.name))
+    .map(({ name, zodType }) => buildFieldDefinition(name, zodType));
 
   // Ensure auth system fields exist for auth collections
   if (collectionType === "auth") {
@@ -287,6 +306,7 @@ export function convertZodSchemaToCollectionSchema(
       createRule: permissions?.createRule ?? null,
       updateRule: permissions?.updateRule ?? null,
       deleteRule: permissions?.deleteRule ?? null,
+      // Omit manageRule for base collections to match native CLI behavior
       manageRule: collectionType === "auth" ? (permissions?.manageRule ?? null) : undefined,
     },
     permissions,

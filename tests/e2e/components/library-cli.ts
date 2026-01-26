@@ -292,8 +292,6 @@ export default {
 
     lines.push(`export const ${schemaName} = ${inputSchemaName}.extend({`);
     lines.push(`  id: z.string(),`);
-    lines.push(`  created: z.string(),`);
-    lines.push(`  updated: z.string(),`);
     lines.push(`}).describe(${JSON.stringify(JSON.stringify(metadata))});`);
     lines.push(``);
 
