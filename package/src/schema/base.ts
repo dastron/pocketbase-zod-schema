@@ -76,6 +76,11 @@ export interface RelationConfig {
    * @default false
    */
   cascadeDelete?: boolean;
+
+  /**
+   * Fields to display in the admin UI
+   */
+  displayFields?: string[] | null;
 }
 
 /**
@@ -133,6 +138,7 @@ export function RelationField(config: RelationConfig) {
       cascadeDelete: config.cascadeDelete ?? false,
       maxSelect: 1,
       minSelect: 0,
+      displayFields: config.displayFields ?? null,
     },
   };
 
@@ -175,6 +181,7 @@ export function RelationsField(config: RelationsConfig) {
       cascadeDelete: config.cascadeDelete ?? false,
       maxSelect: config.maxSelect ?? 999,
       minSelect: config.minSelect ?? 0,
+      displayFields: config.displayFields ?? null,
     },
   };
 
@@ -204,6 +211,7 @@ export function extractRelationMetadata(description: string | undefined): {
   cascadeDelete: boolean;
   maxSelect: number;
   minSelect: number;
+  displayFields?: string[] | null;
 } | null {
   if (!description) return null;
 

@@ -37,9 +37,9 @@ export function generateCollectionCreation(
     lines.push(`    ${rulesCode},`);
   }
 
-  // Prepend system fields (id, created, updated) to user-defined fields
-  // These fields are required by PocketBase and must be explicitly included in migrations
-  const systemFields = getSystemFields();
+  // Prepend only 'id' system field to user-defined fields
+  // PocketBase includes 'id' in generated migrations but excludes 'created' and 'updated'
+  const systemFields = getSystemFields().filter(f => f.name === 'id');
   const allFields = [...systemFields, ...collection.fields];
 
   // Add fields
