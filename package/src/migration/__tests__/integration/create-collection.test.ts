@@ -83,11 +83,11 @@ describe("Collection Creation Integration Tests", () => {
       expect(content).toContain('name: "' + CreateCollectionBlankSchema.name + '"');
       expect(content).toContain('type: "base"');
 
-      // System fields (id, created, updated) should be included even for blank collections
+      // Only 'id' system field should be included unless explicitly provided
+      // 'created' and 'updated' are system fields that PocketBase manages automatically
       expect(content).toContain('name: "id"');
-      expect(content).toContain('name: "created"');
-      expect(content).toContain('name: "updated"');
-      expect(content).toContain('type: "autodate"'); // created and updated fields
+      expect(content).not.toContain('name: "created"');
+      expect(content).not.toContain('name: "updated"');
     });
   });
 
