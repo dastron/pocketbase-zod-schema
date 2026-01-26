@@ -47,7 +47,16 @@ export function generateFieldDefinitionObject(field: FieldDefinition, collection
       if (field.type === "select" && (key === "maxSelect" || key === "values")) {
         continue;
       }
-      parts.push(`      ${key}: ${formatValue(value)}`);
+      // Skip id as it's already added explicitly above
+      if (key === "id") {
+        continue;
+      }
+      // Convert noDecimal to onlyInt for number fields (PocketBase uses onlyInt)
+      if (field.type === "number" && key === "noDecimal") {
+        parts.push(`      onlyInt: ${formatValue(value)}`);
+      } else {
+        parts.push(`      ${key}: ${formatValue(value)}`);
+      }
     }
   }
 
@@ -143,6 +152,10 @@ export function generateFieldConstructorOptions(field: FieldDefinition, collecti
     for (const [key, value] of Object.entries(field.options)) {
       // Skip select-specific options as they're handled above
       if (field.type === "select" && (key === "maxSelect" || key === "values")) {
+        continue;
+      }
+      // Skip id as it's already added explicitly above
+      if (key === "id") {
         continue;
       }
       // Convert noDecimal to onlyInt for number fields (PocketBase uses onlyInt)

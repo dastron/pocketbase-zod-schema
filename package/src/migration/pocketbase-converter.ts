@@ -57,7 +57,8 @@ function extractFieldOptions(pbField: any): Record<string, any> {
     "min",
     "max",
     "pattern",
-    "noDecimal", // text/number fields
+    "noDecimal", // text/number fields (legacy, PocketBase uses onlyInt)
+    "onlyInt", // number fields (PocketBase uses this instead of noDecimal)
     "values",
     "maxSelect", // select fields
     "mimeTypes",
@@ -95,6 +96,12 @@ export function convertPocketBaseField(pbField: any): FieldDefinition {
 
   // Extract options from both direct properties and nested options object
   field.options = extractFieldOptions(pbField);
+
+  // Convert onlyInt to noDecimal for number fields (PocketBase uses onlyInt, but our schema uses noDecimal)
+  if (pbField.type === "number" && field.options.onlyInt !== undefined) {
+    field.options.noDecimal = field.options.onlyInt;
+    delete field.options.onlyInt;
+  }
 
   // Handle relation fields
   if (pbField.type === "relation") {
