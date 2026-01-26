@@ -122,7 +122,7 @@ describe("Type Mapper - Zod to PocketBase", () => {
     });
 
     it("should map date types correctly", () => {
-      expect(mapZodTypeToPocketBase(z.date(), "createdAt")).toBe("date");
+      expect(mapZodTypeToPocketBase(z.date(), "eventDate")).toBe("date");
     });
 
     it("should map record types correctly", () => {
@@ -147,6 +147,30 @@ describe("Type Mapper - Zod to PocketBase", () => {
     it("should handle chained optional, nullable, and default", () => {
       const complexType = z.string().optional().nullable().default("test");
       expect(mapZodTypeToPocketBase(complexType, "name")).toBe("text");
+    });
+
+    it("should prioritize metadata over type mapping", () => {
+      const schema = z.string().describe(JSON.stringify({ __pocketbase_field__: { type: "editor" } }));
+      expect(mapZodTypeToPocketBase(schema, "some_field")).toBe("editor");
+    });
+
+    it("should map editor field by name", () => {
+      expect(mapZodTypeToPocketBase(z.string(), "editor_field")).toBe("editor");
+      expect(mapZodTypeToPocketBase(z.string(), "content")).toBe("editor");
+    });
+
+    it("should NOT map description as editor by default", () => {
+      expect(mapZodTypeToPocketBase(z.string(), "description")).toBe("text");
+    });
+
+    it("should map autodate field by name", () => {
+      expect(mapZodTypeToPocketBase(z.string(), "autodate_field")).toBe("autodate");
+      expect(mapZodTypeToPocketBase(z.string(), "created")).toBe("autodate");
+      expect(mapZodTypeToPocketBase(z.string(), "updated")).toBe("autodate");
+    });
+
+    it("should map autodate field from datetime type", () => {
+      expect(mapZodTypeToPocketBase(z.string().datetime(), "autodate_field")).toBe("autodate");
     });
   });
 

@@ -15,9 +15,10 @@
 
 import { z } from "zod";
 import type { PocketBaseFieldType } from "../types";
+import { extractFieldMetadata, FIELD_METADATA_KEY } from "../../schema/fields";
 
 // Re-export extractFieldMetadata from fields.ts for backward compatibility
-export { extractFieldMetadata, FIELD_METADATA_KEY } from "../../schema/fields";
+export { extractFieldMetadata, FIELD_METADATA_KEY };
 export type { FieldMetadata } from "../../schema/fields";
 
 /**
@@ -238,41 +239,45 @@ export function mapZodRecordType(_zodType: z.ZodRecord | z.ZodObject<any>): Pock
 export function mapZodTypeToPocketBase(zodType: z.ZodTypeAny, fieldName: string): PocketBaseFieldType {
   const unwrappedType = unwrapZodType(zodType);
 
+  // Check for metadata first (explicit type overrides)
+  const metadata = extractFieldMetadata(unwrappedType.description);
+  if (metadata && metadata.type) {
+    return metadata.type;
+  }
+
   if (unwrappedType instanceof z.ZodFile) {
     return "file";
   }
 
   // Map based on Zod type
+  let type: PocketBaseFieldType = "text";
+
   if (unwrappedType instanceof z.ZodString) {
-    return mapZodStringType(unwrappedType);
+    type = mapZodStringType(unwrappedType);
+  } else if (unwrappedType instanceof z.ZodNumber) {
+    type = mapZodNumberType(unwrappedType);
+  } else if (unwrappedType instanceof z.ZodBoolean) {
+    type = mapZodBooleanType(unwrappedType);
+  } else if (unwrappedType instanceof z.ZodEnum) {
+    type = mapZodEnumType(unwrappedType);
+  } else if (unwrappedType instanceof z.ZodArray) {
+    type = mapZodArrayType(unwrappedType, fieldName);
+  } else if (unwrappedType instanceof z.ZodDate) {
+    type = mapZodDateType(unwrappedType);
+  } else if (unwrappedType instanceof z.ZodRecord || unwrappedType instanceof z.ZodObject) {
+    type = mapZodRecordType(unwrappedType);
   }
 
-  if (unwrappedType instanceof z.ZodNumber) {
-    return mapZodNumberType(unwrappedType);
+  // Apply name heuristics overrides
+  if (type === "text" && isEditorField(fieldName)) {
+    return "editor";
   }
 
-  if (unwrappedType instanceof z.ZodBoolean) {
-    return mapZodBooleanType(unwrappedType);
+  if ((type === "text" || type === "date") && isAutodateField(fieldName)) {
+    return "autodate";
   }
 
-  if (unwrappedType instanceof z.ZodEnum) {
-    return mapZodEnumType(unwrappedType);
-  }
-
-  if (unwrappedType instanceof z.ZodArray) {
-    return mapZodArrayType(unwrappedType, fieldName);
-  }
-
-  if (unwrappedType instanceof z.ZodDate) {
-    return mapZodDateType(unwrappedType);
-  }
-
-  if (unwrappedType instanceof z.ZodRecord || unwrappedType instanceof z.ZodObject) {
-    return mapZodRecordType(unwrappedType);
-  }
-
-  // Default to text for unknown types
-  return "text";
+  return type;
 }
 
 /**
@@ -585,17 +590,26 @@ export function isEditorField(fieldName: string): boolean {
   const editorFieldNames = [
     "content",
     "body",
-    "description",
+    // "description", // Removed to prevent regressions where description is simple text
     "bio",
     "about",
     "summary",
-    "notes",
-    "details",
+    // "notes", // Removed as often simple text
+    // "details", // Removed as often simple text
     "html",
     "richtext",
     "editor",
   ];
   return editorFieldNames.some((name) => fieldName.toLowerCase().includes(name));
+}
+
+/**
+ * Determines if a field should be treated as an autodate field
+ * based on field name conventions
+ */
+export function isAutodateField(fieldName: string): boolean {
+  const autodateFieldNames = ["created", "updated", "autodate", "auto_date"];
+  return autodateFieldNames.some((name) => fieldName.toLowerCase().includes(name));
 }
 
 /**
