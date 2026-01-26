@@ -116,6 +116,7 @@ export function convertPocketBaseField(pbField: any): FieldDefinition {
       cascadeDelete: pbField.cascadeDelete ?? pbField.options?.cascadeDelete ?? false,
       maxSelect: pbField.maxSelect ?? pbField.options?.maxSelect,
       minSelect: pbField.minSelect ?? pbField.options?.minSelect,
+      displayFields: pbField.displayFields ?? pbField.options?.displayFields ?? null,
     };
 
     // Remove relation-specific properties from options
@@ -123,6 +124,7 @@ export function convertPocketBaseField(pbField: any): FieldDefinition {
     delete field.options.maxSelect;
     delete field.options.minSelect;
     delete field.options.cascadeDelete;
+    delete field.options.displayFields;
   }
 
   // Clean up empty options object, but preserve values for select fields

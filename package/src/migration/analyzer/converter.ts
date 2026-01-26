@@ -78,6 +78,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
           maxSelect: relationMetadata.maxSelect,
           minSelect: relationMetadata.minSelect,
           cascadeDelete: relationMetadata.cascadeDelete,
+          displayFields: relationMetadata.displayFields,
         };
       }
     }
@@ -109,6 +110,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
       maxSelect: relationMetadata.maxSelect,
       minSelect: relationMetadata.minSelect,
       cascadeDelete: relationMetadata.cascadeDelete,
+      displayFields: relationMetadata.displayFields,
     };
 
     // Clear out string-specific options that don't apply to relation fields
@@ -128,6 +130,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
       maxSelect,
       minSelect,
       cascadeDelete: false, // Default to false, can be configured later
+      displayFields: null,
     };
 
     // Clear out string-specific options that don't apply to relation fields

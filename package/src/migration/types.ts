@@ -22,6 +22,7 @@ export interface FieldDefinition {
     cascadeDelete?: boolean;
     maxSelect?: number;
     minSelect?: number;
+    displayFields?: string[] | null;
   };
 }
 

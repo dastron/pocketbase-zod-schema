@@ -367,7 +367,24 @@ export default {
         break;
 
       case 'file':
-        zodType = 'z.string()';
+        // Attach metadata for file type
+        const fileMetadata = {
+          __pocketbase_field__: {
+            type: 'file',
+            options: field.options || {}
+          }
+        };
+        zodType = `z.string().describe(${JSON.stringify(JSON.stringify(fileMetadata))})`;
+        break;
+
+      case 'geoPoint':
+        // Attach metadata for geoPoint type
+        const geoMetadata = {
+          __pocketbase_field__: {
+            type: 'geoPoint'
+          }
+        };
+        zodType = `z.object({ lon: z.number(), lat: z.number() }).describe(${JSON.stringify(JSON.stringify(geoMetadata))})`;
         break;
 
       case 'relation':
@@ -545,14 +562,29 @@ export default {
 
             // Map fields from schema/fields property
             const rawFields = config.schema || config.fields || [];
-            const fields: ParsedField[] = rawFields.map((f: any) => ({
-              id: f.id || `field_${f.name}`,
-              name: f.name,
-              type: f.type,
-              required: !!f.required,
-              unique: !!f.unique,
-              options: f.options || {}
-            }));
+            const fields: ParsedField[] = rawFields.map((f: any) => {
+              const parsedField: any = {
+                id: f.id || `field_${f.name}`,
+                name: f.name,
+                type: f.type,
+                required: !!f.required,
+                unique: !!f.unique,
+                options: f.options || {}
+              };
+
+              // Extract relation config if present (for accurate comparison)
+              if (f.type === 'relation') {
+                parsedField.relation = {
+                  collectionId: f.collectionId,
+                  cascadeDelete: f.cascadeDelete ?? false,
+                  maxSelect: f.maxSelect ?? 1,
+                  minSelect: f.minSelect ?? null,
+                  displayFields: f.displayFields ?? null
+                };
+              }
+
+              return parsedField;
+            });
 
             // Map rules
             const rules: any = {

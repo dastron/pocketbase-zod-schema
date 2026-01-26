@@ -91,6 +91,10 @@ export function generateFieldDefinitionObject(field: FieldDefinition, collection
     // Always include cascadeDelete (default: false)
     const cascadeDelete = field.relation.cascadeDelete ?? false;
     parts.push(`      "cascadeDelete": ${cascadeDelete}`);
+
+    if (field.relation.displayFields) {
+      parts.push(`      "displayFields": ${formatValue(field.relation.displayFields)}`);
+    }
   }
 
   return `    {\n${parts.join(",\n")},\n    }`;
@@ -198,6 +202,10 @@ export function generateFieldConstructorOptions(field: FieldDefinition, collecti
     // Always include cascadeDelete (default: false)
     const cascadeDelete = field.relation.cascadeDelete ?? false;
     parts.push(`    "cascadeDelete": ${cascadeDelete}`);
+
+    if (field.relation.displayFields) {
+      parts.push(`    "displayFields": ${formatValue(field.relation.displayFields)}`);
+    }
   }
 
   return parts.join(",\n");
