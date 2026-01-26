@@ -114,36 +114,6 @@ export function getSystemFields(): FieldDefinition[] {
         system: true,
       },
     },
-    // created field - autodate, set on creation
-    {
-      name: "created",
-      id: "autodate2990389176",
-      type: "autodate",
-      required: true,
-      options: {
-        hidden: false,
-        id: "autodate2990389176",
-        onCreate: true,
-        onUpdate: false,
-        presentable: false,
-        system: false,
-      },
-    },
-    // updated field - autodate, set on creation and update
-    {
-      name: "updated",
-      id: "autodate3332085495",
-      type: "autodate",
-      required: true,
-      options: {
-        hidden: false,
-        id: "autodate3332085495",
-        onCreate: true,
-        onUpdate: true,
-        presentable: false,
-        system: false,
-      },
-    },
   ];
 }
 

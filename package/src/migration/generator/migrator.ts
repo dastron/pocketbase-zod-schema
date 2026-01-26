@@ -21,7 +21,7 @@ export function generateOperationUpMigration(
   if (operation.type === "create") {
     // Handle collection creation
     const collection = operation.collection as CollectionSchema;
-    const varName = `collection_${collection.name}`;
+    const varName = "collection";
     lines.push(generateCollectionCreation(collection, varName, true, collectionIdMap));
   } else if (operation.type === "modify") {
     // Handle collection modification
@@ -112,7 +112,7 @@ export function generateOperationUpMigration(
   } else if (operation.type === "delete") {
     // Handle collection deletion
     const collectionName = typeof operation.collection === "string" ? operation.collection : operation.collection.name;
-    const varName = `collection_${collectionName}`;
+    const varName = "collection";
     lines.push(generateCollectionDeletion(collectionName, varName, true, collectionIdMap));
   }
 
@@ -179,8 +179,8 @@ export function generateOperationDownMigration(
   if (operation.type === "create") {
     // Rollback: delete the created collection
     const collection = operation.collection as CollectionSchema;
-    const varName = `collection_${collection.name}`;
-    lines.push(generateCollectionDeletion(collection.name, varName, true));
+    const varName = "collection";
+    lines.push(generateCollectionDeletion(collection.name, varName, true, collectionIdMap));
   } else if (operation.type === "modify") {
     // Rollback: revert all modifications
     const modification = operation.modifications!;
@@ -284,7 +284,7 @@ export function generateOperationDownMigration(
     // Rollback: recreate the deleted collection
     const collection = operation.collection;
     if (typeof collection !== "string") {
-      const varName = `collection_${collection.name}`;
+      const varName = "collection";
       lines.push(generateCollectionCreation(collection, varName, true, collectionIdMap));
     }
   }

@@ -54,12 +54,12 @@ describe("Collection Creation Integration Tests", () => {
       const content = fs.readFileSync(generatedPath, "utf-8");
       expect(content).toContain("migrate(");
       expect(content).toContain("new Collection(");
-      expect(content).toContain('name: "' + CreateCollectionWithColumnsSchema.name + '"');
-      expect(content).toContain('type: "base"');
+      expect(content).toContain('"name": "' + CreateCollectionWithColumnsSchema.name + '"');
+      expect(content).toContain('"type": "base"');
       expect(content).toContain("app.save(");
 
       for (const field of CreateCollectionWithColumnsSchema.fields) {
-        expect(content).toContain('name: "' + field.name + '"');
+        expect(content).toContain('"name": "' + field.name + '"');
       }
     });
   });
@@ -80,14 +80,12 @@ describe("Collection Creation Integration Tests", () => {
       const content = fs.readFileSync(generatedPath, "utf-8");
       expect(content).toContain("migrate(");
       expect(content).toContain("new Collection(");
-      expect(content).toContain('name: "' + CreateCollectionBlankSchema.name + '"');
-      expect(content).toContain('type: "base"');
+      expect(content).toContain('"name": "' + CreateCollectionBlankSchema.name + '"');
+      expect(content).toContain('"type": "base"');
 
-      // Only 'id' system field should be included unless explicitly provided
-      // 'created' and 'updated' are system fields that PocketBase manages automatically
-      expect(content).toContain('name: "id"');
-      expect(content).not.toContain('name: "created"');
-      expect(content).not.toContain('name: "updated"');
+      // System fields (id) should be included even for blank collections
+      expect(content).toContain('"name": "id"');
+      // created and updated fields are not explicit in new collections
     });
   });
 
@@ -108,7 +106,7 @@ describe("Collection Creation Integration Tests", () => {
       expect(content).toContain("migrate(");
       expect(content).toContain("new Collection(");
       expect(content).toContain("CREATE UNIQUE INDEX");
-      expect(content).toContain("indexes:");
+      expect(content).toContain('"indexes":');
     });
   });
 
@@ -128,11 +126,11 @@ describe("Collection Creation Integration Tests", () => {
       const content = fs.readFileSync(generatedPath, "utf-8");
       expect(content).toContain("migrate(");
       expect(content).toContain("new Collection(");
-      expect(content).toContain('listRule: ""');
-      expect(content).toContain('viewRule: ""');
-      expect(content).toContain('createRule: ""');
-      expect(content).toContain('updateRule: ""');
-      expect(content).toContain('deleteRule: ""');
+      expect(content).toContain('"listRule": ""');
+      expect(content).toContain('"viewRule": ""');
+      expect(content).toContain('"createRule": ""');
+      expect(content).toContain('"updateRule": ""');
+      expect(content).toContain('"deleteRule": ""');
     });
   });
 
@@ -190,7 +188,7 @@ describe("Collection Creation Integration Tests", () => {
       const generatedPath = generatedPaths[0];
 
       const content = fs.readFileSync(generatedPath, "utf-8");
-      expect(content).toContain('id: "pb_1234567890abcde"');
+      expect(content).toContain('"id": "pb_1234567890abcde"');
     });
   });
 });

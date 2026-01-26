@@ -1,7 +1,7 @@
 {
-  "lastUpdated": "2026-01-26T05:22:18.934Z",
+  "lastUpdated": "2026-01-26T05:18:29.745Z",
   "totalTests": 15,
-  "averageDiffPercentage": 64,
+  "averageDiffPercentage": 52.4,
   "tests": {
     "infrastructure-test": {
       "scenarioName": "infrastructure-test",
@@ -15,19 +15,17 @@
     },
     "blank-collection": {
       "scenarioName": "blank-collection",
-      "diffPercentage": 76,
-      "timestamp": "2026-01-26T05:22:16.462Z",
+      "diffPercentage": 89,
+      "timestamp": "2026-01-26T05:18:29.744Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1769404935_created_blank_test_.js",
-        "libraryFile": "1769404935_created_blank_test.js",
+        "nativeFile": "_captured_1769404708_created_blank_test_.js",
+        "libraryFile": "1769404709_created_blank_test.js",
         "differences": [
           "Migration filename timestamp format differs",
-          "Migration filename pattern differs",
-          "Collection system mismatch: false vs true",
-          "Rule manageRule mismatch: undefined vs null"
+          "Migration filename pattern differs"
         ],
-        "score": 76
+        "score": 89
       }
     },
     "basic-collection": {

@@ -69,18 +69,18 @@ describe("Permission Handling Property Tests", () => {
             const permissionsCode = generateCollectionPermissions(collection.permissions);
 
             // Verify null values are represented correctly in generated code
-            expect(permissionsCode).toContain("listRule: null");
-            expect(permissionsCode).toContain("viewRule: null");
-            expect(permissionsCode).toContain("createRule: null");
-            expect(permissionsCode).toContain("updateRule: null");
-            expect(permissionsCode).toContain("deleteRule: null");
+            expect(permissionsCode).toContain('"listRule": null');
+            expect(permissionsCode).toContain('"viewRule": null');
+            expect(permissionsCode).toContain('"createRule": null');
+            expect(permissionsCode).toContain('"updateRule": null');
+            expect(permissionsCode).toContain('"deleteRule": null');
 
             // Verify no empty strings are used
-            expect(permissionsCode).not.toContain('listRule: ""');
-            expect(permissionsCode).not.toContain('viewRule: ""');
-            expect(permissionsCode).not.toContain('createRule: ""');
-            expect(permissionsCode).not.toContain('updateRule: ""');
-            expect(permissionsCode).not.toContain('deleteRule: ""');
+            expect(permissionsCode).not.toContain('"listRule": ""');
+            expect(permissionsCode).not.toContain('"viewRule": ""');
+            expect(permissionsCode).not.toContain('"createRule": ""');
+            expect(permissionsCode).not.toContain('"updateRule": ""');
+            expect(permissionsCode).not.toContain('"deleteRule": ""');
           }
         ),
         { numRuns: 100 }
@@ -112,13 +112,13 @@ describe("Permission Handling Property Tests", () => {
             const permissionsCode = generateCollectionPermissions(collection.permissions);
 
             // Verify null permissions are preserved as null
-            expect(permissionsCode).toContain("listRule: null");
-            expect(permissionsCode).toContain("viewRule: null");
-            expect(permissionsCode).toContain("updateRule: null");
-            expect(permissionsCode).toContain("deleteRule: null");
+            expect(permissionsCode).toContain('"listRule": null');
+            expect(permissionsCode).toContain('"viewRule": null');
+            expect(permissionsCode).toContain('"updateRule": null');
+            expect(permissionsCode).toContain('"deleteRule": null');
 
             // Verify empty string permission is preserved as empty string
-            expect(permissionsCode).toContain('createRule: ""');
+            expect(permissionsCode).toContain('"createRule": ""');
           }
         ),
         { numRuns: 100 }
@@ -155,21 +155,21 @@ describe("Permission Handling Property Tests", () => {
             const permissionsCode = generateCollectionPermissions(collection.permissions);
 
             // Verify all six rules are present in generated code
-            expect(permissionsCode).toContain("listRule:");
-            expect(permissionsCode).toContain("viewRule:");
-            expect(permissionsCode).toContain("createRule:");
-            expect(permissionsCode).toContain("updateRule:");
-            expect(permissionsCode).toContain("deleteRule:");
-            expect(permissionsCode).toContain("manageRule:");
+            expect(permissionsCode).toContain('"listRule":');
+            expect(permissionsCode).toContain('"viewRule":');
+            expect(permissionsCode).toContain('"createRule":');
+            expect(permissionsCode).toContain('"updateRule":');
+            expect(permissionsCode).toContain('"deleteRule":');
+            expect(permissionsCode).toContain('"manageRule":');
 
             // Verify the rule value is correctly formatted
             const expectedValue = ruleValue === null ? "null" : `"${ruleValue}"`;
-            expect(permissionsCode).toContain(`listRule: ${expectedValue}`);
-            expect(permissionsCode).toContain(`viewRule: ${expectedValue}`);
-            expect(permissionsCode).toContain(`createRule: ${expectedValue}`);
-            expect(permissionsCode).toContain(`updateRule: ${expectedValue}`);
-            expect(permissionsCode).toContain(`deleteRule: ${expectedValue}`);
-            expect(permissionsCode).toContain(`manageRule: ${expectedValue}`);
+            expect(permissionsCode).toContain(`"listRule": ${expectedValue}`);
+            expect(permissionsCode).toContain(`"viewRule": ${expectedValue}`);
+            expect(permissionsCode).toContain(`"createRule": ${expectedValue}`);
+            expect(permissionsCode).toContain(`"updateRule": ${expectedValue}`);
+            expect(permissionsCode).toContain(`"deleteRule": ${expectedValue}`);
+            expect(permissionsCode).toContain(`"manageRule": ${expectedValue}`);
           }
         ),
         { numRuns: 100 }
@@ -202,14 +202,14 @@ describe("Permission Handling Property Tests", () => {
             const permissionsCode = generateCollectionPermissions(collection.permissions);
 
             // Verify manageRule is not present for base collections
-            expect(permissionsCode).not.toContain("manageRule:");
+            expect(permissionsCode).not.toContain('"manageRule":');
 
             // Verify standard five rules are present
-            expect(permissionsCode).toContain("listRule:");
-            expect(permissionsCode).toContain("viewRule:");
-            expect(permissionsCode).toContain("createRule:");
-            expect(permissionsCode).toContain("updateRule:");
-            expect(permissionsCode).toContain("deleteRule:");
+            expect(permissionsCode).toContain('"listRule":');
+            expect(permissionsCode).toContain('"viewRule":');
+            expect(permissionsCode).toContain('"createRule":');
+            expect(permissionsCode).toContain('"updateRule":');
+            expect(permissionsCode).toContain('"deleteRule":');
           }
         ),
         { numRuns: 100 }

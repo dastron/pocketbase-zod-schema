@@ -15,27 +15,27 @@ export function generateCollectionRules(rules?: CollectionSchema["rules"]): stri
   const parts: string[] = [];
 
   if (rules.listRule !== undefined) {
-    parts.push(`listRule: ${formatValue(rules.listRule)}`);
+    parts.push(`"listRule": ${formatValue(rules.listRule)}`);
   }
 
   if (rules.viewRule !== undefined) {
-    parts.push(`viewRule: ${formatValue(rules.viewRule)}`);
+    parts.push(`"viewRule": ${formatValue(rules.viewRule)}`);
   }
 
   if (rules.createRule !== undefined) {
-    parts.push(`createRule: ${formatValue(rules.createRule)}`);
+    parts.push(`"createRule": ${formatValue(rules.createRule)}`);
   }
 
   if (rules.updateRule !== undefined) {
-    parts.push(`updateRule: ${formatValue(rules.updateRule)}`);
+    parts.push(`"updateRule": ${formatValue(rules.updateRule)}`);
   }
 
   if (rules.deleteRule !== undefined) {
-    parts.push(`deleteRule: ${formatValue(rules.deleteRule)}`);
+    parts.push(`"deleteRule": ${formatValue(rules.deleteRule)}`);
   }
 
   if (rules.manageRule !== undefined) {
-    parts.push(`manageRule: ${formatValue(rules.manageRule)}`);
+    parts.push(`"manageRule": ${formatValue(rules.manageRule)}`);
   }
 
   return parts.join(",\n    ");
@@ -56,27 +56,27 @@ export function generateCollectionPermissions(permissions?: CollectionSchema["pe
   const parts: string[] = [];
 
   if (permissions.listRule !== undefined) {
-    parts.push(`listRule: ${formatValue(permissions.listRule)}`);
+    parts.push(`"listRule": ${formatValue(permissions.listRule)}`);
   }
 
   if (permissions.viewRule !== undefined) {
-    parts.push(`viewRule: ${formatValue(permissions.viewRule)}`);
+    parts.push(`"viewRule": ${formatValue(permissions.viewRule)}`);
   }
 
   if (permissions.createRule !== undefined) {
-    parts.push(`createRule: ${formatValue(permissions.createRule)}`);
+    parts.push(`"createRule": ${formatValue(permissions.createRule)}`);
   }
 
   if (permissions.updateRule !== undefined) {
-    parts.push(`updateRule: ${formatValue(permissions.updateRule)}`);
+    parts.push(`"updateRule": ${formatValue(permissions.updateRule)}`);
   }
 
   if (permissions.deleteRule !== undefined) {
-    parts.push(`deleteRule: ${formatValue(permissions.deleteRule)}`);
+    parts.push(`"deleteRule": ${formatValue(permissions.deleteRule)}`);
   }
 
   if (permissions.manageRule !== undefined) {
-    parts.push(`manageRule: ${formatValue(permissions.manageRule)}`);
+    parts.push(`"manageRule": ${formatValue(permissions.manageRule)}`);
   }
 
   return parts.join(",\n    ");

@@ -91,8 +91,8 @@ describe("Auth Collection Type Generation", () => {
     const content = fs.readFileSync(generatedPath, "utf-8");
 
     // Should contain type: "auth"
-    expect(content).toContain('type: "auth"');
-    expect(content).toContain('name: "test_auth_users"');
+    expect(content).toContain('"type": "auth"');
+    expect(content).toContain('"name": "test_auth_users"');
   });
 
   it("should exclude auth system fields from field definitions", () => {
@@ -125,7 +125,7 @@ describe("Auth Collection Type Generation", () => {
     const content = fs.readFileSync(generatedPath, "utf-8");
 
     // Should contain custom field
-    expect(content).toContain('name: "name"');
+    expect(content).toContain('"name": "name"');
   });
 
   it("should generate correct permission rules for auth collection", () => {
@@ -154,20 +154,20 @@ describe("Auth Collection Type Generation", () => {
     const content = fs.readFileSync(generatedPath, "utf-8");
 
     // Verify all permission rules are in the generated code
-    expect(content).toContain("listRule:");
-    expect(content).toContain("viewRule:");
-    expect(content).toContain("createRule:");
-    expect(content).toContain("updateRule:");
-    expect(content).toContain("deleteRule:");
-    expect(content).toContain("manageRule:");
+    expect(content).toContain('"listRule":');
+    expect(content).toContain('"viewRule":');
+    expect(content).toContain('"createRule":');
+    expect(content).toContain('"updateRule":');
+    expect(content).toContain('"deleteRule":');
+    expect(content).toContain('"manageRule":');
 
     // Verify rule values
-    expect(content).toContain('listRule: "id = @request.auth.id"');
-    expect(content).toContain('viewRule: "id = @request.auth.id"');
-    expect(content).toContain('createRule: ""');
-    expect(content).toContain('updateRule: "id = @request.auth.id"');
-    expect(content).toContain('deleteRule: "id = @request.auth.id"');
-    expect(content).toContain('manageRule: "id = @request.auth.id"');
+    expect(content).toContain('"listRule": "id = @request.auth.id"');
+    expect(content).toContain('"viewRule": "id = @request.auth.id"');
+    expect(content).toContain('"createRule": ""');
+    expect(content).toContain('"updateRule": "id = @request.auth.id"');
+    expect(content).toContain('"deleteRule": "id = @request.auth.id"');
+    expect(content).toContain('"manageRule": "id = @request.auth.id"');
   });
 
   it("should parse generated migration and verify structure", () => {

@@ -859,7 +859,7 @@ describe("Migration Loop Detection", () => {
       const secondMigrationContent = fs.readFileSync(secondMigrationPaths[0], "utf-8");
 
       // The migration should use the actual collection ID, not app.findCollectionByNameOrId("Files").id
-      expect(secondMigrationContent).toContain(`collectionId: "${filesCollectionId}"`);
+      expect(secondMigrationContent).toContain(`"collectionId": "${filesCollectionId}"`);
       expect(secondMigrationContent).not.toContain('app.findCollectionByNameOrId("Files").id');
 
       // Step 7: Parse the second migration and verify idempotency
@@ -1006,7 +1006,7 @@ describe("Migration Loop Detection", () => {
 
       // Step 4: Verify the migration uses the actual collection ID
       const relationMigrationContent = fs.readFileSync(relationMigrationPaths[0], "utf-8");
-      expect(relationMigrationContent).toContain(`collectionId: "${filesCollectionId}"`);
+      expect(relationMigrationContent).toContain(`"collectionId": "${filesCollectionId}"`);
       expect(relationMigrationContent).not.toContain('app.findCollectionByNameOrId("Files").id');
 
       // Step 5: Verify idempotency
