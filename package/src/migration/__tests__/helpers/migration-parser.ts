@@ -45,15 +45,15 @@ export interface ParsedField {
  */
 export interface MigrationOperation {
   type:
-    | "create"
-    | "update"
-    | "delete"
-    | "addField"
-    | "removeField"
-    | "modifyField"
-    | "addIndex"
-    | "removeIndex"
-    | "updateRule";
+  | "create"
+  | "update"
+  | "delete"
+  | "addField"
+  | "removeField"
+  | "modifyField"
+  | "addIndex"
+  | "removeIndex"
+  | "updateRule";
   collection: string;
   details: any;
 }
@@ -154,7 +154,6 @@ function parseFunctionBody(code: string): {
 export function parseCollectionDefinition(code: string): ParsedCollection {
   // Clean up the code to make it valid JSON
   const jsonStr = code
-    .replace(/'/g, '"') // Replace single quotes with double quotes
     .replace(/,(\s*[}\]])/g, "$1") // Remove trailing commas
     .replace(/(\w+):/g, '"$1":'); // Quote unquoted keys
 

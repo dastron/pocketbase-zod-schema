@@ -83,6 +83,8 @@ export function getFieldConstructorName(fieldType: string): string {
     relation: "RelationField",
     file: "FileField",
     json: "JSONField",
+    editor: "EditorField",
+    autodate: "AutodateField",
   };
 
   return constructorMap[fieldType] || "TextField";
@@ -105,7 +107,6 @@ export function getSystemFields(): FieldDefinition[] {
       options: {
         autogeneratePattern: "[a-z0-9]{15}",
         hidden: false,
-        id: "text3208210256",
         max: 15,
         min: 15,
         pattern: "^[a-z0-9]+$",
@@ -114,6 +115,92 @@ export function getSystemFields(): FieldDefinition[] {
         system: true,
       },
     },
+  ];
+}
+
+/**
+ * Generates auth-specific system fields
+ *
+ * @returns Array of auth system field definitions
+ */
+export function getAuthSystemFields(): FieldDefinition[] {
+  return [
+    {
+      name: "password",
+      id: "password3208210256",
+      type: "text",
+      required: true,
+      options: {
+        hidden: true,
+        max: 0,
+        min: 0,
+        pattern: "",
+        presentable: false,
+        system: true,
+      },
+    },
+    {
+      name: "tokenKey",
+      id: "tokenKey3208210256",
+      type: "text",
+      required: true,
+      options: {
+        hidden: true,
+        max: 0,
+        min: 0,
+        pattern: "",
+        presentable: false,
+        system: true,
+      },
+    },
+    {
+      name: "email",
+      id: "email3208210256",
+      type: "email",
+      required: true,
+      options: {
+        exceptDomains: null,
+        hidden: false,
+        onlyDomains: null,
+        presentable: false,
+        system: true,
+      },
+    },
+    {
+      name: "emailVisibility",
+      id: "bool3208210256",
+      type: "bool",
+      required: false,
+      options: {
+        hidden: false,
+        presentable: false,
+        system: true,
+      },
+    },
+    {
+      name: "verified",
+      id: "bool1547992826",
+      type: "bool",
+      required: false,
+      options: {
+        hidden: false,
+        presentable: false,
+        system: true,
+      },
+    },
+  ];
+}
+
+/**
+ * Generates default system indexes for auth collections
+ *
+ * @param collectionName - Name of the auth collection
+ * @returns Array of index SQL statements
+ */
+export function getAuthSystemIndexes(collectionName: string): string[] {
+  return [
+    `CREATE UNIQUE INDEX \`idx_tokenKey_pbc_2283551112\` ON \`${collectionName}\` (\`tokenKey\`)`,
+    `CREATE UNIQUE INDEX \`idx_email_pbc_2283551112\` ON \`${collectionName}\` (\`email\`) WHERE \`email\` != ''`,
   ];
 }
 

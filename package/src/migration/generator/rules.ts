@@ -7,7 +7,7 @@ import { formatValue, generateFindCollectionCode } from "./utils";
  * @param rules - Collection rules
  * @returns Rules configuration as string
  */
-export function generateCollectionRules(rules?: CollectionSchema["rules"]): string {
+export function generateCollectionRules(rules?: CollectionSchema["rules"], collectionType: string = "base"): string {
   if (!rules) {
     return "";
   }
@@ -34,7 +34,7 @@ export function generateCollectionRules(rules?: CollectionSchema["rules"]): stri
     parts.push(`"deleteRule": ${formatValue(rules.deleteRule)}`);
   }
 
-  if (rules.manageRule !== undefined) {
+  if (collectionType === "auth" && rules.manageRule !== undefined) {
     parts.push(`"manageRule": ${formatValue(rules.manageRule)}`);
   }
 
@@ -48,7 +48,10 @@ export function generateCollectionRules(rules?: CollectionSchema["rules"]): stri
  * @param permissions - Collection permissions
  * @returns Permissions configuration as string
  */
-export function generateCollectionPermissions(permissions?: CollectionSchema["permissions"]): string {
+export function generateCollectionPermissions(
+  permissions?: CollectionSchema["permissions"],
+  collectionType: string = "base"
+): string {
   if (!permissions) {
     return "";
   }
@@ -75,7 +78,7 @@ export function generateCollectionPermissions(permissions?: CollectionSchema["pe
     parts.push(`"deleteRule": ${formatValue(permissions.deleteRule)}`);
   }
 
-  if (permissions.manageRule !== undefined) {
+  if (collectionType === "auth" && permissions.manageRule !== undefined) {
     parts.push(`"manageRule": ${formatValue(permissions.manageRule)}`);
   }
 

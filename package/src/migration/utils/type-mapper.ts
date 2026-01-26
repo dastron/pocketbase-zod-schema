@@ -275,15 +275,6 @@ export function mapZodTypeToPocketBase(zodType: z.ZodTypeAny, fieldName: string)
     type = mapZodRecordType(unwrappedType);
   }
 
-  // Apply name heuristics overrides
-  if (type === "text" && isEditorField(fieldName)) {
-    return "editor";
-  }
-
-  if ((type === "text" || type === "date") && isAutodateField(fieldName)) {
-    return "autodate";
-  }
-
   return type;
 }
 
@@ -589,59 +580,7 @@ export function extractComprehensiveFieldOptions(zodType: z.ZodTypeAny): Extract
   return options;
 }
 
-/**
- * Determines if a field should be treated as an editor field
- * based on field name conventions
- */
-export function isEditorField(fieldName: string): boolean {
-  const editorFieldNames = [
-    "content",
-    "body",
-    // "description", // Removed to prevent regressions where description is simple text
-    "bio",
-    "about",
-    "summary",
-    // "notes", // Removed as often simple text
-    // "details", // Removed as often simple text
-    "html",
-    "richtext",
-    "editor",
-  ];
-  return editorFieldNames.some((name) => fieldName.toLowerCase().includes(name));
-}
 
-/**
- * Determines if a field should be treated as an autodate field
- * based on field name conventions
- */
-export function isAutodateField(fieldName: string): boolean {
-  const autodateFieldNames = ["created", "updated", "autodate", "auto_date"];
-  return autodateFieldNames.some((name) => fieldName.toLowerCase().includes(name));
-}
-
-/**
- * Determines if a field should be treated as a file field
- * based on field name conventions
- */
-export function isFileFieldByName(fieldName: string): boolean {
-  const fileFieldNames = [
-    "avatar",
-    "image",
-    "file",
-    "attachment",
-    "photo",
-    "picture",
-    "document",
-    "upload",
-    "thumbnail",
-    "cover",
-    "banner",
-    "logo",
-    "icon",
-    "media",
-  ];
-  return fileFieldNames.some((name) => fieldName.toLowerCase().includes(name));
-}
 
 /**
  * Gets the PocketBase field type with additional context

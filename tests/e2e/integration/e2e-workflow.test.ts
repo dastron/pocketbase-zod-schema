@@ -1,5 +1,6 @@
-
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { copyFile } from 'fs/promises';
+import { join } from 'path';
 import { createWorkspaceManager, WorkspaceManager, TestWorkspace } from '../components/workspace-manager.js';
 import { createPBDownloader, PBDownloader } from '../components/pb-downloader.js';
 import { createNativeMigrationGenerator, NativeMigrationGenerator } from '../components/native-migration-generator.js';
@@ -92,6 +93,12 @@ describe('E2E Migration Workflow', () => {
         libraryWorkspace,
         scenario.collectionDefinition
       );
+
+      // Copy library-generated migration to native workspace for analysis
+      const libraryFileName = libraryMigrationFile.split('/').pop()!;
+      const targetPath = join(nativeWorkspace.migrationDir, libraryFileName);
+      await copyFile(libraryMigrationFile, targetPath);
+      logger.debug(`Exported library migration to: ${targetPath}`);
 
       const libraryMigration = await libraryCLI.parseMigrationFile(libraryMigrationFile);
 

@@ -141,6 +141,21 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     }
   }
 
+  // Special handling for autodate fields
+  if (fieldDef.type === "autodate") {
+    // Autodate fields shouldn't have pattern or other string options
+    // and should have onCreate/onUpdate set by default
+    fieldDef.options = {
+      onCreate: true,
+      onUpdate: true,
+      ...(fieldDef.options || {}),
+    };
+    // Remove options that don't apply to autodate
+    delete fieldDef.options.pattern;
+    delete fieldDef.options.min;
+    delete fieldDef.options.max;
+  }
+
   return fieldDef;
 }
 
@@ -291,8 +306,8 @@ export function convertZodSchemaToCollectionSchema(
       createRule: permissions?.createRule ?? null,
       updateRule: permissions?.updateRule ?? null,
       deleteRule: permissions?.deleteRule ?? null,
-      // Default manageRule to null even for base collections to match native CLI behavior
-      manageRule: permissions?.manageRule ?? null,
+      // Omit manageRule for base collections to match native CLI behavior
+      manageRule: collectionType === "auth" ? (permissions?.manageRule ?? null) : undefined,
     },
     permissions,
   };

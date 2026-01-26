@@ -171,7 +171,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
       if (scenarioName) {
         const passed = overallScore >= 70; // Consider 70% as passing threshold
         const differences = allDifferences.map(d => d.description);
-        
+
         // Use the results tracker if available, otherwise use the default utility
         if (this.resultsTracker) {
           this.resultsTracker.updateTestResult(scenarioName, overallScore, passed, {
@@ -195,7 +195,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
 
     } catch (error) {
       logger.error('Failed to compare migrations:', error);
-      
+
       // Record failure if scenario name provided
       if (scenarioName) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -215,7 +215,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
           });
         }
       }
-      
+
       throw error;
     }
   }
@@ -397,7 +397,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
   private compareFilenames(nativeFilename: string, libraryFilename: string): FilenameComparison {
     // Extract timestamp from filename (format: YYYYMMDDHHMMSS_description.js)
     // Handle optional _captured_ prefix in native filename
-    const timestampRegex = /(?:^|_captured_)(\d{13,14})_/;
+    const timestampRegex = /(?:^|_captured_)(\d{10,14})_/;
     const nativeTimestamp = nativeFilename.match(timestampRegex)?.[1];
     const libraryTimestamp = libraryFilename.match(timestampRegex)?.[1];
 
@@ -437,7 +437,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
     // Compare each native collection with its library counterpart
     for (const nativeCollection of nativeCollections) {
       const libraryCollection = libraryCollectionMap.get(nativeCollection.name);
-      
+
       if (libraryCollection) {
         const comparison = this.analyzeCollection(nativeCollection, libraryCollection);
         comparisons.push(comparison);
@@ -512,7 +512,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
     // Compare each native field with its library counterpart
     for (const nativeField of nativeFields) {
       const libraryField = libraryFieldMap.get(nativeField.name);
-      
+
       if (libraryField) {
         const comparison = this.analyzeField(nativeField, libraryField);
         comparisons.push(comparison);
@@ -789,7 +789,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
    */
   private calculateFieldScore(typeMatch: boolean, requiredMatch: boolean, uniqueMatch: boolean, optionsMatch: boolean, relationMatch: boolean = true): number {
     let score = 0;
-    
+
     if (typeMatch) score += 40; // Type is most important
     if (requiredMatch) score += 20;
     if (uniqueMatch) score += 20;
@@ -804,7 +804,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
    */
   private calculateFilenameScore(timestampMatch: boolean, namePatternMatch: boolean): number {
     let score = 0;
-    
+
     if (timestampMatch) score += 30; // Timestamp format is less critical
     if (namePatternMatch) score += 70; // Name pattern is more important
 
@@ -821,7 +821,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
     structuralMatch: boolean
   ): number {
     let score = 0;
-    
+
     if (exitCodeMatch) score += 40; // Exit code is most important
     score += outputSimilarity * 0.3; // Output similarity
     score += errorSimilarity * 0.1; // Error similarity
@@ -836,7 +836,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
   private calculateStructuralSimilarity(native: ParsedMigration, library: ParsedMigration): number {
     // Compare number of collections
     const collectionCountMatch = native.collections.length === library.collections.length;
-    
+
     // Compare collection names
     const nativeNames = new Set(native.collections.map(c => c.name));
     const libraryNames = new Set(library.collections.map(c => c.name));
@@ -905,7 +905,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
     // This is a simplified check - in practice, you'd parse the actual CLI output format
     const nativeSuccess = nativeResponse.includes('migration') || nativeResponse.includes('generated') || nativeResponse.length > 0;
     const librarySuccess = libraryResponse.includes('migration') || libraryResponse.includes('generated') || libraryResponse.length > 0;
-    
+
     return nativeSuccess && librarySuccess;
   }
 
@@ -920,7 +920,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
 
     const keys1 = Object.keys(obj1);
     const keys2 = Object.keys(obj2);
-    
+
     if (keys1.length !== keys2.length) return false;
 
     for (const key of keys1) {

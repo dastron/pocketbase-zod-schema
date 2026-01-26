@@ -66,7 +66,7 @@ describe("Permission Handling Property Tests", () => {
             };
 
             // Generate permissions code
-            const permissionsCode = generateCollectionPermissions(collection.permissions);
+            const permissionsCode = generateCollectionPermissions(collection.permissions, collection.type);
 
             // Verify null values are represented correctly in generated code
             expect(permissionsCode).toContain('"listRule": null');
@@ -109,7 +109,7 @@ describe("Permission Handling Property Tests", () => {
             };
 
             // Generate permissions code
-            const permissionsCode = generateCollectionPermissions(collection.permissions);
+            const permissionsCode = generateCollectionPermissions(collection.permissions, collection.type);
 
             // Verify null permissions are preserved as null
             expect(permissionsCode).toContain('"listRule": null');
@@ -152,7 +152,7 @@ describe("Permission Handling Property Tests", () => {
             };
 
             // Generate permissions code
-            const permissionsCode = generateCollectionPermissions(collection.permissions);
+            const permissionsCode = generateCollectionPermissions(collection.permissions, collection.type);
 
             // Verify all six rules are present in generated code
             expect(permissionsCode).toContain('"listRule":');
@@ -199,7 +199,7 @@ describe("Permission Handling Property Tests", () => {
             };
 
             // Generate permissions code
-            const permissionsCode = generateCollectionPermissions(collection.permissions);
+            const permissionsCode = generateCollectionPermissions(collection.permissions, collection.type);
 
             // Verify manageRule is not present for base collections
             expect(permissionsCode).not.toContain('"manageRule":');

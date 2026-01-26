@@ -37,6 +37,13 @@ export interface ParsedField {
   required: boolean;
   unique: boolean;
   options: Record<string, any>;
+  relation?: {
+    collectionId: string;
+    cascadeDelete: boolean;
+    maxSelect: number;
+    minSelect: number | null;
+    displayFields: string[] | null;
+  };
 }
 
 export interface ParsedMigration {
@@ -102,8 +109,8 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
           if (!deleteResponse.ok) {
             logger.warn(`Failed to delete existing collection '${definition.name}': ${deleteResponse.statusText}`);
           } else {
-             // Wait a bit for deletion to propagate
-             await sleep(500);
+            // Wait a bit for deletion to propagate
+            await sleep(500);
           }
         }
       } catch (error) {
@@ -131,13 +138,13 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
 
       // Wait for migration file to be generated
       const migrationFile = await this.waitForNewMigrationFile(workspace, initialCount);
-      
+
       // Copy the migration file to a safe location and remove it from the migration directory
       // This prevents PocketBase from trying to apply it again on restart
       const migrationFileName = migrationFile.split('/').pop() || `migration_${Date.now()}.js`;
       const safeMigrationPath = join(workspace.workspaceDir, `_captured_${migrationFileName}`);
       await copyFile(migrationFile, safeMigrationPath);
-      
+
       // Remove the migration file from pb_migrations to prevent reapplication
       try {
         await unlink(migrationFile);
@@ -146,7 +153,7 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
         logger.warn(`Failed to remove migration file ${migrationFile}:`, error);
         // Continue anyway - the file might have already been removed
       }
-      
+
       logger.info(`Successfully created collection '${definition.name}' and captured migration: ${safeMigrationPath}`);
       return safeMigrationPath;
 
@@ -168,7 +175,7 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
       const initialCount = initialFiles.length;
 
       const adminUrl = `http://127.0.0.1:${workspace.pocketbasePort}`;
-      
+
       // Authenticate as admin
       const authResponse = await this.authenticateAdmin(adminUrl);
       const authToken = authResponse.token;
@@ -213,7 +220,7 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
 
       // Wait for migration file to be generated
       const migrationFile = await this.waitForNewMigrationFile(workspace, initialCount);
-      
+
       logger.info(`Successfully updated collection '${collectionName}' and captured migration: ${migrationFile}`);
       return migrationFile;
 
@@ -311,7 +318,7 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
         adminUrl,
         authToken
       );
-      
+
       if (!collectionId) {
         throw new Error(
           `Failed to resolve collection ID for collection name: "${collectionName}". ` +
@@ -324,7 +331,7 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
       fieldData.cascadeDelete = field.relationConfig.cascadeDelete || false;
       fieldData.maxSelect = field.relationConfig.maxSelect ?? 1;
       fieldData.minSelect = field.relationConfig.minSelect ?? null;
-      
+
       // Add displayFields if specified
       if (field.relationConfig.displayFields && field.relationConfig.displayFields.length > 0) {
         fieldData.displayFields = field.relationConfig.displayFields;
@@ -439,13 +446,13 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
       attempts++;
 
       const currentFiles = await this.getMigrationFiles(workspace);
-      
+
       // Check for new files by comparing filenames
       const newFiles = currentFiles.filter(file => {
         const filename = file.split('/').pop() || '';
         return !initialFileNames.has(filename);
       });
-      
+
       // Verify new files actually exist and have content
       for (const file of newFiles) {
         try {
@@ -488,7 +495,7 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
     logger.error(`Migration file detection failed. Initial count: ${initialCount}, Final count: ${finalFiles.length}`);
     logger.error(`Initial files: ${initialFiles.map(f => f.split('/').pop()).join(', ')}`);
     logger.error(`Final files: ${finalFiles.map(f => f.split('/').pop()).join(', ')}`);
-    
+
     throw new Error(`Migration file was not generated within timeout (${maxAttempts * 500}ms)`);
   }
 
@@ -533,7 +540,7 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
     }
 
     if (changes.removeIndexes) {
-      updated.indexes = (updated.indexes || []).filter((index: string) => 
+      updated.indexes = (updated.indexes || []).filter((index: string) =>
         !changes.removeIndexes!.includes(index)
       );
     }
@@ -570,16 +577,16 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
           const char = content[i];
 
           if (inString) {
-            if (char === stringChar && content[i-1] !== '\\') {
+            if (char === stringChar && content[i - 1] !== '\\') {
               inString = false;
             }
             continue;
           }
 
           if (char === '"' || char === "'" || char === '`') {
-             inString = true;
-             stringChar = char;
-             continue;
+            inString = true;
+            stringChar = char;
+            continue;
           }
 
           if (char === '{') {
@@ -608,14 +615,28 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
 
             // Map fields from schema/fields property
             const rawFields = config.schema || config.fields || [];
-            const fields: ParsedField[] = rawFields.map((f: any) => ({
-              id: f.id,
-              name: f.name,
-              type: f.type,
-              required: !!f.required,
-              unique: !!f.unique,
-              options: f.options || {}
-            }));
+            const fields: ParsedField[] = rawFields.map((f: any) => {
+              const parsedField: ParsedField = {
+                id: f.id,
+                name: f.name,
+                type: f.type,
+                required: !!f.required,
+                unique: !!f.unique,
+                options: f.options || {}
+              };
+
+              if (f.type === 'relation') {
+                parsedField.relation = {
+                  collectionId: f.collectionId,
+                  cascadeDelete: f.cascadeDelete ?? false,
+                  maxSelect: f.maxSelect ?? 1,
+                  minSelect: f.minSelect ?? null,
+                  displayFields: f.displayFields ?? null
+                };
+              }
+
+              return parsedField;
+            });
 
             // Map rules
             const rules: CollectionRules = {
