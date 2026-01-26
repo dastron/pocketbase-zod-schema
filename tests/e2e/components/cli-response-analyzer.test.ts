@@ -229,7 +229,7 @@ describe('CLIResponseAnalyzer', () => {
       expect(comparison.fields[0].requiredMatch).toBe(false);
       expect(comparison.fields[0].uniqueMatch).toBe(false);
       expect(comparison.fields[0].optionsMatch).toBe(false);
-      expect(comparison.fields[0].score).toBe(0);
+      expect(comparison.fields[0].score).toBe(10); // Relation match (both undefined) gives 10 points
       expect(comparison.fields[0].differences.length).toBeGreaterThan(0);
     });
 
@@ -325,7 +325,7 @@ describe('CLIResponseAnalyzer', () => {
 
       const comparison = analyzer.analyzeField(nativeField, libraryField);
 
-      expect(comparison.score).toBe(0);
+      expect(comparison.score).toBe(10); // Relation match (both undefined) gives 10 points
       expect(comparison.typeMatch).toBe(false);
       expect(comparison.requiredMatch).toBe(false);
       expect(comparison.uniqueMatch).toBe(false);

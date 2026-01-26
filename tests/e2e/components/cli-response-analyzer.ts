@@ -310,8 +310,24 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
       });
     }
 
+    // Compare relation config
+    let relationMatch = true;
+    if (native.relation || library.relation) {
+      relationMatch = this.deepEqual(native.relation, library.relation);
+      if (!relationMatch) {
+        differences.push({
+          severity: 'major',
+          category: 'field',
+          description: `Field relation config mismatch`,
+          nativeValue: native.relation,
+          libraryValue: library.relation,
+          path: `fields.${native.name}.relation`,
+        });
+      }
+    }
+
     // Calculate field score
-    const score = this.calculateFieldScore(typeMatch, requiredMatch, uniqueMatch, optionsMatch);
+    const score = this.calculateFieldScore(typeMatch, requiredMatch, uniqueMatch, optionsMatch, relationMatch);
 
     return {
       fieldName: native.name,
@@ -765,13 +781,14 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
   /**
    * Calculate field comparison score
    */
-  private calculateFieldScore(typeMatch: boolean, requiredMatch: boolean, uniqueMatch: boolean, optionsMatch: boolean): number {
+  private calculateFieldScore(typeMatch: boolean, requiredMatch: boolean, uniqueMatch: boolean, optionsMatch: boolean, relationMatch: boolean = true): number {
     let score = 0;
     
     if (typeMatch) score += 40; // Type is most important
-    if (requiredMatch) score += 25;
-    if (uniqueMatch) score += 25;
+    if (requiredMatch) score += 20;
+    if (uniqueMatch) score += 20;
     if (optionsMatch) score += 10;
+    if (relationMatch) score += 10;
 
     return score;
   }

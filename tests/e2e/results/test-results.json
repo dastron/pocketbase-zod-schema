@@ -1,12 +1,12 @@
 {
-  "lastUpdated": "2026-01-19T22:25:19.153Z",
+  "lastUpdated": "2026-01-26T05:22:18.934Z",
   "totalTests": 15,
-  "averageDiffPercentage": 49.2,
+  "averageDiffPercentage": 64,
   "tests": {
     "infrastructure-test": {
       "scenarioName": "infrastructure-test",
       "diffPercentage": 100,
-      "timestamp": "2026-01-19T22:25:19.152Z",
+      "timestamp": "2026-01-26T05:22:18.934Z",
       "passed": true,
       "details": {
         "score": 100,
@@ -15,50 +15,46 @@
     },
     "blank-collection": {
       "scenarioName": "blank-collection",
-      "diffPercentage": 41,
-      "timestamp": "2026-01-19T22:25:17.170Z",
-      "passed": false,
+      "diffPercentage": 76,
+      "timestamp": "2026-01-26T05:22:16.462Z",
+      "passed": true,
       "details": {
-        "nativeFile": "_captured_1768861516_created_blank_test_.js",
-        "libraryFile": "1768861516_created_blank_test.js",
+        "nativeFile": "_captured_1769404935_created_blank_test_.js",
+        "libraryFile": "1769404935_created_blank_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 41
+        "score": 76
       }
     },
     "basic-collection": {
       "scenarioName": "basic-collection",
-      "diffPercentage": 55,
-      "timestamp": "2026-01-19T22:24:11.629Z",
-      "passed": false,
+      "diffPercentage": 76,
+      "timestamp": "2026-01-26T05:21:01.007Z",
+      "passed": true,
       "details": {
-        "nativeFile": "_captured_1768861450_created_basic_test_.js",
-        "libraryFile": "1768861451_created_basic_test.js",
+        "nativeFile": "_captured_1769404859_created_basic_test_.js",
+        "libraryFile": "1769404860_created_basic_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 55
+        "score": 76
       }
     },
     "all-field-types": {
       "scenarioName": "all-field-types",
-      "diffPercentage": 54,
-      "timestamp": "2026-01-19T22:24:20.583Z",
+      "diffPercentage": 60,
+      "timestamp": "2026-01-26T05:21:10.716Z",
       "passed": false,
       "details": {
-        "nativeFile": "_captured_1768861459_created_field_types_test_.js",
-        "libraryFile": "1768861460_created_field_types_test.js",
+        "nativeFile": "_captured_1769404869_created_field_types_test_.js",
+        "libraryFile": "1769404870_created_field_types_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
@@ -67,109 +63,97 @@
           "Field missing in library migration: select_field",
           "Field missing in library migration: json_field",
           "Field missing in library migration: autodate_field",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 54
+        "score": 60
       }
     },
     "file-field-types": {
       "scenarioName": "file-field-types",
-      "diffPercentage": 46,
-      "timestamp": "2026-01-19T22:24:24.811Z",
+      "diffPercentage": 62,
+      "timestamp": "2026-01-26T05:21:15.561Z",
       "passed": false,
       "details": {
-        "nativeFile": "_captured_1768861463_created_file_test_.js",
-        "libraryFile": "1768861464_created_file_test.js",
+        "nativeFile": "_captured_1769404874_created_file_test_.js",
+        "libraryFile": "1769404875_created_file_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
           "Field type mismatch: file vs text",
           "Field type mismatch: file vs text",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 46
+        "score": 62
       }
     },
     "geopoint-field-types": {
       "scenarioName": "geopoint-field-types",
-      "diffPercentage": 51,
-      "timestamp": "2026-01-19T22:24:29.021Z",
+      "diffPercentage": 68,
+      "timestamp": "2026-01-26T05:21:20.394Z",
       "passed": false,
       "details": {
-        "nativeFile": "_captured_1768861467_created_geo_test_.js",
-        "libraryFile": "1768861468_created_geo_test.js",
+        "nativeFile": "_captured_1769404879_created_geo_test_.js",
+        "libraryFile": "1769404879_created_geo_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
           "Field type mismatch: geoPoint vs text",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 51
+        "score": 68
       }
     },
     "select-field-variations": {
       "scenarioName": "select-field-variations",
-      "diffPercentage": 34,
-      "timestamp": "2026-01-19T22:24:33.215Z",
+      "diffPercentage": 41,
+      "timestamp": "2026-01-26T05:21:25.478Z",
       "passed": false,
       "details": {
-        "nativeFile": "_captured_1768861472_created_select_variations_test_.js",
-        "libraryFile": "1768861472_created_select_variations_test.js",
+        "nativeFile": "_captured_1769404884_created_select_variations_test_.js",
+        "libraryFile": "1769404884_created_select_variations_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
           "Field missing in library migration: single_select",
           "Field missing in library migration: multi_select",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 34
+        "score": 41
       }
     },
     "unique-indexes": {
       "scenarioName": "unique-indexes",
-      "diffPercentage": 47,
-      "timestamp": "2026-01-19T22:24:37.422Z",
+      "diffPercentage": 65,
+      "timestamp": "2026-01-26T05:21:30.331Z",
       "passed": false,
       "details": {
-        "nativeFile": "_captured_1768861476_created_unique_test_.js",
-        "libraryFile": "1768861476_created_unique_test.js",
+        "nativeFile": "_captured_1769404889_created_unique_test_.js",
+        "libraryFile": "1769404889_created_unique_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Index mismatch: CREATE UNIQUE INDEX idx_unique_email ON unique_test (email) vs undefined",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 47
+        "score": 65
       }
     },
     "api-rules-unrestricted": {
       "scenarioName": "api-rules-unrestricted",
-      "diffPercentage": 42,
-      "timestamp": "2026-01-19T22:24:41.614Z",
+      "diffPercentage": 63,
+      "timestamp": "2026-01-26T05:21:35.163Z",
       "passed": false,
       "details": {
-        "nativeFile": "_captured_1768861480_created_public_test_.js",
-        "libraryFile": "1768861481_created_public_test.js",
+        "nativeFile": "_captured_1769404893_created_public_test_.js",
+        "libraryFile": "1769404894_created_public_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule listRule mismatch:  vs null",
           "Rule viewRule mismatch:  vs null",
           "Rule createRule mismatch:  vs null",
@@ -177,24 +161,22 @@
           "Rule deleteRule mismatch:  vs null",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 42
+        "score": 63
       }
     },
     "api-rules-restricted": {
       "scenarioName": "api-rules-restricted",
-      "diffPercentage": 36,
-      "timestamp": "2026-01-19T22:24:45.833Z",
+      "diffPercentage": 50,
+      "timestamp": "2026-01-26T05:21:40.023Z",
       "passed": false,
       "details": {
-        "nativeFile": "_captured_1768861484_created_private_test_.js",
-        "libraryFile": "1768861485_created_private_test.js",
+        "nativeFile": "_captured_1769404898_created_private_test_.js",
+        "libraryFile": "1769404899_created_private_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
           "Field missing in library migration: status",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule listRule mismatch: @request.auth.id != \"\" vs null",
           "Rule viewRule mismatch: @request.auth.id != \"\" vs null",
           "Rule createRule mismatch: @request.auth.id != \"\" vs null",
@@ -202,25 +184,23 @@
           "Rule deleteRule mismatch: @request.auth.id != \"\" && author = @request.auth.id vs null",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 36
+        "score": 50
       }
     },
     "complex-api-rules": {
       "scenarioName": "complex-api-rules",
-      "diffPercentage": 33,
-      "timestamp": "2026-01-19T22:24:50.052Z",
+      "diffPercentage": 42,
+      "timestamp": "2026-01-26T05:21:44.856Z",
       "passed": false,
       "details": {
-        "nativeFile": "_captured_1768861488_created_complex_rules_test_.js",
-        "libraryFile": "1768861489_created_complex_rules_test.js",
+        "nativeFile": "_captured_1769404903_created_complex_rules_test_.js",
+        "libraryFile": "1769404904_created_complex_rules_test.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
           "Field missing in library migration: status",
           "Field missing in library migration: visibility",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule listRule mismatch: @request.auth.id != \"\" && (visibility = \"public\" || author = @request.auth.id) vs null",
           "Rule viewRule mismatch: @request.auth.id != \"\" && (visibility = \"public\" || author = @request.auth.id) vs null",
           "Rule createRule mismatch: @request.auth.id != \"\" vs null",
@@ -228,17 +208,17 @@
           "Rule deleteRule mismatch: @request.auth.id != \"\" && author = @request.auth.id && status = \"draft\" vs null",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 33
+        "score": 42
       }
     },
     "auth-collection": {
       "scenarioName": "auth-collection",
-      "diffPercentage": 26,
-      "timestamp": "2026-01-19T22:24:54.238Z",
+      "diffPercentage": 29,
+      "timestamp": "2026-01-26T05:21:49.690Z",
       "passed": false,
       "details": {
-        "nativeFile": "_captured_1768861493_created_users_test_final.js",
-        "libraryFile": "1768861493_created_users_test_final.js",
+        "nativeFile": "_captured_1769404908_created_users_test_final.js",
+        "libraryFile": "1769404909_created_users_test_final.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
@@ -249,8 +229,6 @@
           "Field missing in library migration: email",
           "Field missing in library migration: emailVisibility",
           "Field missing in library migration: verified",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Index mismatch: CREATE UNIQUE INDEX `idx_tokenKey_pbc_2283551112` ON `users_test_final` (`tokenKey`) vs undefined",
           "Index mismatch: CREATE UNIQUE INDEX `idx_email_pbc_2283551112` ON `users_test_final` (`email`) WHERE `email` != '' vs undefined",
           "Rule listRule mismatch: @request.auth.id != \"\" vs null",
@@ -259,64 +237,58 @@
           "Rule updateRule mismatch: @request.auth.id = id vs null",
           "Rule deleteRule mismatch: @request.auth.id = id vs null"
         ],
-        "score": 26
+        "score": 29
       }
     },
     "single-relation": {
       "scenarioName": "single-relation",
-      "diffPercentage": 55,
-      "timestamp": "2026-01-19T22:24:58.420Z",
-      "passed": false,
+      "diffPercentage": 76,
+      "timestamp": "2026-01-26T05:21:54.519Z",
+      "passed": true,
       "details": {
-        "nativeFile": "_captured_1768861497_created_posts.js",
-        "libraryFile": "1768861497_created_posts.js",
+        "nativeFile": "_captured_1769404913_created_posts.js",
+        "libraryFile": "1769404913_created_posts.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 55
+        "score": 76
       }
     },
     "multiple-relations": {
       "scenarioName": "multiple-relations",
-      "diffPercentage": 59,
-      "timestamp": "2026-01-19T22:25:02.594Z",
-      "passed": false,
+      "diffPercentage": 76,
+      "timestamp": "2026-01-26T05:21:59.347Z",
+      "passed": true,
       "details": {
-        "nativeFile": "_captured_1768861501_created_articles.js",
-        "libraryFile": "1768861502_created_articles.js",
+        "nativeFile": "_captured_1769404918_created_articles.js",
+        "libraryFile": "1769404918_created_articles.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 59
+        "score": 76
       }
     },
     "cascade-delete-relations": {
       "scenarioName": "cascade-delete-relations",
-      "diffPercentage": 59,
-      "timestamp": "2026-01-19T22:25:06.793Z",
-      "passed": false,
+      "diffPercentage": 76,
+      "timestamp": "2026-01-26T05:22:04.196Z",
+      "passed": true,
       "details": {
-        "nativeFile": "_captured_1768861505_created_comments.js",
-        "libraryFile": "1768861506_created_comments.js",
+        "nativeFile": "_captured_1769404922_created_comments.js",
+        "libraryFile": "1769404923_created_comments.js",
         "differences": [
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
-          "Extra field in library migration: created",
-          "Extra field in library migration: updated",
           "Rule manageRule mismatch: undefined vs null"
         ],
-        "score": 59
+        "score": 76
       }
     }
   }
