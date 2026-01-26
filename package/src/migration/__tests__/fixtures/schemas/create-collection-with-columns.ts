@@ -21,48 +21,56 @@ export const createCollectionWithColumnsType = "base" as const;
 export const createCollectionWithColumnsFields: FieldDefinition[] = [
   {
     name: "plain_text_column",
+    id: "plain_text_column_id",
     type: "text",
     required: false,
     options: {},
   },
   {
     name: "rich_text_column",
+    id: "rich_text_column_id",
     type: "editor",
     required: false,
     options: {},
   },
   {
     name: "number_column",
+    id: "number_column_id",
     type: "number",
     required: false,
     options: {},
   },
   {
     name: "bool_column",
+    id: "bool_column_id",
     type: "bool",
     required: false,
     options: {},
   },
   {
     name: "email_column",
+    id: "email_column_id",
     type: "email",
     required: false,
     options: {},
   },
   {
     name: "url_column",
+    id: "url_column_id",
     type: "url",
     required: false,
     options: {},
   },
   {
     name: "datetime_column",
+    id: "datetime_column_id",
     type: "date",
     required: false,
     options: {},
   },
   {
     name: "select_column",
+    id: "select_column_id",
     type: "select",
     required: false,
     options: {
@@ -72,6 +80,7 @@ export const createCollectionWithColumnsFields: FieldDefinition[] = [
   },
   {
     name: "file_column",
+    id: "file_column_id",
     type: "file",
     required: false,
     options: {
@@ -84,6 +93,7 @@ export const createCollectionWithColumnsFields: FieldDefinition[] = [
   },
   {
     name: "relation_to_users_column",
+    id: "relation_to_users_column_id",
     type: "relation",
     required: false,
     options: {},
@@ -96,18 +106,21 @@ export const createCollectionWithColumnsFields: FieldDefinition[] = [
   },
   {
     name: "json_column",
+    id: "json_column_id",
     type: "json",
     required: false,
     options: {},
   },
   {
     name: "geopoint_column",
+    id: "geopoint_column_id",
     type: "geoPoint",
     required: false,
     options: {},
   },
   {
     name: "autodate_column",
+    id: "autodate_column_id",
     type: "autodate",
     required: false,
     options: {

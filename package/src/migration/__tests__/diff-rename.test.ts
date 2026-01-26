@@ -11,9 +11,10 @@ describe("Rename Detection Heuristic", () => {
           "posts",
           {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
-              { name: "newField", type: "text", required: false },
+              { name: "newField", id: "newField_id", type: "text", required: false },
             ],
           },
         ],
@@ -26,9 +27,10 @@ describe("Rename Detection Heuristic", () => {
       collections: new Map<string, CollectionSchema>([
         ["posts", {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
-                { name: "oldField", type: "text", required: false }
+                { name: "oldField", id: "oldField_id", type: "text", required: false }
             ]
         }],
       ]),
@@ -60,9 +62,10 @@ describe("Rename Detection Heuristic", () => {
           "posts",
           {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
-              { name: "newField", type: "number", required: false },
+              { name: "newField", id: "newField_id", type: "number", required: false },
             ],
           },
         ],
@@ -75,9 +78,10 @@ describe("Rename Detection Heuristic", () => {
       collections: new Map<string, CollectionSchema>([
         ["posts", {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
-                { name: "oldField", type: "text", required: false }
+                { name: "oldField", id: "oldField_id", type: "text", required: false }
             ]
         }],
       ]),
@@ -99,10 +103,12 @@ describe("Rename Detection Heuristic", () => {
           "posts",
           {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
               {
                   name: "newRel",
+                  id: "newRel_id",
                   type: "relation",
                   required: false,
                   relation: { collection: "users" }
@@ -119,10 +125,12 @@ describe("Rename Detection Heuristic", () => {
       collections: new Map<string, CollectionSchema>([
         ["posts", {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
                 {
                     name: "oldRel",
+                    id: "oldRel_id",
                     type: "relation",
                     required: false,
                     relation: { collection: "users" }
@@ -154,10 +162,12 @@ describe("Rename Detection Heuristic", () => {
           "posts",
           {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
               {
                   name: "newRel",
+                  id: "newRel_id",
                   type: "relation",
                   required: false,
                   relation: { collection: "tags" }
@@ -174,10 +184,12 @@ describe("Rename Detection Heuristic", () => {
       collections: new Map<string, CollectionSchema>([
         ["posts", {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
                 {
                     name: "oldRel",
+                    id: "oldRel_id",
                     type: "relation",
                     required: false,
                     relation: { collection: "users" }
@@ -203,10 +215,11 @@ describe("Rename Detection Heuristic", () => {
           "posts",
           {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
-              { name: "newField1", type: "text", required: false },
-              { name: "newField2", type: "text", required: false },
+              { name: "newField1", id: "newField1_id", type: "text", required: false },
+              { name: "newField2", id: "newField2_id", type: "text", required: false },
             ],
           },
         ],
@@ -219,10 +232,11 @@ describe("Rename Detection Heuristic", () => {
       collections: new Map<string, CollectionSchema>([
         ["posts", {
             name: "posts",
+            id: "posts_id",
             type: "base",
             fields: [
-                { name: "oldField1", type: "text", required: false },
-                { name: "oldField2", type: "text", required: false }
+                { name: "oldField1", id: "oldField1_id", type: "text", required: false },
+                { name: "oldField2", id: "oldField2_id", type: "text", required: false }
             ]
         }],
       ]),

@@ -14,6 +14,7 @@ describe("Collection ID Assignment", () => {
       fields: [
         {
           name: "title",
+          id: "title_id",
           type: "text",
           required: true,
         },
@@ -38,6 +39,7 @@ describe("Collection ID Assignment", () => {
       fields: [
         {
           name: "name",
+          id: "name_id",
           type: "text",
           required: true,
         },
@@ -86,11 +88,12 @@ describe("Collection ID Assignment", () => {
     const existingId = "pb_existing123456";
     const testCollection: CollectionSchema = {
       name: "test_collection",
-      type: "base",
       id: existingId,
+      type: "base",
       fields: [
         {
           name: "title",
+          id: "title_id",
           type: "text",
           required: true,
         },

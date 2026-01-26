@@ -60,7 +60,7 @@ describe("Migration Loop Detection", () => {
     return {
       collections: new Map([
         [collectionSchema.name, collectionSchema],
-        ["users", { name: "users", type: "auth", fields: [] } as CollectionSchema],
+        ["users", { name: "users", id: "users_id", type: "auth", fields: [] } as CollectionSchema],
       ]),
     };
   }
@@ -108,7 +108,7 @@ describe("Migration Loop Detection", () => {
     }
 
     // Add users collection to snapshot (it's in the schema but not generated)
-    snapshot.collections.set("users", { name: "users", type: "auth", fields: [] } as CollectionSchema);
+    snapshot.collections.set("users", { name: "users", id: "users_id", type: "auth", fields: [] } as CollectionSchema);
 
     // Step 5: Compare original schema to parsed snapshot
     const diffAfterGeneration = compare(originalSchema, snapshot);
@@ -159,10 +159,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve text field with min constraint", () => {
       assertIdempotent("text-min", {
         name: "test_text_min",
+        id: "test_text_min_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
             options: { min: 1 },
@@ -174,10 +176,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve text field with max constraint", () => {
       assertIdempotent("text-max", {
         name: "test_text_max",
+        id: "test_text_max_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
             options: { max: 200 },
@@ -189,10 +193,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve text field with min and max constraints", () => {
       assertIdempotent("text-min-max", {
         name: "test_text_min_max",
+        id: "test_text_min_max_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
             options: { min: 1, max: 200 },
@@ -204,10 +210,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve text field with pattern constraint", () => {
       assertIdempotent("text-pattern", {
         name: "test_text_pattern",
+        id: "test_text_pattern_id",
         type: "base",
         fields: [
           {
             name: "code",
+            id: "code_id",
             type: "text",
             required: true,
             options: { pattern: "^[A-Z]{3}-[0-9]{4}$" },
@@ -219,10 +227,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve text field with all constraints", () => {
       assertIdempotent("text-all", {
         name: "test_text_all",
+        id: "test_text_all_id",
         type: "base",
         fields: [
           {
             name: "code",
+            id: "code_id",
             type: "text",
             required: true,
             options: { min: 8, max: 8, pattern: "^[A-Z]{3}-[0-9]{4}$" },
@@ -234,10 +244,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve optional text field with constraints", () => {
       assertIdempotent("text-optional", {
         name: "test_text_optional",
+        id: "test_text_optional_id",
         type: "base",
         fields: [
           {
             name: "summary",
+            id: "summary_id",
             type: "text",
             required: false,
             options: { max: 500 },
@@ -251,10 +263,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve number field with min constraint", () => {
       assertIdempotent("number-min", {
         name: "test_number_min",
+        id: "test_number_min_id",
         type: "base",
         fields: [
           {
             name: "quantity",
+            id: "quantity_id",
             type: "number",
             required: true,
             options: { min: 0 },
@@ -266,10 +280,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve number field with max constraint", () => {
       assertIdempotent("number-max", {
         name: "test_number_max",
+        id: "test_number_max_id",
         type: "base",
         fields: [
           {
             name: "rating",
+            id: "rating_id",
             type: "number",
             required: true,
             options: { max: 5 },
@@ -281,10 +297,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve number field with min and max constraints", () => {
       assertIdempotent("number-min-max", {
         name: "test_number_min_max",
+        id: "test_number_min_max_id",
         type: "base",
         fields: [
           {
             name: "progress",
+            id: "progress_id",
             type: "number",
             required: true,
             options: { min: 0, max: 100 },
@@ -296,10 +314,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve number field with noDecimal constraint", () => {
       assertIdempotent("number-no-decimal", {
         name: "test_number_no_decimal",
+        id: "test_number_no_decimal_id",
         type: "base",
         fields: [
           {
             name: "count",
+            id: "count_id",
             type: "number",
             required: true,
             options: { noDecimal: true },
@@ -311,10 +331,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve number field with all constraints", () => {
       assertIdempotent("number-all", {
         name: "test_number_all",
+        id: "test_number_all_id",
         type: "base",
         fields: [
           {
             name: "score",
+            id: "score_id",
             type: "number",
             required: true,
             options: { min: 0, max: 100, noDecimal: true },
@@ -328,10 +350,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve select field with values", () => {
       assertIdempotent("select-values", {
         name: "test_select_values",
+        id: "test_select_values_id",
         type: "base",
         fields: [
           {
             name: "status",
+            id: "status_id",
             type: "select",
             required: true,
             options: { values: ["draft", "active", "complete"] },
@@ -343,10 +367,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve select field with maxSelect", () => {
       assertIdempotent("select-max-select", {
         name: "test_select_max_select",
+        id: "test_select_max_select_id",
         type: "base",
         fields: [
           {
             name: "categories",
+            id: "categories_id",
             type: "select",
             required: true,
             options: { values: ["a", "b", "c", "d"], maxSelect: 3 },
@@ -358,10 +384,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve select field with single select (maxSelect: 1)", () => {
       assertIdempotent("select-single", {
         name: "test_select_single",
+        id: "test_select_single_id",
         type: "base",
         fields: [
           {
             name: "priority",
+            id: "priority_id",
             type: "select",
             required: true,
             options: { values: ["low", "medium", "high"], maxSelect: 1 },
@@ -375,10 +403,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve relation field with single select", () => {
       assertIdempotent("relation-single", {
         name: "test_relation_single",
+        id: "test_relation_single_id",
         type: "base",
         fields: [
           {
             name: "owner",
+            id: "owner_id",
             type: "relation",
             required: true,
             relation: {
@@ -395,10 +425,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve relation field with multiple select", () => {
       assertIdempotent("relation-multiple", {
         name: "test_relation_multiple",
+        id: "test_relation_multiple_id",
         type: "base",
         fields: [
           {
             name: "subscribers",
+            id: "subscribers_id",
             type: "relation",
             required: true,
             relation: {
@@ -415,10 +447,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve relation field with cascadeDelete", () => {
       assertIdempotent("relation-cascade", {
         name: "test_relation_cascade",
+        id: "test_relation_cascade_id",
         type: "base",
         fields: [
           {
             name: "parent",
+            id: "parent_id",
             type: "relation",
             required: true,
             relation: {
@@ -435,10 +469,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve relation field with minSelect", () => {
       assertIdempotent("relation-min-select", {
         name: "test_relation_min_select",
+        id: "test_relation_min_select_id",
         type: "base",
         fields: [
           {
             name: "reviewers",
+            id: "reviewers_id",
             type: "relation",
             required: true,
             relation: {
@@ -457,10 +493,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve file field with mimeTypes", () => {
       assertIdempotent("file-mime-types", {
         name: "test_file_mime_types",
+        id: "test_file_mime_types_id",
         type: "base",
         fields: [
           {
             name: "image",
+            id: "image_id",
             type: "file",
             required: false,
             options: { mimeTypes: ["image/jpeg", "image/png"], maxSelect: 1 },
@@ -472,10 +510,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve file field with maxSize", () => {
       assertIdempotent("file-max-size", {
         name: "test_file_max_size",
+        id: "test_file_max_size_id",
         type: "base",
         fields: [
           {
             name: "document",
+            id: "document_id",
             type: "file",
             required: false,
             options: { maxSize: 5242880, maxSelect: 1 },
@@ -487,10 +527,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve file field with thumbs", () => {
       assertIdempotent("file-thumbs", {
         name: "test_file_thumbs",
+        id: "test_file_thumbs_id",
         type: "base",
         fields: [
           {
             name: "avatar",
+            id: "avatar_id",
             type: "file",
             required: false,
             options: { thumbs: ["100x100", "200x200"], maxSelect: 1 },
@@ -502,10 +544,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve multiple files field", () => {
       assertIdempotent("files-multiple", {
         name: "test_files_multiple",
+        id: "test_files_multiple_id",
         type: "base",
         fields: [
           {
             name: "attachments",
+            id: "attachments_id",
             type: "file",
             required: false,
             options: { maxSelect: 10 },
@@ -519,10 +563,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve date field with min constraint", () => {
       assertIdempotent("date-min", {
         name: "test_date_min",
+        id: "test_date_min_id",
         type: "base",
         fields: [
           {
             name: "startDate",
+            id: "startDate_id",
             type: "date",
             required: true,
             options: { min: "2024-01-01" },
@@ -534,10 +580,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve date field with max constraint", () => {
       assertIdempotent("date-max", {
         name: "test_date_max",
+        id: "test_date_max_id",
         type: "base",
         fields: [
           {
             name: "endDate",
+            id: "endDate_id",
             type: "date",
             required: true,
             options: { max: "2025-12-31" },
@@ -551,10 +599,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve autodate field with onCreate", () => {
       assertIdempotent("autodate-on-create", {
         name: "test_autodate_on_create",
+        id: "test_autodate_on_create_id",
         type: "base",
         fields: [
           {
             name: "createdAt",
+            id: "createdAt_id",
             type: "autodate",
             required: true,
             options: { onCreate: true, onUpdate: false },
@@ -566,10 +616,12 @@ describe("Migration Loop Detection", () => {
     it("should preserve autodate field with onUpdate", () => {
       assertIdempotent("autodate-on-update", {
         name: "test_autodate_on_update",
+        id: "test_autodate_on_update_id",
         type: "base",
         fields: [
           {
             name: "updatedAt",
+            id: "updatedAt_id",
             type: "autodate",
             required: true,
             options: { onCreate: true, onUpdate: true },
@@ -583,33 +635,39 @@ describe("Migration Loop Detection", () => {
     it("should preserve collection with multiple field types", () => {
       assertIdempotent("complex-collection", {
         name: "test_complex",
+        id: "test_complex_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
             options: { min: 1, max: 200 },
           },
           {
             name: "content",
+            id: "content_id",
             type: "editor",
             required: true,
           },
           {
             name: "status",
+            id: "status_id",
             type: "select",
             required: true,
             options: { values: ["draft", "active", "complete", "fail"], maxSelect: 1 },
           },
           {
             name: "summary",
+            id: "summary_id",
             type: "text",
             required: false,
             options: { max: 500 },
           },
           {
             name: "owner",
+            id: "owner_id",
             type: "relation",
             required: true,
             relation: {
@@ -621,6 +679,7 @@ describe("Migration Loop Detection", () => {
           },
           {
             name: "subscribers",
+            id: "subscribers_id",
             type: "relation",
             required: false,
             relation: {
@@ -637,15 +696,18 @@ describe("Migration Loop Detection", () => {
     it("should preserve collection with indexes", () => {
       assertIdempotent("collection-with-indexes", {
         name: "test_indexes",
+        id: "test_indexes_id",
         type: "base",
         fields: [
           {
             name: "email",
+            id: "email_id",
             type: "email",
             required: true,
           },
           {
             name: "username",
+            id: "username_id",
             type: "text",
             required: true,
             options: { min: 3, max: 50 },
@@ -661,15 +723,18 @@ describe("Migration Loop Detection", () => {
     it("should preserve collection with permissions", () => {
       assertIdempotent("collection-with-permissions", {
         name: "test_permissions",
+        id: "test_permissions_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
           },
           {
             name: "owner",
+            id: "owner_id",
             type: "relation",
             required: true,
             relation: {
@@ -707,10 +772,12 @@ describe("Migration Loop Detection", () => {
       // Step 1: Create initial schema with "Files" collection
       const filesCollection: CollectionSchema = {
         name: "Files",
+        id: "Files_id",
         type: "base",
         fields: [
           {
             name: "name",
+            id: "name_id",
             type: "text",
             required: true,
           },
@@ -743,20 +810,23 @@ describe("Migration Loop Detection", () => {
       for (const collection of firstOperations.collectionsToCreate) {
         snapshot.collections.set(collection.name, collection);
       }
-      snapshot.collections.set("users", { name: "users", type: "auth", fields: [] } as CollectionSchema);
+      snapshot.collections.set("users", { name: "users", id: "users_id", type: "auth", fields: [] } as CollectionSchema);
 
       // Step 4: Create schema with "Media" collection that has relation to "Files"
       const mediaCollection: CollectionSchema = {
         name: "Media",
+        id: "Media_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
           },
           {
             name: "proxyFileRef",
+            id: "proxyFileRef_id",
             type: "relation",
             required: false,
             relation: {
@@ -773,7 +843,7 @@ describe("Migration Loop Detection", () => {
         collections: new Map([
           ["Files", filesCollectionFromMigration!],
           ["Media", mediaCollection],
-          ["users", { name: "users", type: "auth", fields: [] } as CollectionSchema],
+          ["users", { name: "users", id: "users_id", type: "auth", fields: [] } as CollectionSchema],
         ]),
       };
 
@@ -819,10 +889,12 @@ describe("Migration Loop Detection", () => {
       // Step 1: Create initial schema with "Files" and "Media" collections (without relation)
       const filesCollection: CollectionSchema = {
         name: "Files",
+        id: "Files_id",
         type: "base",
         fields: [
           {
             name: "name",
+            id: "name_id",
             type: "text",
             required: true,
           },
@@ -831,10 +903,12 @@ describe("Migration Loop Detection", () => {
 
       const mediaCollectionInitial: CollectionSchema = {
         name: "Media",
+        id: "Media_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
           },
@@ -860,7 +934,7 @@ describe("Migration Loop Detection", () => {
       for (const collection of firstOperations.collectionsToCreate) {
         snapshot.collections.set(collection.name, collection);
       }
-      snapshot.collections.set("users", { name: "users", type: "auth", fields: [] } as CollectionSchema);
+      snapshot.collections.set("users", { name: "users", id: "users_id", type: "auth", fields: [] } as CollectionSchema);
 
       // Step 2: Add Media collection
       const mediaDiff = compare(
@@ -894,15 +968,18 @@ describe("Migration Loop Detection", () => {
       // Step 3: Add relation field to Media collection
       const mediaCollectionWithRelation: CollectionSchema = {
         name: "Media",
+        id: "Media_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
           },
           {
             name: "proxyFileRef",
+            id: "proxyFileRef_id",
             type: "relation",
             required: false,
             relation: {
@@ -948,6 +1025,7 @@ describe("Migration Loop Detection", () => {
             ...mediaCollectionInSnapshot.fields,
             {
               name: "proxyFileRef",
+              id: "proxyFileRef_id",
               type: "relation",
               required: false,
               relation: {
@@ -973,10 +1051,12 @@ describe("Migration Loop Detection", () => {
     it("should handle empty options object", () => {
       assertIdempotent("empty-options", {
         name: "test_empty_options",
+        id: "test_empty_options_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
             options: {},
@@ -988,10 +1068,12 @@ describe("Migration Loop Detection", () => {
     it("should handle undefined options", () => {
       assertIdempotent("undefined-options", {
         name: "test_undefined_options",
+        id: "test_undefined_options_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
           },
@@ -1002,6 +1084,7 @@ describe("Migration Loop Detection", () => {
     it("should handle collection with no fields", () => {
       assertIdempotent("no-fields", {
         name: "test_no_fields",
+        id: "test_no_fields_id",
         type: "base",
         fields: [],
       });
@@ -1010,10 +1093,12 @@ describe("Migration Loop Detection", () => {
     it("should handle boolean field", () => {
       assertIdempotent("bool-field", {
         name: "test_bool",
+        id: "test_bool_id",
         type: "base",
         fields: [
           {
             name: "active",
+            id: "active_id",
             type: "bool",
             required: false,
           },
@@ -1024,10 +1109,12 @@ describe("Migration Loop Detection", () => {
     it("should handle json field", () => {
       assertIdempotent("json-field", {
         name: "test_json",
+        id: "test_json_id",
         type: "base",
         fields: [
           {
             name: "metadata",
+            id: "metadata_id",
             type: "json",
             required: false,
           },
@@ -1038,10 +1125,12 @@ describe("Migration Loop Detection", () => {
     it("should handle email field", () => {
       assertIdempotent("email-field", {
         name: "test_email",
+        id: "test_email_id",
         type: "base",
         fields: [
           {
             name: "contact",
+            id: "contact_id",
             type: "email",
             required: true,
           },
@@ -1052,10 +1141,12 @@ describe("Migration Loop Detection", () => {
     it("should handle url field", () => {
       assertIdempotent("url-field", {
         name: "test_url",
+        id: "test_url_id",
         type: "base",
         fields: [
           {
             name: "website",
+            id: "website_id",
             type: "url",
             required: false,
           },
@@ -1070,33 +1161,39 @@ describe("Migration Loop Detection", () => {
       // where title and summary fields were causing migration loops
       assertIdempotent("projects-like", {
         name: "Projects",
+        id: "Projects_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
             options: { min: 1, max: 200 },
           },
           {
             name: "content",
+            id: "content_id",
             type: "editor",
             required: true,
           },
           {
             name: "status",
+            id: "status_id",
             type: "select",
             required: true,
             options: { values: ["draft", "active", "complete", "fail"], maxSelect: 1 },
           },
           {
             name: "summary",
+            id: "summary_id",
             type: "text",
             required: false,
             options: { max: 500 },
           },
           {
             name: "OwnerUser",
+            id: "OwnerUser_id",
             type: "relation",
             required: true,
             relation: {
@@ -1108,6 +1205,7 @@ describe("Migration Loop Detection", () => {
           },
           {
             name: "SubscriberUsers",
+            id: "SubscriberUsers_id",
             type: "relation",
             required: true,
             relation: {

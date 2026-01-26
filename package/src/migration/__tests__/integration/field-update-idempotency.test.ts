@@ -37,16 +37,19 @@ describe("Field Update Idempotency Integration Tests", () => {
           "test_collection",
           {
             name: "test_collection",
+            id: "test_collection_id",
             type: "base",
             fields: [
               {
                 name: "count",
+                id: "count_id",
                 type: "number",
                 required: false,
                 options: { min: 1 },
               },
               {
                 name: "status",
+                id: "status_id",
                 type: "select",
                 required: false,
                 options: {
@@ -77,16 +80,19 @@ describe("Field Update Idempotency Integration Tests", () => {
           "test_collection",
           {
             name: "test_collection",
+            id: "test_collection_id",
             type: "base",
             fields: [
               {
                 name: "count",
+                id: "count_id",
                 type: "number",
                 required: false,
                 options: { min: undefined }, // min: 1 -> undefined
               },
               {
                 name: "status",
+                id: "status_id",
                 type: "select",
                 required: false,
                 options: {

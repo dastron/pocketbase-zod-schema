@@ -20,6 +20,7 @@ export const createCollectionWithRestrictedApiRulesType = "base" as const;
 export const createCollectionWithRestrictedApiRulesFields: FieldDefinition[] = [
   {
     name: "user_relationship_column",
+    id: "user_relationship_column_id",
     type: "relation",
     required: false,
     options: {},

@@ -133,9 +133,10 @@ describe("migration-parser", () => {
         migrate((app) => {
           const collection = new Collection({
             name: "test_collection",
+            id: "test_collection_id",
             type: "base",
             fields: [
-              { name: "title", type: "text", required: true }
+              { name: "title", id: "title_id", type: "text", required: true }
             ],
             indexes: []
           });
@@ -182,6 +183,7 @@ describe("migration-parser", () => {
         migrate((app) => {
           const collection_new = new Collection({
             name: "new_collection",
+            id: "new_collection_id",
             type: "base",
             fields: []
           });
@@ -204,6 +206,7 @@ describe("migration-parser", () => {
         migrate((app) => {
           const collection1 = new Collection({
             name: "collection1",
+            id: "collection1_id",
             type: "base",
             fields: []
           });
@@ -211,6 +214,7 @@ describe("migration-parser", () => {
 
           const collection2 = new Collection({
             name: "collection2",
+            id: "collection2_id",
             type: "base",
             fields: []
           });
@@ -230,10 +234,12 @@ describe("migration-parser", () => {
         migrate((app) => {
           const collection = new Collection({
             name: "projects",
+            id: "projects_id",
             type: "base",
             fields: [
               {
                 name: "OwnerUser",
+                id: "OwnerUser_id",
                 type: "relation",
                 required: true,
                 collectionId: "_pb_users_auth_",
@@ -260,10 +266,12 @@ describe("migration-parser", () => {
         migrate((app) => {
           const collection = new Collection({
             name: "tasks",
+            id: "tasks_id",
             type: "base",
             fields: [
               {
                 name: "status",
+                id: "status_id",
                 type: "select",
                 required: true,
                 values: ["draft", "active", "complete"]
@@ -286,6 +294,7 @@ describe("migration-parser", () => {
         migrate((app) => {
           const collection = new Collection({
             name: "projects",
+            id: "projects_id",
             type: "base",
             fields: [],
             listRule: "@request.auth.id != ''",
@@ -382,10 +391,12 @@ describe("migration-parser", () => {
         migrate((app) => {
           const collection = new Collection({
             name: "complex",
+            id: "complex_id",
             type: "base",
             fields: [
               {
                 name: "nested",
+                id: "nested_id",
                 type: "json",
                 required: false,
                 options: {
@@ -394,6 +405,7 @@ describe("migration-parser", () => {
               },
               {
                 name: "relation_field",
+                id: "relation_field_id",
                 type: "relation",
                 collectionId: "_pb_users_auth_",
                 maxSelect: 999,
@@ -426,6 +438,7 @@ describe("migration-parser", () => {
       const migrationContent = `
         const collection = new Collection({
           name: "test",
+          id: "test_id",
           type: "base",
           fields: []
         });

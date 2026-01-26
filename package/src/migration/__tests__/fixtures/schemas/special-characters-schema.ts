@@ -24,6 +24,7 @@ export const specialCharactersFields: FieldDefinition[] = [
   // Text field with quotes in default value
   {
     name: "text_with_quotes",
+    id: "text_with_quotes_id",
     type: "text",
     required: false,
     options: {
@@ -35,6 +36,7 @@ export const specialCharactersFields: FieldDefinition[] = [
   // Select field with special characters in values
   {
     name: "select_with_special_chars",
+    id: "select_with_special_chars_id",
     type: "select",
     required: false,
     options: {
@@ -57,6 +59,7 @@ export const specialCharactersFields: FieldDefinition[] = [
   // Editor field (rich text) - may contain HTML/special chars
   {
     name: "editor_with_html",
+    id: "editor_with_html_id",
     type: "editor",
     required: false,
     options: {},
@@ -64,6 +67,7 @@ export const specialCharactersFields: FieldDefinition[] = [
   // JSON field - will contain complex nested structures
   {
     name: "json_with_special_chars",
+    id: "json_with_special_chars_id",
     type: "json",
     required: false,
     options: {},
@@ -71,6 +75,7 @@ export const specialCharactersFields: FieldDefinition[] = [
   // Text field with pattern containing special regex chars
   {
     name: "text_with_regex_pattern",
+    id: "text_with_regex_pattern_id",
     type: "text",
     required: false,
     options: {

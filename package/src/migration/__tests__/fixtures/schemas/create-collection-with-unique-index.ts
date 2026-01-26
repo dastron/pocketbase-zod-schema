@@ -19,6 +19,7 @@ export const createCollectionWithUniqueIndexType = "base" as const;
 export const createCollectionWithUniqueIndexFields: FieldDefinition[] = [
   {
     name: "indexed_column",
+    id: "indexed_column_id",
     type: "text",
     required: false,
     options: {},

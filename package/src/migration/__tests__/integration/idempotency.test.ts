@@ -9,7 +9,7 @@ function createSchemaDefinition(collectionSchema: any): SchemaDefinition {
   return {
     collections: new Map([
       [collectionSchema.name, collectionSchema],
-      ["users", { name: "users", type: "auth", fields: [] } as any], // Mock users collection
+      ["users", { name: "users", id: "users_id", type: "auth", fields: [] } as any], // Mock users collection
     ]),
   };
 }
@@ -44,10 +44,12 @@ describe("Migration Idempotency Tests", () => {
     // 1. Schema defines relation to "target_col" by name
     const schema: CollectionSchema = {
       name: "source_col",
+      id: "source_col_id",
       type: "base",
       fields: [
         {
           name: "rel_field",
+          id: "rel_field_id",
           type: "relation",
           required: false,
           relation: {
@@ -63,6 +65,7 @@ describe("Migration Idempotency Tests", () => {
 
     const targetSchema: CollectionSchema = {
       name: "target_col",
+      id: "target_col_id",
       type: "base",
       fields: [],
     };
@@ -151,6 +154,7 @@ describe("Migration Idempotency Tests", () => {
       // 2. Add Text Field
       collectionFields.push({
         name: "title",
+        id: "title_id",
         type: "text",
         required: true,
         options: { min: 1, max: 100, pattern: "" },
@@ -165,6 +169,7 @@ describe("Migration Idempotency Tests", () => {
       // 3. Add Number Field
       collectionFields.push({
         name: "count",
+        id: "count_id",
         type: "number",
         required: false,
         options: { min: 0, max: 1000, noDecimal: true },
@@ -179,6 +184,7 @@ describe("Migration Idempotency Tests", () => {
       // 4. Add Bool Field
       collectionFields.push({
         name: "active",
+        id: "active_id",
         type: "bool",
         required: false,
         options: {},
@@ -193,6 +199,7 @@ describe("Migration Idempotency Tests", () => {
       // 5. Add Email Field
       collectionFields.push({
         name: "contact_email",
+        id: "contact_email_id",
         type: "email",
         required: false,
         options: { exceptDomains: [], onlyDomains: [] },
@@ -207,6 +214,7 @@ describe("Migration Idempotency Tests", () => {
       // 6. Add Url Field
       collectionFields.push({
         name: "website",
+        id: "website_id",
         type: "url",
         required: false,
         options: { exceptDomains: [], onlyDomains: [] },
@@ -221,6 +229,7 @@ describe("Migration Idempotency Tests", () => {
       // 7. Add Date Field
       collectionFields.push({
         name: "event_date",
+        id: "event_date_id",
         type: "date",
         required: false,
         options: { min: "", max: "" },
@@ -235,6 +244,7 @@ describe("Migration Idempotency Tests", () => {
       // 8. Add Select Field
       collectionFields.push({
         name: "category",
+        id: "category_id",
         type: "select",
         required: false,
         options: { maxSelect: 1, values: ["a", "b", "c"] },
@@ -249,6 +259,7 @@ describe("Migration Idempotency Tests", () => {
       // 9. Add Json Field
       collectionFields.push({
         name: "metadata",
+        id: "metadata_id",
         type: "json",
         required: false,
         options: {},
@@ -263,6 +274,7 @@ describe("Migration Idempotency Tests", () => {
       // 10. Add File Field
       collectionFields.push({
         name: "attachment",
+        id: "attachment_id",
         type: "file",
         required: false,
         options: { maxSelect: 1, maxSize: 5242880, mimeTypes: [], thumbs: [] },
@@ -277,6 +289,7 @@ describe("Migration Idempotency Tests", () => {
       // 11. Add Relation Field
       collectionFields.push({
         name: "owner",
+        id: "owner_id",
         type: "relation",
         required: false,
         relation: {
@@ -300,10 +313,12 @@ describe("Migration Idempotency Tests", () => {
       // because it wasn't being normalized against null/undefined in the snapshot
       const schema = createSchemaDefinition({
         name: "relation_loop_repro",
+        id: "relation_loop_repro_id",
         type: "base",
         fields: [
           {
             name: "rel_field",
+            id: "rel_field_id",
             type: "relation",
             required: false,
             relation: {

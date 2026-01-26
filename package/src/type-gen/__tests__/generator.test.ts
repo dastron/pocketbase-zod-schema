@@ -8,8 +8,8 @@ describe("TypeGenerator", () => {
       name: "users",
       type: "auth",
       fields: [
-        { name: "name", type: "text", required: false },
-        { name: "age", type: "number", required: true },
+        { id: "pb_name_field", name: "name", type: "text", required: false },
+        { id: "pb_age_field", name: "age", type: "number", required: true },
       ],
     };
 
@@ -37,14 +37,16 @@ describe("TypeGenerator", () => {
       name: "posts",
       type: "base",
       fields: [
-        { name: "title", type: "text", required: true },
+        { id: "pb_title_field", name: "title", type: "text", required: true },
         {
+          id: "pb_author_field",
           name: "author",
           type: "relation",
           required: true,
           relation: { collection: "users", maxSelect: 1 },
         },
         {
+          id: "pb_reviewers_field",
           name: "reviewers",
           type: "relation",
           required: false,
@@ -72,21 +74,23 @@ describe("TypeGenerator", () => {
   });
 
   it("should handle select with values", () => {
-     const postsCollection: CollectionSchema = {
+    const postsCollection: CollectionSchema = {
       name: "posts",
       type: "base",
       fields: [
         {
-            name: "status",
-            type: "select",
-            required: true,
-            options: { values: ["draft", "published"], maxSelect: 1 }
+          id: "pb_status_field",
+          name: "status",
+          type: "select",
+          required: true,
+          options: { values: ["draft", "published"], maxSelect: 1 }
         },
-         {
-            name: "tags",
-            type: "select",
-            required: false,
-            options: { values: ["news", "tech"], maxSelect: 2 }
+        {
+          id: "pb_tags_field",
+          name: "tags",
+          type: "select",
+          required: false,
+          options: { values: ["news", "tech"], maxSelect: 2 }
         },
       ],
     };

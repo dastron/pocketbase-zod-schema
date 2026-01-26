@@ -14,8 +14,9 @@ describe("Integration: Create, Update, Check Status", () => {
           "test_collection",
           {
             name: "test_collection",
+            id: "test_collection_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
           },
         ],
       ]),

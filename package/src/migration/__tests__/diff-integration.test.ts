@@ -14,8 +14,9 @@ describe("Diff Engine - Permission Integration", () => {
           "projects",
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
             permissions: {
               listRule: "",
               viewRule: "",
@@ -36,8 +37,9 @@ describe("Diff Engine - Permission Integration", () => {
           "projects",
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
             permissions: {
               listRule: '@request.auth.id != ""',
               viewRule: '@request.auth.id != ""',
@@ -90,8 +92,9 @@ describe("Diff Engine - Permission Integration", () => {
           "projects",
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
             permissions: {
               listRule: '@request.auth.id != ""',
               viewRule: '@request.auth.id != ""',
@@ -112,8 +115,9 @@ describe("Diff Engine - Permission Integration", () => {
           "projects",
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
             permissions: {
               listRule: '@request.auth.id != ""',
               viewRule: '@request.auth.id != ""',
@@ -140,8 +144,9 @@ describe("Diff Engine - Permission Integration", () => {
           "projects",
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
             permissions: {
               listRule: "",
               viewRule: "",
@@ -180,10 +185,11 @@ describe("Diff Engine - Permission Integration", () => {
           "users",
           {
             name: "users",
+            id: "users_id",
             type: "auth",
             fields: [
-              { name: "email", type: "email", required: true },
-              { name: "password", type: "text", required: true },
+              { name: "email", id: "email_id", type: "email", required: true },
+              { name: "password", id: "password_id", type: "text", required: true },
             ],
             permissions: {
               listRule: '@request.auth.id != ""',
@@ -206,10 +212,11 @@ describe("Diff Engine - Permission Integration", () => {
           "users",
           {
             name: "users",
+            id: "users_id",
             type: "auth",
             fields: [
-              { name: "email", type: "email", required: true },
-              { name: "password", type: "text", required: true },
+              { name: "email", id: "email_id", type: "email", required: true },
+              { name: "password", id: "password_id", type: "text", required: true },
             ],
             permissions: {
               listRule: '@request.auth.id != ""',

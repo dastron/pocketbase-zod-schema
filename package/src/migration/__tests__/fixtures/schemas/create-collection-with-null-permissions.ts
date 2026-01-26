@@ -19,6 +19,7 @@ export const createCollectionWithNullPermissionsType = "base" as const;
 export const createCollectionWithNullPermissionsFields: FieldDefinition[] = [
   {
     name: "title",
+    id: "title_id",
     type: "text",
     required: true,
     options: {
@@ -31,6 +32,7 @@ export const createCollectionWithNullPermissionsFields: FieldDefinition[] = [
   },
   {
     name: "description",
+    id: "description_id",
     type: "text",
     required: false,
     options: {

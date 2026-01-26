@@ -1,4 +1,5 @@
 import type { CollectionSchema, FieldDefinition, PocketBaseFieldType, SchemaDefinition } from "../../types";
+import { generateFieldId } from "../../utils/collection-id-generator.js";
 
 /**
  * Builder for creating test schema definitions with a fluent API
@@ -57,6 +58,7 @@ export class CollectionBuilder {
   addField(name: string, type: PocketBaseFieldType, options?: Partial<FieldDefinition>): this {
     const field: FieldDefinition = {
       name,
+      id: options?.id ?? generateFieldId(type, name),
       type,
       required: options?.required ?? false,
       unique: options?.unique,

@@ -133,10 +133,12 @@ describe("unchanged-schema detection", () => {
     it("should preserve select field values through conversion", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
           {
             name: "status",
+            id: "status_id",
             type: "select",
             required: true,
             values: ["draft", "active", "complete"],
@@ -157,10 +159,12 @@ describe("unchanged-schema detection", () => {
     it("should preserve relation field configuration through conversion", () => {
       const pbCollection = {
         name: "projects",
+        id: "projects_id",
         type: "base",
         fields: [
           {
             name: "owner",
+            id: "owner_id",
             type: "relation",
             required: true,
             collectionId: "_pb_users_auth_",
@@ -170,6 +174,7 @@ describe("unchanged-schema detection", () => {
           },
           {
             name: "subscribers",
+            id: "subscribers_id",
             type: "relation",
             required: true,
             collectionId: "_pb_users_auth_",
@@ -195,6 +200,7 @@ describe("unchanged-schema detection", () => {
     it("should preserve permissions through conversion", () => {
       const pbCollection = {
         name: "projects",
+        id: "projects_id",
         type: "base",
         fields: [],
         listRule: "@request.auth.id != ''",
@@ -219,6 +225,7 @@ describe("unchanged-schema detection", () => {
     it("should preserve null permissions through conversion", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [],
         listRule: null,
@@ -243,6 +250,7 @@ describe("unchanged-schema detection", () => {
     it("should preserve empty string permissions through conversion", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [],
         listRule: "",

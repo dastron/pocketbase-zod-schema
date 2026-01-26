@@ -309,7 +309,7 @@ function parseMigrationOperationsFromContent(content: string): {
     // Check assignments: const col = app.findCollectionByNameOrId("name"); app.delete(col);
     const varAssignments = new Map<string, string>();
     const assignmentMatches = content.matchAll(
-      /const\s+(\w+)\s*=\s*app\.findCollectionByNameOrId\s*\(\s*["']([^"']+)["']\s*\)(?:\s*\/\/\s*([^\n\r;]+))?/g
+      /const\s+(\w+)\s*=\s*app\.findCollectionByNameOrId\s*\(\s*["']([^"']+)["']\s*\)(?:[ \t]*\/\/\s*([^\n\r;]+))?/g
     );
     for (const match of assignmentMatches) {
       const name = match[3] ? match[3].trim() : match[2];
@@ -352,9 +352,11 @@ function parseMigrationOperationsFromContent(content: string): {
       }
     }
 
-    // 3a. fields.add
-    // Pattern: colVar.fields.add(new TypeField({...}))
-    const addFieldMatches = content.matchAll(/(\w+)\.fields\.add\s*\(\s*new\s+\w+Field\s*\(/g);
+    // 3a. fields.add and fields.addAt
+    // Pattern: colVar.fields.add(new TypeField({...})) OR colVar.fields.addAt(index, new TypeField({...}))
+    const addFieldMatches = content.matchAll(
+      /(\w+)\.fields\.(?:add|addAt)\s*\((?:\s*\d+\s*,)?\s*new\s+\w*Field\s*\(/g
+    );
     for (const match of addFieldMatches) {
       const [fullMatch, colVar] = match;
       const colInfo = variables.get(colVar);
@@ -397,7 +399,7 @@ function parseMigrationOperationsFromContent(content: string): {
           if (bCount === 0) {
             const objStr = content.substring(objStart, j);
             // We also need the type. Regex `new (\w+)Field`
-            const typeMatch = fullMatch.match(/new\s+(\w+)Field/);
+            const typeMatch = fullMatch.match(/new\s+(\w*)Field/);
             // const fieldTypeStr = typeMatch ? typeMatch[1].toLowerCase() : "text"; // Default/Fallback
 
             try {

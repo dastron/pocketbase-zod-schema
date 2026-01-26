@@ -22,6 +22,7 @@ export const unicodeFields: FieldDefinition[] = [
   // Select field with emoji
   {
     name: "emoji_select",
+    id: "emoji_select_id",
     type: "select",
     required: false,
     options: {
@@ -32,6 +33,7 @@ export const unicodeFields: FieldDefinition[] = [
   // Select field with CJK characters
   {
     name: "cjk_select",
+    id: "cjk_select_id",
     type: "select",
     required: false,
     options: {
@@ -42,6 +44,7 @@ export const unicodeFields: FieldDefinition[] = [
   // Select field with accented characters
   {
     name: "accented_select",
+    id: "accented_select_id",
     type: "select",
     required: false,
     options: {
@@ -52,6 +55,7 @@ export const unicodeFields: FieldDefinition[] = [
   // Select field with mathematical symbols
   {
     name: "math_symbols_select",
+    id: "math_symbols_select_id",
     type: "select",
     required: false,
     options: {
@@ -71,6 +75,7 @@ export const unicodeFields: FieldDefinition[] = [
   // Select field with currency symbols
   {
     name: "currency_select",
+    id: "currency_select_id",
     type: "select",
     required: false,
     options: {
@@ -81,6 +86,7 @@ export const unicodeFields: FieldDefinition[] = [
   // Text field for general unicode content
   {
     name: "unicode_text",
+    id: "unicode_text_id",
     type: "text",
     required: false,
     options: {},

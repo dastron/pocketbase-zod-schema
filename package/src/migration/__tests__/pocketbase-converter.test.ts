@@ -49,10 +49,12 @@ describe("pocketbase-converter", () => {
       it("should extract min option from direct field property", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "title",
+              id: "title_id",
               type: "text",
               required: true,
               min: 5,
@@ -69,10 +71,12 @@ describe("pocketbase-converter", () => {
       it("should extract max option from direct field property", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "title",
+              id: "title_id",
               type: "text",
               required: true,
               max: 100,
@@ -89,10 +93,12 @@ describe("pocketbase-converter", () => {
       it("should extract pattern option from direct field property", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "code",
+              id: "code_id",
               type: "text",
               required: true,
               pattern: "^[A-Z]{3}$",
@@ -109,10 +115,12 @@ describe("pocketbase-converter", () => {
       it("should extract noDecimal option from direct field property", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "count",
+              id: "count_id",
               type: "number",
               required: true,
               noDecimal: true,
@@ -129,10 +137,12 @@ describe("pocketbase-converter", () => {
       it("should extract values option from direct field property for select fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "status",
+              id: "status_id",
               type: "select",
               required: true,
               values: ["draft", "published", "archived"],
@@ -149,10 +159,12 @@ describe("pocketbase-converter", () => {
       it("should extract maxSelect option from direct field property for select fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "tags",
+              id: "tags_id",
               type: "select",
               required: false,
               maxSelect: 5,
@@ -170,10 +182,12 @@ describe("pocketbase-converter", () => {
       it("should extract mimeTypes option from direct field property for file fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "avatar",
+              id: "avatar_id",
               type: "file",
               required: false,
               mimeTypes: ["image/png", "image/jpeg"],
@@ -190,10 +204,12 @@ describe("pocketbase-converter", () => {
       it("should extract maxSize option from direct field property for file fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "document",
+              id: "document_id",
               type: "file",
               required: false,
               maxSize: 5242880,
@@ -210,10 +226,12 @@ describe("pocketbase-converter", () => {
       it("should extract thumbs option from direct field property for file fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "image",
+              id: "image_id",
               type: "file",
               required: false,
               thumbs: ["100x100", "200x200"],
@@ -230,10 +248,12 @@ describe("pocketbase-converter", () => {
       it("should extract protected option from direct field property for file fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "private_file",
+              id: "private_file_id",
               type: "file",
               required: false,
               protected: true,
@@ -250,10 +270,12 @@ describe("pocketbase-converter", () => {
       it("should extract onCreate option from direct field property for autodate fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "created_at",
+              id: "created_at_id",
               type: "autodate",
               required: false,
               onCreate: true,
@@ -270,10 +292,12 @@ describe("pocketbase-converter", () => {
       it("should extract onUpdate option from direct field property for autodate fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "updated_at",
+              id: "updated_at_id",
               type: "autodate",
               required: false,
               onUpdate: true,
@@ -290,10 +314,12 @@ describe("pocketbase-converter", () => {
       it("should extract exceptDomains option from direct field property for email/url fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "email",
+              id: "email_id",
               type: "email",
               required: false,
               exceptDomains: ["spam.com", "blocked.com"],
@@ -310,10 +336,12 @@ describe("pocketbase-converter", () => {
       it("should extract onlyDomains option from direct field property for email/url fields", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "corporate_email",
+              id: "corporate_email_id",
               type: "email",
               required: false,
               onlyDomains: ["company.com", "corp.com"],
@@ -330,10 +358,12 @@ describe("pocketbase-converter", () => {
       it("should extract multiple options from direct field properties", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "title",
+              id: "title_id",
               type: "text",
               required: true,
               min: 5,
@@ -354,10 +384,12 @@ describe("pocketbase-converter", () => {
       it("should merge nested options with direct properties", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "title",
+              id: "title_id",
               type: "text",
               required: true,
               min: 5,
@@ -380,10 +412,12 @@ describe("pocketbase-converter", () => {
       it("should give precedence to direct properties over nested options", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "title",
+              id: "title_id",
               type: "text",
               required: true,
               min: 10, // Direct property
@@ -405,10 +439,12 @@ describe("pocketbase-converter", () => {
       it("should handle empty options object", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "simple",
+              id: "simple_id",
               type: "text",
               required: false,
               options: {},
@@ -425,10 +461,12 @@ describe("pocketbase-converter", () => {
       it("should handle null options", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "simple",
+              id: "simple_id",
               type: "text",
               required: false,
               options: null,
@@ -445,10 +483,12 @@ describe("pocketbase-converter", () => {
       it("should handle undefined options", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "simple",
+              id: "simple_id",
               type: "text",
               required: false,
             },
@@ -464,10 +504,12 @@ describe("pocketbase-converter", () => {
       it("should handle undefined direct property values", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "title",
+              id: "title_id",
               type: "text",
               required: false,
               min: undefined,
@@ -485,10 +527,12 @@ describe("pocketbase-converter", () => {
       it("should preserve zero values in options", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "count",
+              id: "count_id",
               type: "number",
               required: false,
               min: 0,
@@ -507,10 +551,12 @@ describe("pocketbase-converter", () => {
       it("should preserve false values in options", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "count",
+              id: "count_id",
               type: "number",
               required: false,
               noDecimal: false,
@@ -527,10 +573,12 @@ describe("pocketbase-converter", () => {
       it("should preserve empty string values in options", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "title",
+              id: "title_id",
               type: "text",
               required: false,
               pattern: "",
@@ -547,10 +595,12 @@ describe("pocketbase-converter", () => {
       it("should preserve empty array values in options", () => {
         const pbCollection = {
           name: "test",
+          id: "test_id",
           type: "base",
           fields: [
             {
               name: "tags",
+              id: "tags_id",
               type: "select",
               required: false,
               values: [],
@@ -568,6 +618,7 @@ describe("pocketbase-converter", () => {
     it("should convert a minimal collection", () => {
       const pbCollection = {
         name: "test_collection",
+        id: "test_collection_id",
         type: "base",
         fields: [],
         indexes: [],
@@ -585,12 +636,13 @@ describe("pocketbase-converter", () => {
     it("should skip system fields", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
-          { name: "id", type: "text", system: true },
-          { name: "created", type: "autodate", system: true },
-          { name: "updated", type: "autodate", system: true },
-          { name: "custom_field", type: "text", system: false },
+          { name: "id", id: "id_id", type: "text", system: true },
+          { name: "created", id: "created_id", type: "autodate", system: true },
+          { name: "updated", id: "updated_id", type: "autodate", system: true },
+          { name: "custom_field", id: "custom_field_id", type: "text", system: false },
         ],
       };
 
@@ -603,12 +655,13 @@ describe("pocketbase-converter", () => {
     it("should skip system fields by name even if system flag is false", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
-          { name: "id", type: "text", system: false }, // Some exports mark these as system: false
-          { name: "created", type: "autodate", system: false },
-          { name: "updated", type: "autodate", system: false },
-          { name: "custom_field", type: "text", system: false },
+          { name: "id", id: "id_id", type: "text", system: false }, // Some exports mark these as system: false
+          { name: "created", id: "created_id", type: "autodate", system: false },
+          { name: "updated", id: "updated_id", type: "autodate", system: false },
+          { name: "custom_field", id: "custom_field_id", type: "text", system: false },
         ],
       };
 
@@ -621,14 +674,15 @@ describe("pocketbase-converter", () => {
     it("should skip auth system fields for auth collections", () => {
       const pbCollection = {
         name: "users",
+        id: "users_id",
         type: "auth",
         fields: [
-          { name: "email", type: "email", system: true },
-          { name: "password", type: "password", system: true },
-          { name: "emailVisibility", type: "bool", system: true },
-          { name: "verified", type: "bool", system: true },
-          { name: "tokenKey", type: "text", system: true },
-          { name: "custom_field", type: "text", system: false },
+          { name: "email", id: "email_id", type: "email", system: true },
+          { name: "password", id: "password_id", type: "password", system: true },
+          { name: "emailVisibility", id: "emailVisibility_id", type: "bool", system: true },
+          { name: "verified", id: "verified_id", type: "bool", system: true },
+          { name: "tokenKey", id: "tokenKey_id", type: "text", system: true },
+          { name: "custom_field", id: "custom_field_id", type: "text", system: false },
         ],
       };
 
@@ -641,10 +695,12 @@ describe("pocketbase-converter", () => {
     it("should convert text field with options", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
             max: 100,
@@ -659,6 +715,7 @@ describe("pocketbase-converter", () => {
       expect(result.fields).toHaveLength(1);
       expect(result.fields[0]).toMatchObject({
         name: "title",
+        id: "title_id",
         type: "text",
         required: true,
       });
@@ -670,10 +727,12 @@ describe("pocketbase-converter", () => {
     it("should convert select field with values", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
           {
             name: "status",
+            id: "status_id",
             type: "select",
             required: true,
             values: ["draft", "active", "complete"],
@@ -686,6 +745,7 @@ describe("pocketbase-converter", () => {
       expect(result.fields).toHaveLength(1);
       expect(result.fields[0]).toMatchObject({
         name: "status",
+        id: "status_id",
         type: "select",
         required: true,
         options: {
@@ -697,10 +757,12 @@ describe("pocketbase-converter", () => {
     it("should convert select field with values in options", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
           {
             name: "status",
+            id: "status_id",
             type: "select",
             required: true,
             options: {
@@ -719,10 +781,12 @@ describe("pocketbase-converter", () => {
     it("should convert relation field with collectionId", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
           {
             name: "owner",
+            id: "owner_id",
             type: "relation",
             required: true,
             collectionId: "_pb_users_auth_",
@@ -738,6 +802,7 @@ describe("pocketbase-converter", () => {
       expect(result.fields).toHaveLength(1);
       expect(result.fields[0]).toMatchObject({
         name: "owner",
+        id: "owner_id",
         type: "relation",
         required: true,
         relation: {
@@ -752,10 +817,12 @@ describe("pocketbase-converter", () => {
     it("should convert relation field with collectionId in options", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
           {
             name: "owner",
+            id: "owner_id",
             type: "relation",
             required: true,
             options: {
@@ -778,10 +845,12 @@ describe("pocketbase-converter", () => {
     it("should convert relation field with multiple maxSelect", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
           {
             name: "subscribers",
+            id: "subscribers_id",
             type: "relation",
             required: true,
             collectionId: "_pb_users_auth_",
@@ -800,6 +869,7 @@ describe("pocketbase-converter", () => {
     it("should convert permissions/rules", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [],
         listRule: "@request.auth.id != ''",
@@ -824,6 +894,7 @@ describe("pocketbase-converter", () => {
     it("should set permissions to match rules", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [],
         listRule: "@request.auth.id != ''",
@@ -838,6 +909,7 @@ describe("pocketbase-converter", () => {
     it("should handle null permissions", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [],
         listRule: null,
@@ -858,6 +930,7 @@ describe("pocketbase-converter", () => {
     it("should handle empty string permissions", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [],
         listRule: "",
@@ -873,6 +946,7 @@ describe("pocketbase-converter", () => {
     it("should convert indexes", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [],
         indexes: ["CREATE INDEX idx_name ON test (name)"],
@@ -886,6 +960,7 @@ describe("pocketbase-converter", () => {
     it("should handle collection without indexes", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [],
       };
@@ -909,10 +984,12 @@ describe("pocketbase-converter", () => {
     it("should clean up empty options object", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
           {
             name: "simple_field",
+            id: "simple_field_id",
             type: "text",
             required: false,
             options: {},
@@ -928,10 +1005,12 @@ describe("pocketbase-converter", () => {
     it("should preserve options with values for select fields", () => {
       const pbCollection = {
         name: "test",
+        id: "test_id",
         type: "base",
         fields: [
           {
             name: "status",
+            id: "status_id",
             type: "select",
             required: false,
             values: ["active"],
@@ -953,9 +1032,10 @@ describe("pocketbase-converter", () => {
           const snapshot = [
             {
               name: "test_collection",
+              id: "test_collection_id",
               type: "base",
               fields: [
-                { name: "title", type: "text", required: true }
+                { name: "title", id: "title_id", type: "text", required: true }
               ],
               indexes: []
             }
@@ -979,11 +1059,13 @@ describe("pocketbase-converter", () => {
           const snapshot = [
             {
               name: "collection1",
+              id: "collection1_id",
               type: "base",
               fields: []
             },
             {
               name: "collection2",
+              id: "collection2_id",
               type: "base",
               fields: []
             }
@@ -1004,6 +1086,7 @@ describe("pocketbase-converter", () => {
           const snapshot = [
             {
               name: "valid_collection",
+              id: "valid_collection_id",
               type: "base",
               fields: []
             },

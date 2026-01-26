@@ -99,6 +99,7 @@ export function getSystemFields(): FieldDefinition[] {
     // id field - primary key, auto-generated
     {
       name: "id",
+      id: "text3208210256",
       type: "text",
       required: true,
       options: {
@@ -116,6 +117,7 @@ export function getSystemFields(): FieldDefinition[] {
     // created field - autodate, set on creation
     {
       name: "created",
+      id: "autodate2990389176",
       type: "autodate",
       required: true,
       options: {
@@ -130,6 +132,7 @@ export function getSystemFields(): FieldDefinition[] {
     // updated field - autodate, set on creation and update
     {
       name: "updated",
+      id: "autodate3332085495",
       type: "autodate",
       required: true,
       options: {

@@ -9,6 +9,7 @@ describe("Reproduction of Issues", () => {
       type: "create" as const,
       collection: {
         name: "LabelClips",
+        id: "LabelClips_id",
         type: "base" as const,
         fields: [],
       },
@@ -21,11 +22,11 @@ describe("Reproduction of Issues", () => {
 
   it("should generate correct delete migration with reconstruction in down", () => {
     const collectionToDelete: CollectionSchema = {
+      id: "pb_hfau4b1bi8yfufa",
       name: "LabelClips",
       type: "base",
-      id: "pb_hfau4b1bi8yfufa",
       fields: [
-        { name: "title", type: "text", required: false },
+        { name: "title", id: "title_id", type: "text", required: false },
       ],
       indexes: [],
       rules: {},

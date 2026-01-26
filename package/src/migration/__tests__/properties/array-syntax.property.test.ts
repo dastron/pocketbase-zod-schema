@@ -60,10 +60,12 @@ describe("Array Syntax Property Tests", () => {
         fc.property(fc.constant([]), (values) => {
           const schema: CollectionSchema = {
             name: "test_empty_array",
+            id: "test_empty_array_id",
             type: "base",
             fields: [
               {
                 name: "select_field",
+                id: "select_field_id",
                 type: "select",
                 required: false,
                 options: {
