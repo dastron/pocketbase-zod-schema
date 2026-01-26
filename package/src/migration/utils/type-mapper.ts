@@ -37,6 +37,7 @@ export const POCKETBASE_FIELD_TYPES: readonly PocketBaseFieldType[] = [
   "editor",
   "geoPoint",
   "autodate",
+  "password",
 ] as const;
 
 /**
@@ -56,6 +57,12 @@ export const FIELD_TYPE_INFO: Record<PocketBaseFieldType, FieldTypeInfo> = {
   text: {
     type: "text",
     description: "Plain text field",
+    zodTypes: ["ZodString"],
+    supportsMultiple: false,
+  },
+  password: {
+    type: "password",
+    description: "Password field (system)",
     zodTypes: ["ZodString"],
     supportsMultiple: false,
   },

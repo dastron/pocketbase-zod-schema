@@ -26,7 +26,8 @@ export type PocketBaseFieldType =
   | "relation"
   | "file"
   | "json"
-  | "geoPoint";
+  | "geoPoint"
+  | "password";
 
 /**
  * Field metadata structure embedded in Zod schema descriptions

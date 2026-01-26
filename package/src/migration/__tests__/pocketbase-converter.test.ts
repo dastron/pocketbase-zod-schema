@@ -671,7 +671,7 @@ describe("pocketbase-converter", () => {
       expect(result.fields[0].name).toBe("custom_field");
     });
 
-    it("should skip auth system fields for auth collections", () => {
+    it("should include auth system fields for auth collections", () => {
       const pbCollection = {
         name: "users",
         id: "users_id",
@@ -688,8 +688,14 @@ describe("pocketbase-converter", () => {
 
       const result = convertPocketBaseCollection(pbCollection);
 
-      expect(result.fields).toHaveLength(1);
-      expect(result.fields[0].name).toBe("custom_field");
+      expect(result.fields).toHaveLength(6);
+      const fieldNames = result.fields.map((f) => f.name);
+      expect(fieldNames).toContain("email");
+      expect(fieldNames).toContain("password");
+      expect(fieldNames).toContain("emailVisibility");
+      expect(fieldNames).toContain("verified");
+      expect(fieldNames).toContain("tokenKey");
+      expect(fieldNames).toContain("custom_field");
     });
 
     it("should convert text field with options", () => {

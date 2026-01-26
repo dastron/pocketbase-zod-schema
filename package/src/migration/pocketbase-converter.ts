@@ -152,21 +152,22 @@ export function convertPocketBaseCollection(pbCollection: any): CollectionSchema
   // System field names that should always be excluded
   const systemFieldNames = ["id", "created", "updated", "collectionId", "collectionName", "expand"];
 
-  // Auth collection system field names
-  const authSystemFieldNames = ["email", "emailVisibility", "verified", "password", "tokenKey"];
-
   // Convert PocketBase fields to our FieldDefinition format
   if (pbCollection.fields && Array.isArray(pbCollection.fields)) {
     for (const pbField of pbCollection.fields) {
       // Skip system fields by checking both the system flag and field name
       // Some PocketBase exports mark created/updated as system: false
       if (pbField.system || systemFieldNames.includes(pbField.name)) {
-        continue;
-      }
+        // For auth collections, we want to keep the system fields (email, password, etc.)
+        // These are marked as system: true in PocketBase, but we need them in our schema
+        // to match the CLI behavior which includes them in the fields array
+        const isAuthSystemField =
+          pbCollection.type === "auth" &&
+          ["email", "emailVisibility", "verified", "password", "tokenKey"].includes(pbField.name);
 
-      // Skip auth system fields for auth collections
-      if (pbCollection.type === "auth" && authSystemFieldNames.includes(pbField.name)) {
-        continue;
+        if (!isAuthSystemField) {
+          continue;
+        }
       }
 
       const field = convertPocketBaseField(pbField);

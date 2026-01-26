@@ -166,10 +166,72 @@ export function convertZodSchemaToCollectionSchema(
   // Build field definitions with constraints
   let fields: FieldDefinition[] = rawFields.map(({ name, zodType }) => buildFieldDefinition(name, zodType));
 
-  // Exclude auth system fields for auth collections (PocketBase adds them automatically)
+  // Ensure auth system fields exist for auth collections
   if (collectionType === "auth") {
-    const authSystemFieldNames = ["email", "emailVisibility", "verified", "password", "tokenKey"];
-    fields = fields.filter((field) => !authSystemFieldNames.includes(field.name));
+    // These fields are required for auth collections and should match the native CLI output
+    // Options are set to match PocketBase defaults found in snapshots
+    const authSystemFields = [
+      {
+        name: "password",
+        type: "password",
+        required: true,
+        options: { min: 8, max: 0, pattern: "" },
+      },
+      {
+        name: "email",
+        type: "email",
+        required: true,
+        options: { exceptDomains: null, onlyDomains: null },
+      },
+      {
+        name: "emailVisibility",
+        type: "bool",
+        required: false,
+        options: {},
+      },
+      {
+        name: "verified",
+        type: "bool",
+        required: false,
+        options: {},
+      },
+      {
+        name: "tokenKey",
+        type: "text",
+        required: true,
+        options: { min: 30, max: 60, pattern: "" },
+      },
+    ] as const;
+
+    // Add or update auth fields
+    for (const authField of authSystemFields) {
+      const existingFieldIndex = fields.findIndex((f) => f.name === authField.name);
+
+      if (existingFieldIndex !== -1) {
+        // Update existing field to ensure correct type and required status
+        const existingField = fields[existingFieldIndex];
+
+        // Merge options: defaults -> existing -> forced overrides (none currently)
+        // We want to ensure specific options like min/max match defaults if not set
+        const mergedOptions = { ...authField.options, ...existingField.options };
+
+        fields[existingFieldIndex] = {
+          ...existingField,
+          type: authField.type, // Force correct type (e.g. 'text' -> 'password')
+          required: authField.required, // Force correct required status
+          options: mergedOptions,
+        };
+      } else {
+        // Add missing field
+        fields.push({
+          name: authField.name,
+          id: generateFieldId(authField.type, authField.name),
+          type: authField.type,
+          required: authField.required,
+          options: authField.options,
+        });
+      }
+    }
   }
 
   // Extract indexes from schema
