@@ -198,6 +198,10 @@ describe("Auth Collection Type Generation", () => {
     expect(fieldNames).toContain("emailVisibility");
     expect(fieldNames).toContain("verified");
 
+    // Verify no duplicates in fields
+    const uniqueFieldNames = new Set(fieldNames);
+    expect(fieldNames.length).toBe(uniqueFieldNames.size);
+
     // Verify permissions
     expect(collection.rules).toBeDefined();
     expect(collection.rules.listRule).toBe("id = @request.auth.id");

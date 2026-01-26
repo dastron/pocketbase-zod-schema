@@ -39,7 +39,11 @@ export function generateCollectionCreation(
   }
 
   // Filter out system fields (they will be added back in correct order)
-  const userFields = collection.fields.filter((f) => f.name !== "created" && f.name !== "updated" && f.name !== "id");
+  const systemFieldNames = ["created", "updated", "id"];
+  if (collection.type === "auth") {
+    systemFieldNames.push(...getAuthSystemFields().map((f) => f.name));
+  }
+  const userFields = collection.fields.filter((f) => !systemFieldNames.includes(f.name));
 
   // Build field list in correct order: id, [auth fields], user fields
   const allFields = [...getSystemFields().filter((f) => f.name === "id")];
