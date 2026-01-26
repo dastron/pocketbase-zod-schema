@@ -164,7 +164,11 @@ export function convertZodSchemaToCollectionSchema(
   const collectionType = explicitType ?? (isAuthCollection(rawFields) ? "auth" : "base");
 
   // Build field definitions with constraints
-  const fields: FieldDefinition[] = rawFields.map(({ name, zodType }) => buildFieldDefinition(name, zodType));
+  const fields: FieldDefinition[] = rawFields
+    // Explicitly filter out system fields that might have slipped through
+    // This can happen if the schema was constructed manually without base schema
+    .filter((f) => !["created", "updated"].includes(f.name))
+    .map(({ name, zodType }) => buildFieldDefinition(name, zodType));
 
   // Ensure auth system fields exist for auth collections
   if (collectionType === "auth") {
@@ -287,7 +291,8 @@ export function convertZodSchemaToCollectionSchema(
       createRule: permissions?.createRule ?? null,
       updateRule: permissions?.updateRule ?? null,
       deleteRule: permissions?.deleteRule ?? null,
-      manageRule: collectionType === "auth" ? (permissions?.manageRule ?? null) : undefined,
+      // Default manageRule to null even for base collections to match native CLI behavior
+      manageRule: permissions?.manageRule ?? null,
     },
     permissions,
   };

@@ -396,14 +396,20 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
    */
   private compareFilenames(nativeFilename: string, libraryFilename: string): FilenameComparison {
     // Extract timestamp from filename (format: YYYYMMDDHHMMSS_description.js)
-    const timestampRegex = /^(\d{13,14})_/;
+    // Handle optional _captured_ prefix in native filename
+    const timestampRegex = /(?:^|_captured_)(\d{13,14})_/;
     const nativeTimestamp = nativeFilename.match(timestampRegex)?.[1];
     const libraryTimestamp = libraryFilename.match(timestampRegex)?.[1];
 
     const timestampMatch = !!nativeTimestamp && !!libraryTimestamp;
 
     // Check if the description part matches (after timestamp)
-    const nativeDescription = nativeFilename.replace(timestampRegex, '');
+    // Also handle potential trailing underscore in native captured files
+    let nativeDescription = nativeFilename.replace(timestampRegex, '');
+    if (nativeFilename.includes('_captured_') && nativeDescription.endsWith('_.js')) {
+      nativeDescription = nativeDescription.replace(/_\.js$/, '.js');
+    }
+
     const libraryDescription = libraryFilename.replace(timestampRegex, '');
     const namePatternMatch = nativeDescription === libraryDescription;
 
