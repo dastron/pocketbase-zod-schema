@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.6.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.5.1...pocketbase-zod-schema-v0.6.0) (2026-01-26)
+
+
+### Features
+
+* add displayFields support and fix system fields in migrations ([b6048e2](https://github.com/dastron/pocketbase-zod-schema/commit/b6048e2c585e217efe27d0e73c397c8f90724ec5))
+* add displayFields support and fix system fields in migrations ([71d9f67](https://github.com/dastron/pocketbase-zod-schema/commit/71d9f678fc839c6c7d7659aa4b23ee33c065f49e))
+* improve JSON field type generation from Zod schema ([514a971](https://github.com/dastron/pocketbase-zod-schema/commit/514a971237926af8ec75ae9e5c0fc5613d75b71e))
+
+
+### Bug Fixes
+
+* **e2e:** resolve migration generation discrepancies ([7056363](https://github.com/dastron/pocketbase-zod-schema/commit/7056363001eee83cb5c2eff5f8fdd205a7694328))
+* **migration:** inject auth system fields in generated migrations ([e184a86](https://github.com/dastron/pocketbase-zod-schema/commit/e184a86b0ace05916f0bcfed1b76c255b8e276fc))
+* prevent duplicate auth fields in migrations ([d0f57e7](https://github.com/dastron/pocketbase-zod-schema/commit/d0f57e72d2c36cacd2e471c5d8180a2c8d7b9282))
+* **type-gen:** prevent empty interfaces and add config support ([cd483da](https://github.com/dastron/pocketbase-zod-schema/commit/cd483dacc76240d236b8d7510958c12bda006be6))
+* **type-gen:** prevent empty interfaces and add config support ([3346a04](https://github.com/dastron/pocketbase-zod-schema/commit/3346a045a3485c0a05b933be0b5f7a0d5ee31f32))
+* update e2e ([08df146](https://github.com/dastron/pocketbase-zod-schema/commit/08df14628842af77f412e20060eb178ba4f3e850))
+
 ## [0.5.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.5.0...pocketbase-zod-schema-v0.5.1) (2026-01-26)
 
 
