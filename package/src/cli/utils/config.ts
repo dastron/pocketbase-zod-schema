@@ -23,6 +23,9 @@ export interface MigrationConfig {
     warnOnDelete: boolean;
     requireForceForDestructive: boolean;
   };
+  typeGen: {
+    outPath: string;
+  };
 }
 
 /**
@@ -32,6 +35,7 @@ export type PartialMigrationConfig = {
   schema?: Partial<MigrationConfig["schema"]>;
   migrations?: Partial<MigrationConfig["migrations"]>;
   diff?: Partial<MigrationConfig["diff"]>;
+  typeGen?: Partial<MigrationConfig["typeGen"]>;
 };
 
 /**
@@ -61,6 +65,9 @@ const DEFAULT_CONFIG: MigrationConfig = {
   diff: {
     warnOnDelete: true,
     requireForceForDestructive: true,
+  },
+  typeGen: {
+    outPath: "pocketbase-types.ts",
   },
 };
 
@@ -142,6 +149,7 @@ function mergeConfig(base: MigrationConfig, override: PartialMigrationConfig): M
     schema: { ...base.schema, ...override.schema },
     migrations: { ...base.migrations, ...override.migrations },
     diff: { ...base.diff, ...override.diff },
+    typeGen: { ...base.typeGen, ...override.typeGen },
   };
 }
 
@@ -214,6 +222,10 @@ function validateConfig(config: MigrationConfig, configPath?: string): void {
 
   if (typeof config.diff.requireForceForDestructive !== "boolean") {
     invalidFields.push("diff.requireForceForDestructive (must be a boolean)");
+  }
+
+  if (typeof config.typeGen.outPath !== "string" || config.typeGen.outPath.trim() === "") {
+    invalidFields.push("typeGen.outPath (must be a non-empty string)");
   }
 
   if (invalidFields.length > 0) {
@@ -351,6 +363,9 @@ export default {
   diff: {
     warnOnDelete: true,
     requireForceForDestructive: true,
+  },
+  typeGen: {
+    outPath: "pocketbase-types.ts",
   },
 };
 `;

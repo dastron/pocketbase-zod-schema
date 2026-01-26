@@ -23,7 +23,7 @@ describe("TypeGenerator", () => {
     expect(output).toContain("export interface UsersRecord {");
     expect(output).toContain("name?: string;");
     expect(output).toContain("age: number;");
-    expect(output).toContain("export interface UsersResponse extends UsersRecord {");
+    expect(output).toContain("export type UsersResponse = UsersRecord;");
   });
 
   it("should generate types with relations and expand", () => {
