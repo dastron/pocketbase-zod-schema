@@ -164,7 +164,7 @@ export function convertZodSchemaToCollectionSchema(
   const collectionType = explicitType ?? (isAuthCollection(rawFields) ? "auth" : "base");
 
   // Build field definitions with constraints
-  let fields: FieldDefinition[] = rawFields.map(({ name, zodType }) => buildFieldDefinition(name, zodType));
+  const fields: FieldDefinition[] = rawFields.map(({ name, zodType }) => buildFieldDefinition(name, zodType));
 
   // Ensure auth system fields exist for auth collections
   if (collectionType === "auth") {
