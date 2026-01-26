@@ -95,20 +95,20 @@ describe("Auth Collection Type Generation", () => {
     expect(content).toContain('"name": "test_auth_users"');
   });
 
-  it("should exclude auth system fields from field definitions", () => {
+  it("should include auth system fields in field definitions", () => {
     const currentSchema = createSchemaDefinitionFromZod(TestAuthUserCollection);
     const collection = currentSchema.collections.get("test_auth_users");
 
     expect(collection).toBeDefined();
     expect(collection?.type).toBe("auth");
 
-    // Auth system fields should NOT be in the field definitions
-    // (PocketBase adds them automatically)
+    // Auth system fields should be in the field definitions
+    // to match native CLI behavior
     const fieldNames = collection?.fields.map((f) => f.name) || [];
     const authSystemFields = ["email", "password", "tokenKey", "emailVisibility", "verified"];
 
     for (const systemField of authSystemFields) {
-      expect(fieldNames).not.toContain(systemField);
+      expect(fieldNames).toContain(systemField);
     }
 
     // Custom fields should be present
@@ -189,14 +189,14 @@ describe("Auth Collection Type Generation", () => {
     expect(collection.name).toBe("test_auth_users");
     expect(collection.type).toBe("auth");
 
-    // Verify fields - should only have custom fields, not auth system fields
+    // Verify fields - should have custom fields and auth system fields
     const fieldNames = collection.fields.map((f: any) => f.name);
     expect(fieldNames).toContain("name");
-    expect(fieldNames).not.toContain("email");
-    expect(fieldNames).not.toContain("password");
-    expect(fieldNames).not.toContain("tokenKey");
-    expect(fieldNames).not.toContain("emailVisibility");
-    expect(fieldNames).not.toContain("verified");
+    expect(fieldNames).toContain("email");
+    expect(fieldNames).toContain("password");
+    expect(fieldNames).toContain("tokenKey");
+    expect(fieldNames).toContain("emailVisibility");
+    expect(fieldNames).toContain("verified");
 
     // Verify permissions
     expect(collection.rules).toBeDefined();
@@ -236,11 +236,10 @@ describe("Auth Collection Type Generation", () => {
     expect(collection).toBeDefined();
     expect(collection?.type).toBe("auth");
 
-    // Even though email and password were in the schema, they should be excluded
-    // because they are auth system fields
+    // Email and password should be included
     const fieldNames = collection?.fields.map((f) => f.name) || [];
-    expect(fieldNames).not.toContain("email");
-    expect(fieldNames).not.toContain("password");
+    expect(fieldNames).toContain("email");
+    expect(fieldNames).toContain("password");
     expect(fieldNames).toContain("name"); // Custom field should remain
   });
 });
