@@ -8,7 +8,7 @@ import {
   RelationField,
   RelationsField,
 } from "./base";
-import { EditorField, TextField } from "./fields";
+import { EditorField, JSONField, TextField } from "./fields";
 
 export const ProjectInputSchema = z
   .object({
@@ -17,7 +17,11 @@ export const ProjectInputSchema = z
     content: EditorField(),
     status: StatusEnum,
     summary: TextField({ max: 500 }).optional(),
-
+    metadata: JSONField(z.object({
+      title: z.string(),
+      description: z.string(),
+      tags: z.array(z.string()),
+    })),
     OwnerUser: RelationField({ collection: "Users" }),
     SubscriberUsers: RelationsField({ collection: "Users" }),
   })

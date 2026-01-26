@@ -37,6 +37,7 @@ export function zodToTs(schema: z.ZodTypeAny): string {
   }
   if (schema instanceof z.ZodOptional) {
     const inner = zodToTs(schema.unwrap() as z.ZodTypeAny);
+    if (inner.includes('| undefined')) return inner;
     return `${inner} | undefined`;
   }
   if (schema instanceof z.ZodNullable) {
@@ -61,7 +62,8 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     return String(val);
   }
 
-  // Handle Wrapped types (Pipe/Effects, Default, etc.)
+  // Handle Wrapped types (Pipe, Default, etc.)
+  // Note: Zod v4 has no ZodEffects; refinements (.min(), .max(), etc.) stay on base types (ZodString, etc.)
   if (schema instanceof z.ZodPipe) {
       return zodToTs(schema._def.in as z.ZodTypeAny);
   }
