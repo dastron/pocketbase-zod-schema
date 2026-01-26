@@ -53,8 +53,8 @@ describe("Reproduction of Issues", () => {
     const collectionIdMap = new Map<string, string>();
     const downCode = generateOperationDownMigration(deleteOp, collectionIdMap);
 
-    expect(downCode).toContain('const collection_LabelClips = new Collection({');
-    expect(downCode).toContain('name: "LabelClips"');
-    expect(downCode).toContain('return app.save(collection_LabelClips);');
+    expect(downCode).toContain('const collection = new Collection({');
+    expect(downCode).toContain('"name": "LabelClips"');
+    expect(downCode).toContain('return app.save(collection);');
   });
 });

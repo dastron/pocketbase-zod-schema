@@ -28,11 +28,11 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "title"');
-      expect(generated).toContain('type: "text"');
-      expect(generated).toContain("required: true");
-      expect(generated).toContain("min: 0");
-      expect(generated).toContain("max: 200");
+      expect(generated).toContain('"name": "title"');
+      expect(generated).toContain('"type": "text"');
+      expect(generated).toContain('"required": true');
+      expect(generated).toContain('"min": 0');
+      expect(generated).toContain('"max": 200');
     });
 
     it("should generate text field with pattern constraint", () => {
@@ -52,7 +52,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('pattern: "^[a-z0-9-]+$"');
+      expect(generated).toContain('"pattern": "^[a-z0-9-]+$"');
     });
 
     it("should generate text field with autogenerate pattern", () => {
@@ -72,7 +72,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('autogeneratePattern: "[A-Z0-9]{8}"');
+      expect(generated).toContain('"autogeneratePattern": "[A-Z0-9]{8}"');
     });
   });
 
@@ -92,12 +92,12 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "age"');
-      expect(generated).toContain('type: "number"');
-      expect(generated).toContain("required: true");
-      expect(generated).toContain("min: 0");
-      expect(generated).toContain("max: 150");
-      expect(generated).toContain("onlyInt: true");
+      expect(generated).toContain('"name": "age"');
+      expect(generated).toContain('"type": "number"');
+      expect(generated).toContain('"required": true');
+      expect(generated).toContain('"min": 0');
+      expect(generated).toContain('"max": 150');
+      expect(generated).toContain('"onlyInt": true');
     });
 
     it("should generate number field with null min/max", () => {
@@ -115,9 +115,10 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("min: null");
-      expect(generated).toContain("max: null");
-      expect(generated).toContain("onlyInt: false");
+      expect(generated).toContain('"min": null');
+      expect(generated).toContain('"max": null');
+      expect(generated).toContain('"onlyInt": false');
+      expect(generated).toContain('"onlyInt": false');
     });
 
     it("should generate number field for decimals", () => {
@@ -150,9 +151,9 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "active"');
-      expect(generated).toContain('type: "bool"');
-      expect(generated).toContain("required: false");
+      expect(generated).toContain('"name": "active"');
+      expect(generated).toContain('"type": "bool"');
+      expect(generated).toContain('"required": false');
     });
 
     it("should generate required bool field", () => {
@@ -165,7 +166,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("required: true");
+      expect(generated).toContain('"required": true');
     });
   });
 
@@ -184,11 +185,11 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "email"');
-      expect(generated).toContain('type: "email"');
-      expect(generated).toContain("required: true");
-      expect(generated).toContain("exceptDomains: null");
-      expect(generated).toContain("onlyDomains: null");
+      expect(generated).toContain('"name": "email"');
+      expect(generated).toContain('"type": "email"');
+      expect(generated).toContain('"required": true');
+      expect(generated).toContain('"exceptDomains": null');
+      expect(generated).toContain('"onlyDomains": null');
     });
 
     it("should generate email field with domain restrictions", () => {
@@ -205,7 +206,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('onlyDomains: ["company.com", "company.org"]');
+      expect(generated).toContain('"onlyDomains": ["company.com", "company.org"]');
     });
 
     it("should generate email field with except domains", () => {
@@ -222,7 +223,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('exceptDomains: ["spam.com", "temp-mail.com"]');
+      expect(generated).toContain('"exceptDomains": ["spam.com", "temp-mail.com"]');
     });
   });
 
@@ -241,9 +242,9 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "website"');
-      expect(generated).toContain('type: "url"');
-      expect(generated).toContain("required: false");
+      expect(generated).toContain('"name": "website"');
+      expect(generated).toContain('"type": "url"');
+      expect(generated).toContain('"required": false');
     });
 
     it("should generate url field with domain restrictions", () => {
@@ -260,7 +261,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('onlyDomains: ["twitter.com", "linkedin.com", "github.com"]');
+      expect(generated).toContain('"onlyDomains": ["twitter.com", "linkedin.com", "github.com"]');
     });
   });
 
@@ -279,9 +280,9 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "birthdate"');
-      expect(generated).toContain('type: "date"');
-      expect(generated).toContain("required: false");
+      expect(generated).toContain('"name": "birthdate"');
+      expect(generated).toContain('"type": "date"');
+      expect(generated).toContain('"required": false');
     });
 
     it("should generate date field with min/max constraints", () => {
@@ -298,8 +299,8 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('min: "2024-01-01 00:00:00.000Z"');
-      expect(generated).toContain('max: "2024-12-31 23:59:59.999Z"');
+      expect(generated).toContain('"min": "2024-01-01 00:00:00.000Z"');
+      expect(generated).toContain('"max": "2024-12-31 23:59:59.999Z"');
     });
   });
 
@@ -318,10 +319,10 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "status"');
-      expect(generated).toContain('type: "select"');
-      expect(generated).toContain('values: ["active", "pending", "completed"]');
-      expect(generated).toContain("maxSelect: 1");
+      expect(generated).toContain('"name": "status"');
+      expect(generated).toContain('"type": "select"');
+      expect(generated).toContain('"values": ["active", "pending", "completed"]');
+      expect(generated).toContain('"maxSelect": 1');
     });
 
     it("should generate select field with multiple selection", () => {
@@ -338,8 +339,8 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("maxSelect: 3");
-      expect(generated).toContain('values: ["urgent", "important", "low-priority", "bug", "feature"]');
+      expect(generated).toContain('"maxSelect": 3');
+      expect(generated).toContain('"values": ["urgent", "important", "low-priority", "bug", "feature"]');
     });
   });
 
@@ -361,11 +362,11 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "avatar"');
-      expect(generated).toContain('type: "file"');
-      expect(generated).toContain("maxSelect: 1");
-      expect(generated).toContain("maxSize: 5242880");
-      expect(generated).toContain("protected: false");
+      expect(generated).toContain('"name": "avatar"');
+      expect(generated).toContain('"type": "file"');
+      expect(generated).toContain('"maxSelect": 1');
+      expect(generated).toContain('"maxSize": 5242880');
+      expect(generated).toContain('"protected": false');
     });
 
     it("should generate file field with mime type restrictions", () => {
@@ -385,7 +386,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('mimeTypes: ["application/pdf", "application/msword"]');
+      expect(generated).toContain('"mimeTypes": ["application/pdf", "application/msword"]');
     });
 
     it("should generate file field with thumbnails", () => {
@@ -405,8 +406,8 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("maxSelect: 5");
-      expect(generated).toContain('thumbs: ["100x100", "300x300", "800x600"]');
+      expect(generated).toContain('"maxSelect": 5');
+      expect(generated).toContain('"thumbs": ["100x100", "300x300", "800x600"]');
     });
 
     it("should generate protected file field", () => {
@@ -426,7 +427,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("protected: true");
+      expect(generated).toContain('"protected": true');
     });
   });
 
@@ -447,10 +448,10 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "author"');
-      expect(generated).toContain('type: "relation"');
-      expect(generated).toContain("maxSelect: 1");
-      expect(generated).toContain("cascadeDelete: false");
+      expect(generated).toContain('"name": "author"');
+      expect(generated).toContain('"type": "relation"');
+      expect(generated).toContain('"maxSelect": 1');
+      expect(generated).toContain('"cascadeDelete": false');
     });
 
     it("should generate multiple relation field", () => {
@@ -469,7 +470,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("maxSelect: 10");
+      expect(generated).toContain('"maxSelect": 10');
     });
 
     it("should generate relation field with cascade delete", () => {
@@ -488,7 +489,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("cascadeDelete: true");
+      expect(generated).toContain('"cascadeDelete": true');
     });
 
     it("should generate relation to Users collection with special ID", () => {
@@ -507,7 +508,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('collectionId: "_pb_users_auth_"');
+      expect(generated).toContain('"collectionId": "_pb_users_auth_"');
     });
 
     it("should generate relation to custom collection", () => {
@@ -526,7 +527,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('collectionId: app.findCollectionByNameOrId("projects").id');
+      expect(generated).toContain('"collectionId": app.findCollectionByNameOrId("projects").id');
     });
   });
 
@@ -544,10 +545,10 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "metadata"');
-      expect(generated).toContain('type: "json"');
-      expect(generated).toContain("required: false");
-      expect(generated).toContain("maxSize: 0");
+      expect(generated).toContain('"name": "metadata"');
+      expect(generated).toContain('"type": "json"');
+      expect(generated).toContain('"required": false');
+      expect(generated).toContain('"maxSize": 0');
     });
 
     it("should generate json field with size limit", () => {
@@ -563,7 +564,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("maxSize: 2097152");
+      expect(generated).toContain('"maxSize": 2097152');
     });
   });
 
@@ -581,9 +582,9 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "content"');
-      expect(generated).toContain('type: "editor"');
-      expect(generated).toContain("convertURLs: true");
+      expect(generated).toContain('"name": "content"');
+      expect(generated).toContain('"type": "editor"');
+      expect(generated).toContain('"convertURLs": true');
     });
 
     it("should generate editor field without URL conversion", () => {
@@ -599,7 +600,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("convertURLs: false");
+      expect(generated).toContain('"convertURLs": false');
     });
   });
 
@@ -618,10 +619,10 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "createdAt"');
-      expect(generated).toContain('type: "autodate"');
-      expect(generated).toContain("onCreate: true");
-      expect(generated).toContain("onUpdate: false");
+      expect(generated).toContain('"name": "createdAt"');
+      expect(generated).toContain('"type": "autodate"');
+      expect(generated).toContain('"onCreate": true');
+      expect(generated).toContain('"onUpdate": false');
     });
 
     it("should generate autodate field for update timestamp", () => {
@@ -638,8 +639,8 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("onCreate: false");
-      expect(generated).toContain("onUpdate: true");
+      expect(generated).toContain('"onCreate": false');
+      expect(generated).toContain('"onUpdate": true');
     });
 
     it("should generate autodate field for both create and update", () => {
@@ -656,8 +657,8 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("onCreate: true");
-      expect(generated).toContain("onUpdate: true");
+      expect(generated).toContain('"onCreate": true');
+      expect(generated).toContain('"onUpdate": true');
     });
   });
 
@@ -672,9 +673,9 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain('name: "location"');
-      expect(generated).toContain('type: "geoPoint"');
-      expect(generated).toContain("required: false");
+      expect(generated).toContain('"name": "location"');
+      expect(generated).toContain('"type": "geoPoint"');
+      expect(generated).toContain('"required": false');
     });
 
     it("should generate required geoPoint field", () => {
@@ -687,7 +688,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("required: true");
+      expect(generated).toContain('"required": true');
     });
   });
 
@@ -719,7 +720,7 @@ describe("Field Type Mapping Integration Tests", () => {
         };
 
         const generated = generateFieldDefinitionObject(field);
-        expect(generated).toContain(`type: "${type}"`);
+        expect(generated).toContain(`"type": "${type}"`);
       });
     });
   });

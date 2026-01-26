@@ -490,92 +490,93 @@ export default {
     const collections: ParsedCollection[] = [];
 
     try {
-      // Look for Collection constructor calls in the migration
-      const collectionMatches = content.matchAll(/new Collection\s*\(\s*\{([\s\S]*?)\}\s*\)/g);
+      // Find all occurrences of "new Collection({"
+      const collectionStartRegex = /new Collection\s*\(\s*\{/g;
+      let match;
 
-      for (const match of collectionMatches) {
-        const collectionData = match[1];
-        
-        // Extract basic collection properties (without quotes around property names)
-        const nameMatch = collectionData.match(/name:\s*"([^"]+)"/);
-        const typeMatch = collectionData.match(/type:\s*"([^"]+)"/);
-        const systemMatch = collectionData.match(/system:\s*(true|false)/);
+      while ((match = collectionStartRegex.exec(content)) !== null) {
+        const startIndex = match.index + match[0].length - 1; // pointing to {
+        let depth = 0;
+        let endIndex = -1;
 
-        if (!nameMatch || !typeMatch) {
-          continue; // Skip invalid collection data
-        }
+        // Find matching closing brace, ignoring strings
+        let inString = false;
+        let stringChar = '';
 
-        // Parse schema fields - look for fields: [...] pattern
-        const fieldsMatch = collectionData.match(/fields:\s*\[([\s\S]*?)\],/);
-        const fields: ParsedField[] = [];
+        for (let i = startIndex; i < content.length; i++) {
+          const char = content[i];
 
-        if (fieldsMatch) {
-          const fieldsContent = fieldsMatch[1];
-          
-          // Parse field objects by finding balanced braces
-          // Each field starts with { and we need to find its matching }
-          let depth = 0;
-          let fieldStart = -1;
-          const fieldStrings: string[] = [];
-          
-          for (let i = 0; i < fieldsContent.length; i++) {
-            const char = fieldsContent[i];
-            
-            if (char === '{') {
-              if (depth === 0) {
-                fieldStart = i;
-              }
-              depth++;
-            } else if (char === '}') {
-              depth--;
-              if (depth === 0 && fieldStart !== -1) {
-                // Found a complete field object
-                fieldStrings.push(fieldsContent.substring(fieldStart, i + 1));
-                fieldStart = -1;
-              }
+          if (inString) {
+            if (char === stringChar && content[i-1] !== '\\') {
+              inString = false;
             }
+            continue;
           }
-          
-          // Parse each field string
-          for (const fieldStr of fieldStrings) {
-            const fieldNameMatch = fieldStr.match(/name:\s*"([^"]+)"/);
-            const fieldTypeMatch = fieldStr.match(/type:\s*"([^"]+)"/);
-            const fieldRequiredMatch = fieldStr.match(/required:\s*(true|false)/);
-            const fieldUniqueMatch = fieldStr.match(/unique:\s*(true|false)/);
 
-            if (fieldNameMatch && fieldTypeMatch) {
-              fields.push({
-                id: `field_${fieldNameMatch[1]}`, // Generate a simple ID
-                name: fieldNameMatch[1],
-                type: fieldTypeMatch[1],
-                required: fieldRequiredMatch ? fieldRequiredMatch[1] === 'true' : false,
-                unique: fieldUniqueMatch ? fieldUniqueMatch[1] === 'true' : false,
-                options: {}, // TODO: Parse field options if needed
-              });
+          if (char === '"' || char === "'" || char === '`') {
+             inString = true;
+             stringChar = char;
+             continue;
+          }
+
+          if (char === '{') {
+            depth++;
+          } else if (char === '}') {
+            depth--;
+            if (depth === 0) {
+              endIndex = i;
+              break;
             }
           }
         }
 
-        // Parse rules
-        const rules: any = {};
-        const ruleNames = ['listRule', 'viewRule', 'createRule', 'updateRule', 'deleteRule', 'manageRule'];
-        
-        for (const ruleName of ruleNames) {
-          const ruleMatch = collectionData.match(new RegExp(`${ruleName}:\\s*(null|"[^"]*")`));
-          if (ruleMatch) {
-            rules[ruleName] = ruleMatch[1] === 'null' ? null : ruleMatch[1].slice(1, -1);
+        if (endIndex !== -1) {
+          const collectionData = content.substring(startIndex, endIndex + 1);
+
+          try {
+            // Use new Function to parse the collection data object safely
+            // valid JS object syntax from the migration file
+            const parseConfig = new Function(`return ${collectionData}`);
+            const config = parseConfig();
+
+            if (!config.name || !config.type) {
+              continue;
+            }
+
+            // Map fields from schema/fields property
+            const rawFields = config.schema || config.fields || [];
+            const fields: ParsedField[] = rawFields.map((f: any) => ({
+              id: f.id || `field_${f.name}`,
+              name: f.name,
+              type: f.type,
+              required: !!f.required,
+              unique: !!f.unique,
+              options: f.options || {}
+            }));
+
+            // Map rules
+            const rules: any = {
+              listRule: config.listRule,
+              viewRule: config.viewRule,
+              createRule: config.createRule,
+              updateRule: config.updateRule,
+              deleteRule: config.deleteRule,
+              manageRule: config.manageRule,
+            };
+
+            collections.push({
+              id: config.id || `collection_${config.name}`,
+              name: config.name,
+              type: config.type,
+              system: !!config.system,
+              fields,
+              indexes: config.indexes || [],
+              rules,
+            });
+          } catch (e) {
+            logger.warn(`Failed to parse collection data: ${e}`);
           }
         }
-
-        collections.push({
-          id: `collection_${nameMatch[1]}`, // Generate a simple ID
-          name: nameMatch[1],
-          type: typeMatch[1] as 'base' | 'auth' | 'view',
-          system: systemMatch ? systemMatch[1] === 'true' : false,
-          fields,
-          indexes: [], // TODO: Parse indexes if needed
-          rules,
-        });
       }
     } catch (error) {
       logger.warn(`Error parsing collections from migration content:`, error);

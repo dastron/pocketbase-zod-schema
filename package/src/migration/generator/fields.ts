@@ -13,31 +13,31 @@ export function generateFieldDefinitionObject(field: FieldDefinition, collection
   const parts: string[] = [];
 
   // Add field name
-  parts.push(`      name: "${field.name}"`);
+  parts.push(`      "name": "${field.name}"`);
 
   // Add field id
-  parts.push(`      id: "${field.id}"`);
+  parts.push(`      "id": "${field.id}"`);
 
   // Add field type
-  parts.push(`      type: "${field.type}"`);
+  parts.push(`      "type": "${field.type}"`);
 
   // Add required flag
-  parts.push(`      required: ${field.required}`);
+  parts.push(`      "required": ${field.required}`);
 
   // Add unique flag if present
   if (field.unique !== undefined) {
-    parts.push(`      unique: ${field.unique}`);
+    parts.push(`      "unique": ${field.unique}`);
   }
 
   // Add explicit defaults for select fields
   if (field.type === "select") {
     // Always include maxSelect (default: 1)
     const maxSelect = field.options?.maxSelect ?? 1;
-    parts.push(`      maxSelect: ${maxSelect}`);
+    parts.push(`      "maxSelect": ${maxSelect}`);
 
     // Always include values array (default: [])
     const values = field.options?.values ?? [];
-    parts.push(`      values: ${formatValue(values)}`);
+    parts.push(`      "values": ${formatValue(values)}`);
   }
 
   // Add options if present (excluding select-specific options already handled)
@@ -53,9 +53,9 @@ export function generateFieldDefinitionObject(field: FieldDefinition, collection
       }
       // Convert noDecimal to onlyInt for number fields (PocketBase uses onlyInt)
       if (field.type === "number" && key === "noDecimal") {
-        parts.push(`      onlyInt: ${formatValue(value)}`);
+        parts.push(`      "onlyInt": ${formatValue(value)}`);
       } else {
-        parts.push(`      ${key}: ${formatValue(value)}`);
+        parts.push(`      "${key}": ${formatValue(value)}`);
       }
     }
   }
@@ -78,19 +78,19 @@ export function generateFieldDefinitionObject(field: FieldDefinition, collection
       collectionIdValue = `app.findCollectionByNameOrId("${field.relation.collection}").id`;
     }
 
-    parts.push(`      collectionId: ${collectionIdValue}`);
+    parts.push(`      "collectionId": ${collectionIdValue}`);
 
     // Always include maxSelect (default: 1)
     const maxSelect = field.relation.maxSelect ?? 1;
-    parts.push(`      maxSelect: ${maxSelect}`);
+    parts.push(`      "maxSelect": ${maxSelect}`);
 
     // Always include minSelect (default: null)
     const minSelect = field.relation.minSelect ?? null;
-    parts.push(`      minSelect: ${minSelect}`);
+    parts.push(`      "minSelect": ${minSelect}`);
 
     // Always include cascadeDelete (default: false)
     const cascadeDelete = field.relation.cascadeDelete ?? false;
-    parts.push(`      cascadeDelete: ${cascadeDelete}`);
+    parts.push(`      "cascadeDelete": ${cascadeDelete}`);
   }
 
   return `    {\n${parts.join(",\n")},\n    }`;
@@ -123,28 +123,28 @@ export function generateFieldConstructorOptions(field: FieldDefinition, collecti
   const parts: string[] = [];
 
   // Add field name
-  parts.push(`    name: "${field.name}"`);
+  parts.push(`    "name": "${field.name}"`);
 
   // Add field id
-  parts.push(`    id: "${field.id}"`);
+  parts.push(`    "id": "${field.id}"`);
 
   // Add required flag
-  parts.push(`    required: ${field.required}`);
+  parts.push(`    "required": ${field.required}`);
 
   // Add unique flag if present
   if (field.unique !== undefined) {
-    parts.push(`    unique: ${field.unique}`);
+    parts.push(`    "unique": ${field.unique}`);
   }
 
   // Add explicit defaults for select fields
   if (field.type === "select") {
     // Always include maxSelect (default: 1)
     const maxSelect = field.options?.maxSelect ?? 1;
-    parts.push(`    maxSelect: ${maxSelect}`);
+    parts.push(`    "maxSelect": ${maxSelect}`);
 
     // Always include values array (default: [])
     const values = field.options?.values ?? [];
-    parts.push(`    values: ${formatValue(values)}`);
+    parts.push(`    "values": ${formatValue(values)}`);
   }
 
   // Add options if present (excluding select-specific options already handled)
@@ -160,9 +160,9 @@ export function generateFieldConstructorOptions(field: FieldDefinition, collecti
       }
       // Convert noDecimal to onlyInt for number fields (PocketBase uses onlyInt)
       if (field.type === "number" && key === "noDecimal") {
-        parts.push(`    onlyInt: ${formatValue(value)}`);
+        parts.push(`    "onlyInt": ${formatValue(value)}`);
       } else {
-        parts.push(`    ${key}: ${formatValue(value)}`);
+        parts.push(`    "${key}": ${formatValue(value)}`);
       }
     }
   }
@@ -185,19 +185,19 @@ export function generateFieldConstructorOptions(field: FieldDefinition, collecti
       collectionIdValue = `app.findCollectionByNameOrId("${field.relation.collection}").id`;
     }
 
-    parts.push(`    collectionId: ${collectionIdValue}`);
+    parts.push(`    "collectionId": ${collectionIdValue}`);
 
     // Always include maxSelect (default: 1)
     const maxSelect = field.relation.maxSelect ?? 1;
-    parts.push(`    maxSelect: ${maxSelect}`);
+    parts.push(`    "maxSelect": ${maxSelect}`);
 
     // Always include minSelect (default: null)
     const minSelect = field.relation.minSelect ?? null;
-    parts.push(`    minSelect: ${minSelect}`);
+    parts.push(`    "minSelect": ${minSelect}`);
 
     // Always include cascadeDelete (default: false)
     const cascadeDelete = field.relation.cascadeDelete ?? false;
-    parts.push(`    cascadeDelete: ${cascadeDelete}`);
+    parts.push(`    "cascadeDelete": ${cascadeDelete}`);
   }
 
   return parts.join(",\n");

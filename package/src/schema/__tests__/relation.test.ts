@@ -53,11 +53,11 @@ describe("Explicit Relation Definition", () => {
       expect(ownerField).toBeDefined();
       const output = generateFieldDefinitionObject(ownerField!);
 
-      expect(output).toContain('name: "owner"');
-      expect(output).toContain('type: "relation"');
-      expect(output).toContain('collectionId: "_pb_users_auth_"'); // Special case for users
-      expect(output).toContain("maxSelect: 1");
-      expect(output).toContain("minSelect: 0");
+      expect(output).toContain('"name": "owner"');
+      expect(output).toContain('"type": "relation"');
+      expect(output).toContain('"collectionId": "_pb_users_auth_"'); // Special case for users
+      expect(output).toContain('"maxSelect": 1');
+      expect(output).toContain('"minSelect": 0');
     });
 
     it("should use findCollectionByNameOrId for non-users collections", () => {
@@ -71,7 +71,7 @@ describe("Explicit Relation Definition", () => {
       expect(categoryField).toBeDefined();
       const output = generateFieldDefinitionObject(categoryField!);
 
-      expect(output).toContain('collectionId: app.findCollectionByNameOrId("categories").id');
+      expect(output).toContain('"collectionId": app.findCollectionByNameOrId("categories").id');
     });
   });
 
@@ -120,10 +120,10 @@ describe("Explicit Relation Definition", () => {
       expect(subscribersField).toBeDefined();
       const output = generateFieldDefinitionObject(subscribersField!);
 
-      expect(output).toContain('name: "subscribers"');
-      expect(output).toContain('type: "relation"');
-      expect(output).toContain('collectionId: "_pb_users_auth_"');
-      expect(output).toContain("maxSelect: 999");
+      expect(output).toContain('"name": "subscribers"');
+      expect(output).toContain('"type": "relation"');
+      expect(output).toContain('"collectionId": "_pb_users_auth_"');
+      expect(output).toContain('"maxSelect": 999');
     });
   });
 

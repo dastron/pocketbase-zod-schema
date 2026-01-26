@@ -21,10 +21,11 @@ export function generateCollectionCreation(
 
   lines.push(`  const ${varName} = new Collection({`);
   if (collection.id) {
-    lines.push(`    id: ${formatValue(collection.id)},`);
+    lines.push(`    "id": ${formatValue(collection.id)},`);
   }
-  lines.push(`    name: "${collection.name}",`);
-  lines.push(`    type: "${collection.type}",`);
+  lines.push(`    "name": "${collection.name}",`);
+  lines.push(`    "type": "${collection.type}",`);
+  lines.push(`    "system": false,`);
 
   // Add permissions (preferred) or rules
   // Permissions take precedence if both are defined
@@ -43,10 +44,10 @@ export function generateCollectionCreation(
   const allFields = [...systemFields, ...collection.fields];
 
   // Add fields
-  lines.push(`    fields: ${generateFieldsArray(allFields, collectionIdMap)},`);
+  lines.push(`    "fields": ${generateFieldsArray(allFields, collectionIdMap)},`);
 
   // Add indexes
-  lines.push(`    indexes: ${generateIndexesArray(collection.indexes)},`);
+  lines.push(`    "indexes": ${generateIndexesArray(collection.indexes)},`);
 
   lines.push(`  });`);
   lines.push(``);

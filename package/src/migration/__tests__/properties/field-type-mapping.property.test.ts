@@ -262,64 +262,64 @@ describe("Field Type Mapping Property Tests", () => {
               const generated = generateFieldDefinitionObject(field);
 
               // Verify basic properties are always present
-              expect(generated).toContain(`name: "${field.name}"`);
-              expect(generated).toContain(`type: "${field.type}"`);
-              expect(generated).toContain(`required: ${field.required}`);
+              expect(generated).toContain(`"name": "${field.name}"`);
+              expect(generated).toContain(`"type": "${field.type}"`);
+              expect(generated).toContain(`"required": ${field.required}`);
 
               // Verify type-specific properties
               switch (fieldType) {
                 case "text":
                   if (field.options) {
-                    expect(generated).toContain("min:");
-                    expect(generated).toContain("max:");
+                    expect(generated).toContain('"min":');
+                    expect(generated).toContain('"max":');
                   }
                   break;
 
                 case "number":
                   if (field.options) {
-                    expect(generated).toContain("min:");
-                    expect(generated).toContain("max:");
-                    expect(generated).toContain("onlyInt:");
+                    expect(generated).toContain('"min":');
+                    expect(generated).toContain('"max":');
+                    expect(generated).toContain('"onlyInt":');
                   }
                   break;
 
                 case "email":
                 case "url":
                   if (field.options) {
-                    expect(generated).toContain("exceptDomains:");
-                    expect(generated).toContain("onlyDomains:");
+                    expect(generated).toContain('"exceptDomains":');
+                    expect(generated).toContain('"onlyDomains":');
                   }
                   break;
 
                 case "date":
                   if (field.options) {
-                    expect(generated).toContain("min:");
-                    expect(generated).toContain("max:");
+                    expect(generated).toContain('"min":');
+                    expect(generated).toContain('"max":');
                   }
                   break;
 
                 case "select":
                   if (field.options) {
-                    expect(generated).toContain("values:");
-                    expect(generated).toContain("maxSelect:");
+                    expect(generated).toContain('"values":');
+                    expect(generated).toContain('"maxSelect":');
                   }
                   break;
 
                 case "file":
                   if (field.options) {
-                    expect(generated).toContain("maxSelect:");
-                    expect(generated).toContain("maxSize:");
-                    expect(generated).toContain("mimeTypes:");
-                    expect(generated).toContain("thumbs:");
-                    expect(generated).toContain("protected:");
+                    expect(generated).toContain('"maxSelect":');
+                    expect(generated).toContain('"maxSize":');
+                    expect(generated).toContain('"mimeTypes":');
+                    expect(generated).toContain('"thumbs":');
+                    expect(generated).toContain('"protected":');
                   }
                   break;
 
                 case "relation":
                   if (field.relation) {
-                    expect(generated).toContain("collectionId:");
-                    expect(generated).toContain("maxSelect:");
-                    expect(generated).toContain("cascadeDelete:");
+                    expect(generated).toContain('"collectionId":');
+                    expect(generated).toContain('"maxSelect":');
+                    expect(generated).toContain('"cascadeDelete":');
 
                     // Verify special handling for Users collection
                     if (field.relation.collection === "Users") {
@@ -332,20 +332,20 @@ describe("Field Type Mapping Property Tests", () => {
 
                 case "json":
                   if (field.options) {
-                    expect(generated).toContain("maxSize:");
+                    expect(generated).toContain('"maxSize":');
                   }
                   break;
 
                 case "editor":
                   if (field.options) {
-                    expect(generated).toContain("convertURLs:");
+                    expect(generated).toContain('"convertURLs":');
                   }
                   break;
 
                 case "autodate":
                   if (field.options) {
-                    expect(generated).toContain("onCreate:");
-                    expect(generated).toContain("onUpdate:");
+                    expect(generated).toContain('"onCreate":');
+                    expect(generated).toContain('"onUpdate":');
                   }
                   break;
 
@@ -394,13 +394,13 @@ describe("Field Type Mapping Property Tests", () => {
               const generated = generateFieldDefinitionObject(field);
 
               // Name should be preserved exactly
-              expect(generated).toContain(`name: "${field.name}"`);
+              expect(generated).toContain(`"name": "${field.name}"`);
 
               // Type should be preserved exactly
-              expect(generated).toContain(`type: "${field.type}"`);
+              expect(generated).toContain(`"type": "${field.type}"`);
 
               // Required flag should be preserved
-              expect(generated).toContain(`required: ${field.required}`);
+              expect(generated).toContain(`"required": ${field.required}`);
             }),
             { numRuns: 1 } // Run once per outer iteration
           );
@@ -425,7 +425,7 @@ describe("Field Type Mapping Property Tests", () => {
               expect(generated.trim()).toMatch(/\}$/);
 
               // Should contain valid property syntax
-              expect(generated).toMatch(/\w+:\s*[^,]+/);
+              expect(generated).toMatch(/"\w+":\s*[^,]+/);
             }),
             { numRuns: 1 } // Run once per outer iteration
           );

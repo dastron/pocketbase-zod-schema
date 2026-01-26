@@ -63,8 +63,8 @@ describe("Project Schema Migration Generation", () => {
     // Should contain basic migration structure
     expect(content).toContain("migrate(");
     expect(content).toContain("new Collection(");
-    expect(content).toContain(`name: "${collectionName}"`);
-    expect(content).toContain('type: "base"');
+    expect(content).toContain(`"name": "${collectionName}"`);
+    expect(content).toContain('"type": "base"');
     expect(content).toContain("app.save(");
 
     // Should contain all expected fields

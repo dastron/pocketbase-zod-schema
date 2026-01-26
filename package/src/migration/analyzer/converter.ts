@@ -222,7 +222,7 @@ export function convertZodSchemaToCollectionSchema(
       createRule: permissions?.createRule ?? null,
       updateRule: permissions?.updateRule ?? null,
       deleteRule: permissions?.deleteRule ?? null,
-      manageRule: permissions?.manageRule ?? null,
+      manageRule: collectionType === "auth" ? (permissions?.manageRule ?? null) : undefined,
     },
     permissions,
   };
