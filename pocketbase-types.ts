@@ -13,6 +13,11 @@ export interface ProjectsRecord {
   content: string;
   status: "draft" | "active" | "complete" | "fail";
   summary?: string;
+  metadata: {
+  title: string;
+  description: string;
+  tags: string[];
+};
   OwnerUser: string;
   SubscriberUsers: string[];
 }
@@ -31,11 +36,15 @@ export interface UsersRecord {
   collectionId: string;
   collectionName: "Users";
   name?: string;
+  email: string;
+  password: any;
   avatar?: string;
+  emailVisibility?: boolean;
+  verified?: boolean;
+  tokenKey: string;
 }
 
-export interface UsersResponse extends UsersRecord {
-}
+export type UsersResponse = UsersRecord;
 
 export type CollectionResponses = {
   Projects: ProjectsResponse;
