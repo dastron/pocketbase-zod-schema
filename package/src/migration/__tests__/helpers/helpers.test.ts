@@ -99,6 +99,7 @@ describe("Test Helpers", () => {
     it("should detect no differences for identical collections", () => {
       const collection1 = {
         name: "test",
+        id: "test_id",
         type: "base" as const,
         fields: [
           {

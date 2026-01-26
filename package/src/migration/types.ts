@@ -12,6 +12,7 @@ export type { APIRuleType };
 
 export interface FieldDefinition {
   name: string;
+  id: string;
   type: PocketBaseFieldType;
   required: boolean;
   unique?: boolean;

@@ -109,10 +109,12 @@ describe("Generator Return Statements", () => {
       // Create a collection, then update it
       const beforeSchema = createSchemaSnapshot({
         name: "test_update_return",
+        id: "test_update_return_id",
         type: "base",
         fields: [
           {
             name: "old_field",
+            id: "old_field_id",
             type: "text",
             required: false,
             options: {},
@@ -130,16 +132,19 @@ describe("Generator Return Statements", () => {
 
       const afterSchema = createSchemaDefinition({
         name: "test_update_return",
+        id: "test_update_return_id",
         type: "base",
         fields: [
           {
             name: "old_field",
+            id: "old_field_id",
             type: "text",
             required: false,
             options: {},
           },
           {
             name: "new_field",
+            id: "new_field_id",
             type: "text",
             required: false,
             options: {},

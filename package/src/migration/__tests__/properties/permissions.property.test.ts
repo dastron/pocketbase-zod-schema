@@ -30,6 +30,7 @@ describe("Permission Handling Property Tests", () => {
    */
   const textFieldArb = fc.record({
     name: fieldNameArb,
+    id: fieldNameArb,
     type: fc.constant("text" as const),
     required: fc.boolean(),
     options: fc.record({

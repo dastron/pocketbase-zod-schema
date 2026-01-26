@@ -74,6 +74,7 @@ describe("JavaScript Syntax Property Tests", () => {
           (schemaData) => {
             const fields: FieldDefinition[] = schemaData.fields.map((f) => ({
               name: f.name,
+              id: f.name,
               type: f.type as any,
               required: f.required,
               options: f.type === "select" ? { values: ["option1", "option2"], maxSelect: 1 } : {},
@@ -138,6 +139,7 @@ describe("JavaScript Syntax Property Tests", () => {
           (modData) => {
             const newFields: FieldDefinition[] = modData.newFields.map((f) => ({
               name: f.name,
+              id: f.name,
               type: f.type as any,
               required: false,
               options: {},
@@ -217,27 +219,30 @@ describe("JavaScript Syntax Property Tests", () => {
       fc.assert(
         fc.property(fc.stringMatching(/^[a-z][a-z0-9_]{0,19}$/), (collectionName) => {
           const fields: FieldDefinition[] = [
-            { name: "text_field", type: "text", required: false, options: {} },
-            { name: "number_field", type: "number", required: false, options: {} },
-            { name: "bool_field", type: "bool", required: false, options: {} },
-            { name: "email_field", type: "email", required: false, options: {} },
-            { name: "url_field", type: "url", required: false, options: {} },
-            { name: "date_field", type: "date", required: false, options: {} },
+            { name: "text_field", id: "text_field_id", type: "text", required: false, options: {} },
+            { name: "number_field", id: "number_field_id", type: "number", required: false, options: {} },
+            { name: "bool_field", id: "bool_field_id", type: "bool", required: false, options: {} },
+            { name: "email_field", id: "email_field_id", type: "email", required: false, options: {} },
+            { name: "url_field", id: "url_field_id", type: "url", required: false, options: {} },
+            { name: "date_field", id: "date_field_id", type: "date", required: false, options: {} },
             {
               name: "select_field",
+              id: "select_field_id",
               type: "select",
               required: false,
               options: { values: ["a", "b", "c"], maxSelect: 1 },
             },
-            { name: "json_field", type: "json", required: false, options: {} },
+            { name: "json_field", id: "json_field_id", type: "json", required: false, options: {} },
             {
               name: "file_field",
+              id: "file_field_id",
               type: "file",
               required: false,
               options: { maxSelect: 1, maxSize: 5242880, mimeTypes: [], thumbs: [], protected: false },
             },
             {
               name: "relation_field",
+              id: "relation_field_id",
               type: "relation",
               required: false,
               options: {},
@@ -290,9 +295,10 @@ describe("JavaScript Syntax Property Tests", () => {
             name: collectionName,
             type: "auth",
             fields: [
-              { name: "name", type: "text", required: false, options: {} },
+              { name: "name", id: "name_id", type: "text", required: false, options: {} },
               {
                 name: "avatar",
+                id: "avatar_id",
                 type: "file",
                 required: false,
                 options: { maxSelect: 1, maxSize: 5242880, mimeTypes: [], thumbs: [], protected: false },

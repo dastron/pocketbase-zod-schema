@@ -15,6 +15,9 @@ export function generateFieldDefinitionObject(field: FieldDefinition, collection
   // Add field name
   parts.push(`      name: "${field.name}"`);
 
+  // Add field id
+  parts.push(`      id: "${field.id}"`);
+
   // Add field type
   parts.push(`      type: "${field.type}"`);
 
@@ -112,6 +115,9 @@ export function generateFieldConstructorOptions(field: FieldDefinition, collecti
 
   // Add field name
   parts.push(`    name: "${field.name}"`);
+
+  // Add field id
+  parts.push(`    id: "${field.id}"`);
 
   // Add required flag
   parts.push(`    required: ${field.required}`);

@@ -69,10 +69,12 @@ describe("Object Syntax Property Tests", () => {
           (options) => {
             const schema: CollectionSchema = {
               name: "test_object",
+              id: "test_object_id",
               type: "base",
               fields: [
                 {
                   name: "text_field",
+                  id: "text_field_id",
                   type: "text",
                   required: false,
                   options: options,
@@ -124,10 +126,12 @@ describe("Object Syntax Property Tests", () => {
           (options) => {
             const schema: CollectionSchema = {
               name: "test_number_object",
+              id: "test_number_object_id",
               type: "base",
               fields: [
                 {
                   name: "number_field",
+                  id: "number_field_id",
                   type: "number",
                   required: false,
                   options: options,
@@ -178,10 +182,12 @@ describe("Object Syntax Property Tests", () => {
           (options) => {
             const schema: CollectionSchema = {
               name: "test_autodate_object",
+              id: "test_autodate_object_id",
               type: "base",
               fields: [
                 {
                   name: "autodate_field",
+                  id: "autodate_field_id",
                   type: "autodate",
                   required: false,
                   options: options,
@@ -234,10 +240,12 @@ describe("Object Syntax Property Tests", () => {
           (relation) => {
             const schema: CollectionSchema = {
               name: "test_relation_object",
+              id: "test_relation_object_id",
               type: "base",
               fields: [
                 {
                   name: "relation_field",
+                  id: "relation_field_id",
                   type: "relation",
                   required: false,
                   options: {},

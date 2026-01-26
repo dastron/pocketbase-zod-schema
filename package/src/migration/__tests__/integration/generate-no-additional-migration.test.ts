@@ -325,10 +325,12 @@ describe("Generate Migration - No Additional Migration Needed", () => {
     it("should preserve select field values in generated migration", () => {
       const collectionWithSelect: any = {
         name: "test_select_collection",
+        id: "test_select_collection_id",
         type: "base",
         fields: [
           {
             name: "status",
+            id: "status_id",
             type: "select",
             required: true,
             options: {
@@ -374,10 +376,12 @@ describe("Generate Migration - No Additional Migration Needed", () => {
     it("should preserve relation collection names correctly", () => {
       const collectionWithRelations: any = {
         name: "test_relations_collection",
+        id: "test_relations_collection_id",
         type: "base",
         fields: [
           {
             name: "OwnerUser",
+            id: "OwnerUser_id",
             type: "relation",
             required: true,
             relation: {
@@ -389,6 +393,7 @@ describe("Generate Migration - No Additional Migration Needed", () => {
           },
           {
             name: "SubscriberUsers",
+            id: "SubscriberUsers_id",
             type: "relation",
             required: true,
             relation: {
@@ -444,15 +449,18 @@ describe("Generate Migration - No Additional Migration Needed", () => {
     it("should work with loadSnapshotWithMigrations when migration is in directory", () => {
       const collectionSchema: any = {
         name: "test_roundtrip_collection",
+        id: "test_roundtrip_collection_id",
         type: "base",
         fields: [
           {
             name: "title",
+            id: "title_id",
             type: "text",
             required: true,
           },
           {
             name: "status",
+            id: "status_id",
             type: "select",
             required: true,
             options: {

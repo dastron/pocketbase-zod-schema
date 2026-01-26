@@ -67,6 +67,7 @@ describe("Collection Update Integration Tests", () => {
         fields: [
           {
             name: "add_text_column",
+            id: "add_text_column_id",
             type: "text",
             required: false,
             options: {},
@@ -127,10 +128,12 @@ describe("Collection Update Integration Tests", () => {
       // Create before state with a field
       const beforeCollectionSchema: any = {
         name: "test_field_removal",
+        id: "test_field_removal_id",
         type: "base" as const,
         fields: [
           {
             name: "field_to_remove",
+            id: "field_to_remove_id",
             type: "text",
             required: false,
             options: {},
@@ -156,6 +159,7 @@ describe("Collection Update Integration Tests", () => {
       // Create after state without the field
       const afterCollectionSchema: any = {
         name: "test_field_removal",
+        id: "test_field_removal_id",
         type: "base" as const,
         fields: [],
         indexes: [],
@@ -197,10 +201,12 @@ describe("Collection Update Integration Tests", () => {
       // Create before state with a field
       const beforeCollectionSchema: any = {
         name: "test_field_modification",
+        id: "test_field_modification_id",
         type: "base" as const,
         fields: [
           {
             name: "field_to_modify",
+            id: "field_to_modify_id",
             type: "text",
             required: false,
             options: {},
@@ -226,10 +232,12 @@ describe("Collection Update Integration Tests", () => {
       // Create after state with modified field (required changed to true)
       const afterCollectionSchema: any = {
         name: "test_field_modification",
+        id: "test_field_modification_id",
         type: "base" as const,
         fields: [
           {
             name: "field_to_modify",
+            id: "field_to_modify_id",
             type: "text",
             required: true, // Changed from false to true
             options: {},
@@ -274,6 +282,7 @@ describe("Collection Update Integration Tests", () => {
       // Create before state with null permissions
       const beforeCollectionSchema: any = {
         name: "test_permission_update",
+        id: "test_permission_update_id",
         type: "base" as const,
         fields: [],
         indexes: [],
@@ -296,6 +305,7 @@ describe("Collection Update Integration Tests", () => {
       // Create after state with updated permissions
       const afterCollectionSchema: any = {
         name: "test_permission_update",
+        id: "test_permission_update_id",
         type: "base" as const,
         fields: [],
         indexes: [],
@@ -353,6 +363,7 @@ describe("Collection Update Integration Tests", () => {
         fields: [
           {
             name: "add_number_column",
+            id: "add_number_column_id",
             type: "number",
             required: false,
             options: {},

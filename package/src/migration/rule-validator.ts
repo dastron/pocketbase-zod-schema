@@ -7,6 +7,7 @@
 
 import type { APIRuleType, RuleExpression } from "../utils/permissions";
 import type { FieldDefinition } from "./types";
+import { generateFieldId } from "./utils/collection-id-generator.js";
 
 /**
  * Validation result for rule expressions
@@ -55,21 +56,21 @@ export class RuleValidator {
   private addSystemFields(): void {
     // Base system fields available in all collections
     const systemFields: FieldDefinition[] = [
-      { name: "id", type: "text", required: true, options: {} },
-      { name: "created", type: "date", required: true, options: {} },
-      { name: "updated", type: "date", required: true, options: {} },
-      { name: "collectionId", type: "text", required: true, options: {} },
-      { name: "collectionName", type: "text", required: true, options: {} },
+      { name: "id", id: generateFieldId("text", "id"), type: "text", required: true, options: {} },
+      { name: "created", id: generateFieldId("date", "created"), type: "date", required: true, options: {} },
+      { name: "updated", id: generateFieldId("date", "updated"), type: "date", required: true, options: {} },
+      { name: "collectionId", id: generateFieldId("text", "collectionId"), type: "text", required: true, options: {} },
+      { name: "collectionName", id: generateFieldId("text", "collectionName"), type: "text", required: true, options: {} },
     ];
 
     // Auth collection specific system fields
     if (this.isAuthCollection) {
       systemFields.push(
-        { name: "email", type: "email", required: true, options: {} },
-        { name: "emailVisibility", type: "bool", required: false, options: {} },
-        { name: "verified", type: "bool", required: false, options: {} },
-        { name: "tokenKey", type: "text", required: true, options: {} },
-        { name: "password", type: "text", required: true, options: {} }
+        { name: "email", id: generateFieldId("email", "email"), type: "email", required: true, options: {} },
+        { name: "emailVisibility", id: generateFieldId("bool", "emailVisibility"), type: "bool", required: false, options: {} },
+        { name: "verified", id: generateFieldId("bool", "verified"), type: "bool", required: false, options: {} },
+        { name: "tokenKey", id: generateFieldId("text", "tokenKey"), type: "text", required: true, options: {} },
+        { name: "password", id: generateFieldId("text", "password"), type: "text", required: true, options: {} }
       );
     }
 

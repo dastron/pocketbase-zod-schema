@@ -11,9 +11,9 @@ describe("PermissionAnalyzer", () => {
   const analyzer = new PermissionAnalyzer();
 
   const mockFields: FieldDefinition[] = [
-    { name: "title", type: "text", required: true },
-    { name: "status", type: "text", required: false },
-    { name: "User", type: "relation", required: true, relation: { collection: "users" } },
+    { name: "title", id: "title_id", type: "text", required: true },
+    { name: "status", id: "status_id", type: "text", required: false },
+    { name: "User", id: "User_id", type: "relation", required: true, relation: { collection: "users" } },
   ];
 
   describe("extractPermissions", () => {

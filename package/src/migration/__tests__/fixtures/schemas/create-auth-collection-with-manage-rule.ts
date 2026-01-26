@@ -19,6 +19,7 @@ export const createAuthCollectionWithManageRuleType = "auth" as const;
 export const createAuthCollectionWithManageRuleFields: FieldDefinition[] = [
   {
     name: "name",
+    id: "name_id",
     type: "text",
     required: false,
     options: {

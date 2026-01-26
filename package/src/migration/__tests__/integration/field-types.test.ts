@@ -14,6 +14,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate text field with basic properties", () => {
       const field: FieldDefinition = {
         name: "title",
+        id: "title_id",
         type: "text",
         required: true,
         options: {
@@ -37,6 +38,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate text field with pattern constraint", () => {
       const field: FieldDefinition = {
         name: "slug",
+        id: "slug_id",
         type: "text",
         required: true,
         options: {
@@ -56,6 +58,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate text field with autogenerate pattern", () => {
       const field: FieldDefinition = {
         name: "code",
+        id: "code_id",
         type: "text",
         required: false,
         options: {
@@ -77,6 +80,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate number field with min/max constraints", () => {
       const field: FieldDefinition = {
         name: "age",
+        id: "age_id",
         type: "number",
         required: true,
         options: {
@@ -99,6 +103,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate number field with null min/max", () => {
       const field: FieldDefinition = {
         name: "score",
+        id: "score_id",
         type: "number",
         required: false,
         options: {
@@ -118,6 +123,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate number field for decimals", () => {
       const field: FieldDefinition = {
         name: "price",
+        id: "price_id",
         type: "number",
         required: true,
         options: {
@@ -137,6 +143,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate bool field", () => {
       const field: FieldDefinition = {
         name: "active",
+        id: "active_id",
         type: "bool",
         required: false,
       };
@@ -151,6 +158,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate required bool field", () => {
       const field: FieldDefinition = {
         name: "verified",
+        id: "verified_id",
         type: "bool",
         required: true,
       };
@@ -165,6 +173,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate email field with basic properties", () => {
       const field: FieldDefinition = {
         name: "email",
+        id: "email_id",
         type: "email",
         required: true,
         options: {
@@ -185,6 +194,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate email field with domain restrictions", () => {
       const field: FieldDefinition = {
         name: "workEmail",
+        id: "workEmail_id",
         type: "email",
         required: true,
         options: {
@@ -201,6 +211,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate email field with except domains", () => {
       const field: FieldDefinition = {
         name: "email",
+        id: "email_id",
         type: "email",
         required: true,
         options: {
@@ -219,6 +230,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate url field with basic properties", () => {
       const field: FieldDefinition = {
         name: "website",
+        id: "website_id",
         type: "url",
         required: false,
         options: {
@@ -237,6 +249,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate url field with domain restrictions", () => {
       const field: FieldDefinition = {
         name: "socialProfile",
+        id: "socialProfile_id",
         type: "url",
         required: false,
         options: {
@@ -255,6 +268,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate date field with basic properties", () => {
       const field: FieldDefinition = {
         name: "birthdate",
+        id: "birthdate_id",
         type: "date",
         required: false,
         options: {
@@ -273,6 +287,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate date field with min/max constraints", () => {
       const field: FieldDefinition = {
         name: "eventDate",
+        id: "eventDate_id",
         type: "date",
         required: true,
         options: {
@@ -292,6 +307,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate select field with single selection", () => {
       const field: FieldDefinition = {
         name: "status",
+        id: "status_id",
         type: "select",
         required: true,
         options: {
@@ -311,6 +327,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate select field with multiple selection", () => {
       const field: FieldDefinition = {
         name: "tags",
+        id: "tags_id",
         type: "select",
         required: false,
         options: {
@@ -330,6 +347,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate file field with basic properties", () => {
       const field: FieldDefinition = {
         name: "avatar",
+        id: "avatar_id",
         type: "file",
         required: false,
         options: {
@@ -353,6 +371,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate file field with mime type restrictions", () => {
       const field: FieldDefinition = {
         name: "document",
+        id: "document_id",
         type: "file",
         required: true,
         options: {
@@ -372,6 +391,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate file field with thumbnails", () => {
       const field: FieldDefinition = {
         name: "photos",
+        id: "photos_id",
         type: "file",
         required: false,
         options: {
@@ -392,6 +412,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate protected file field", () => {
       const field: FieldDefinition = {
         name: "privateDocument",
+        id: "privateDocument_id",
         type: "file",
         required: false,
         options: {
@@ -413,6 +434,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate single relation field", () => {
       const field: FieldDefinition = {
         name: "author",
+        id: "author_id",
         type: "relation",
         required: true,
         relation: {
@@ -434,6 +456,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate multiple relation field", () => {
       const field: FieldDefinition = {
         name: "collaborators",
+        id: "collaborators_id",
         type: "relation",
         required: false,
         relation: {
@@ -452,6 +475,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate relation field with cascade delete", () => {
       const field: FieldDefinition = {
         name: "owner",
+        id: "owner_id",
         type: "relation",
         required: true,
         relation: {
@@ -470,6 +494,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate relation to Users collection with special ID", () => {
       const field: FieldDefinition = {
         name: "user",
+        id: "user_id",
         type: "relation",
         required: true,
         relation: {
@@ -488,6 +513,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate relation to custom collection", () => {
       const field: FieldDefinition = {
         name: "project",
+        id: "project_id",
         type: "relation",
         required: true,
         relation: {
@@ -508,6 +534,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate json field with basic properties", () => {
       const field: FieldDefinition = {
         name: "metadata",
+        id: "metadata_id",
         type: "json",
         required: false,
         options: {
@@ -526,6 +553,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate json field with size limit", () => {
       const field: FieldDefinition = {
         name: "config",
+        id: "config_id",
         type: "json",
         required: false,
         options: {
@@ -543,6 +571,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate editor field with basic properties", () => {
       const field: FieldDefinition = {
         name: "content",
+        id: "content_id",
         type: "editor",
         required: false,
         options: {
@@ -560,6 +589,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate editor field without URL conversion", () => {
       const field: FieldDefinition = {
         name: "rawContent",
+        id: "rawContent_id",
         type: "editor",
         required: false,
         options: {
@@ -577,6 +607,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate autodate field for creation timestamp", () => {
       const field: FieldDefinition = {
         name: "createdAt",
+        id: "createdAt_id",
         type: "autodate",
         required: false,
         options: {
@@ -596,6 +627,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate autodate field for update timestamp", () => {
       const field: FieldDefinition = {
         name: "updatedAt",
+        id: "updatedAt_id",
         type: "autodate",
         required: false,
         options: {
@@ -613,6 +645,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate autodate field for both create and update", () => {
       const field: FieldDefinition = {
         name: "lastModified",
+        id: "lastModified_id",
         type: "autodate",
         required: false,
         options: {
@@ -632,6 +665,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate geoPoint field", () => {
       const field: FieldDefinition = {
         name: "location",
+        id: "location_id",
         type: "geoPoint",
         required: false,
       };
@@ -646,6 +680,7 @@ describe("Field Type Mapping Integration Tests", () => {
     it("should generate required geoPoint field", () => {
       const field: FieldDefinition = {
         name: "coordinates",
+        id: "coordinates_id",
         type: "geoPoint",
         required: true,
       };
@@ -678,6 +713,7 @@ describe("Field Type Mapping Integration Tests", () => {
       supportedTypes.forEach((type) => {
         const field: FieldDefinition = {
           name: "testField",
+          id: "testField_id",
           type,
           required: false,
         };

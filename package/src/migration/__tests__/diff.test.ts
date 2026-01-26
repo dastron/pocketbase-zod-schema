@@ -244,10 +244,10 @@ describe("filterSystemCollections", () => {
   it("should remove system collections from schema", () => {
     const schema: SchemaDefinition = {
       collections: new Map([
-        ["_mfas", { name: "_mfas", type: "base", fields: [] }],
-        ["_otps", { name: "_otps", type: "base", fields: [] }],
-        ["users", { name: "users", type: "auth", fields: [] }],
-        ["posts", { name: "posts", type: "base", fields: [] }],
+        ["_mfas", { name: "_mfas", id: "_mfas_id", type: "base", fields: [] }],
+        ["_otps", { name: "_otps", id: "_otps_id", type: "base", fields: [] }],
+        ["users", { name: "users", id: "users_id", type: "auth", fields: [] }],
+        ["posts", { name: "posts", id: "posts_id", type: "base", fields: [] }],
       ]),
     };
 
@@ -263,9 +263,9 @@ describe("filterSystemCollections", () => {
   it("should preserve all collections when no system collections present", () => {
     const schema: SchemaDefinition = {
       collections: new Map([
-        ["users", { name: "users", type: "auth", fields: [] }],
-        ["posts", { name: "posts", type: "base", fields: [] }],
-        ["comments", { name: "comments", type: "base", fields: [] }],
+        ["users", { name: "users", id: "users_id", type: "auth", fields: [] }],
+        ["posts", { name: "posts", id: "posts_id", type: "base", fields: [] }],
+        ["comments", { name: "comments", id: "comments_id", type: "base", fields: [] }],
       ]),
     };
 
@@ -280,9 +280,9 @@ describe("filterSystemCollections", () => {
   it("should return empty schema when only system collections present", () => {
     const schema: SchemaDefinition = {
       collections: new Map([
-        ["_mfas", { name: "_mfas", type: "base", fields: [] }],
-        ["_otps", { name: "_otps", type: "base", fields: [] }],
-        ["_externalAuths", { name: "_externalAuths", type: "base", fields: [] }],
+        ["_mfas", { name: "_mfas", id: "_mfas_id", type: "base", fields: [] }],
+        ["_otps", { name: "_otps", id: "_otps_id", type: "base", fields: [] }],
+        ["_externalAuths", { name: "_externalAuths", id: "_externalAuths_id", type: "base", fields: [] }],
       ]),
     };
 
@@ -306,10 +306,10 @@ describe("aggregateChanges with system collection filtering", () => {
   it("should filter system collections from collectionsToCreate", () => {
     const currentSchema: SchemaDefinition = {
       collections: new Map([
-        ["_mfas", { name: "_mfas", type: "base", fields: [] }],
-        ["_otps", { name: "_otps", type: "base", fields: [] }],
-        ["users", { name: "users", type: "auth", fields: [] }],
-        ["posts", { name: "posts", type: "base", fields: [] }],
+        ["_mfas", { name: "_mfas", id: "_mfas_id", type: "base", fields: [] }],
+        ["_otps", { name: "_otps", id: "_otps_id", type: "base", fields: [] }],
+        ["users", { name: "users", id: "users_id", type: "auth", fields: [] }],
+        ["posts", { name: "posts", id: "posts_id", type: "base", fields: [] }],
       ]),
     };
 
@@ -323,17 +323,17 @@ describe("aggregateChanges with system collection filtering", () => {
 
   it("should filter system collections from collectionsToDelete", () => {
     const currentSchema: SchemaDefinition = {
-      collections: new Map([["users", { name: "users", type: "auth" as const, fields: [] }]]),
+      collections: new Map([["users", { name: "users", id: "users_id", type: "auth" as const, fields: [] }]]),
     };
 
     const previousSnapshot = {
       version: "1.0.0",
       timestamp: "2024-01-01",
       collections: new Map<string, CollectionSchema>([
-        ["_mfas", { name: "_mfas", type: "base" as const, fields: [] }],
-        ["_otps", { name: "_otps", type: "base" as const, fields: [] }],
-        ["users", { name: "users", type: "auth" as const, fields: [] }],
-        ["posts", { name: "posts", type: "base" as const, fields: [] }],
+        ["_mfas", { name: "_mfas", id: "_mfas_id", type: "base" as const, fields: [] }],
+        ["_otps", { name: "_otps", id: "_otps_id", type: "base" as const, fields: [] }],
+        ["users", { name: "users", id: "users_id", type: "auth" as const, fields: [] }],
+        ["posts", { name: "posts", id: "posts_id", type: "base" as const, fields: [] }],
       ]),
     };
 
@@ -352,8 +352,9 @@ describe("aggregateChanges with system collection filtering", () => {
           "users",
           {
             name: "users",
+            id: "users_id",
             type: "auth" as const,
-            fields: [{ name: "customField", type: "text" as const, required: false }],
+            fields: [{ name: "customField", id: "customField_id", type: "text" as const, required: false }],
           },
         ],
       ]),
@@ -362,7 +363,7 @@ describe("aggregateChanges with system collection filtering", () => {
     const previousSnapshot = {
       version: "1.0.0",
       timestamp: "2024-01-01",
-      collections: new Map<string, CollectionSchema>([["users", { name: "users", type: "auth" as const, fields: [] }]]),
+      collections: new Map<string, CollectionSchema>([["users", { name: "users", id: "users_id", type: "auth" as const, fields: [] }]]),
     };
 
     const diff = aggregateChanges(currentSchema, previousSnapshot);
@@ -380,18 +381,19 @@ describe("aggregateChanges with system collection filtering", () => {
           "users",
           {
             name: "users",
+            id: "users_id",
             type: "auth" as const,
             fields: [
-              { name: "id", type: "text" as const, required: true },
-              { name: "email", type: "email" as const, required: true },
-              { name: "password", type: "text" as const, required: true },
-              { name: "tokenKey", type: "text" as const, required: true },
-              { name: "emailVisibility", type: "bool" as const, required: false },
-              { name: "verified", type: "bool" as const, required: false },
-              { name: "created", type: "date" as const, required: false },
-              { name: "updated", type: "date" as const, required: false },
-              { name: "customField", type: "text" as const, required: false },
-              { name: "anotherCustomField", type: "number" as const, required: false },
+              { name: "id", id: "id_id", type: "text" as const, required: true },
+              { name: "email", id: "email_id", type: "email" as const, required: true },
+              { name: "password", id: "password_id", type: "text" as const, required: true },
+              { name: "tokenKey", id: "tokenKey_id", type: "text" as const, required: true },
+              { name: "emailVisibility", id: "emailVisibility_id", type: "bool" as const, required: false },
+              { name: "verified", id: "verified_id", type: "bool" as const, required: false },
+              { name: "created", id: "created_id", type: "date" as const, required: false },
+              { name: "updated", id: "updated_id", type: "date" as const, required: false },
+              { name: "customField", id: "customField_id", type: "text" as const, required: false },
+              { name: "anotherCustomField", id: "anotherCustomField_id", type: "number" as const, required: false },
             ],
           },
         ],
@@ -401,7 +403,7 @@ describe("aggregateChanges with system collection filtering", () => {
     const previousSnapshot = {
       version: "1.0.0",
       timestamp: "2024-01-01",
-      collections: new Map<string, CollectionSchema>([["users", { name: "users", type: "auth" as const, fields: [] }]]),
+      collections: new Map<string, CollectionSchema>([["users", { name: "users", id: "users_id", type: "auth" as const, fields: [] }]]),
     };
 
     const diff = aggregateChanges(currentSchema, previousSnapshot);
@@ -432,11 +434,12 @@ describe("aggregateChanges with system collection filtering", () => {
           "posts",
           {
             name: "posts",
+            id: "posts_id",
             type: "base" as const,
             fields: [
-              { name: "id", type: "text" as const, required: true },
-              { name: "email", type: "email" as const, required: false },
-              { name: "created", type: "date" as const, required: false },
+              { name: "id", id: "id_id", type: "text" as const, required: true },
+              { name: "email", id: "email_id", type: "email" as const, required: false },
+              { name: "created", id: "created_id", type: "date" as const, required: false },
             ],
           },
         ],
@@ -446,7 +449,7 @@ describe("aggregateChanges with system collection filtering", () => {
     const previousSnapshot = {
       version: "1.0.0",
       timestamp: "2024-01-01",
-      collections: new Map<string, CollectionSchema>([["posts", { name: "posts", type: "base" as const, fields: [] }]]),
+      collections: new Map<string, CollectionSchema>([["posts", { name: "posts", id: "posts_id", type: "base" as const, fields: [] }]]),
     };
 
     const diff = aggregateChanges(currentSchema, previousSnapshot);

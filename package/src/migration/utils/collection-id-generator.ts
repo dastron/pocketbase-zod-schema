@@ -2,7 +2,7 @@
  * Collection ID generation utilities for PocketBase migrations
  */
 
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 
 /**
  * Generates a unique collection ID in PocketBase format
@@ -25,6 +25,38 @@ export function generateCollectionId(): string {
   }
 
   return id;
+}
+
+/**
+ * Generates a unique field ID based on type and name
+ * Format: type followed by 10 alphanumeric lowercase characters
+ * If name is provided, the ID is deterministic
+ *
+ * @param type - PocketBase field type
+ * @param name - Optional field name for deterministic ID
+ * @returns A unique field ID string
+ */
+export function generateFieldId(type: string, name?: string): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const idLength = 10;
+
+  let bytes: Buffer | Uint8Array;
+  if (name) {
+    // Deterministic based on name to ensure stability across runs
+    bytes = createHash("sha256").update(name).digest();
+  } else {
+    // Random
+    bytes = randomBytes(idLength);
+  }
+
+  // Convert bytes to alphanumeric characters
+  let suffix = "";
+  for (let i = 0; i < idLength; i++) {
+    const index = bytes[i] % chars.length;
+    suffix += chars[index];
+  }
+
+  return `${type}${suffix}`;
 }
 
 /**

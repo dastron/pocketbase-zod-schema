@@ -88,6 +88,7 @@ function extractFieldOptions(pbField: any): Record<string, any> {
 export function convertPocketBaseField(pbField: any): FieldDefinition {
   const field: any = {
     name: pbField.name,
+    id: pbField.id,
     type: pbField.type,
     required: pbField.required || false,
   };

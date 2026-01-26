@@ -7,6 +7,7 @@ import type { CollectionSchema, FieldDefinition } from "../types";
 import { getMaxSelect, getMinSelect, isRelationField, resolveTargetCollection } from "../utils/relation-detector";
 import { extractFieldOptions, isFieldRequired, mapZodTypeToPocketBase, unwrapZodType } from "../utils/type-mapper";
 import { extractCollectionTypeFromSchema, extractFieldDefinitions, extractIndexes } from "./extractors";
+import { generateFieldId } from "../utils/collection-id-generator.js";
 
 /**
  * Detects if a collection is an auth collection
@@ -62,6 +63,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
 
     const fieldDef: FieldDefinition = {
       name: fieldName,
+      id: generateFieldId(fieldMetadata.type, fieldName),
       type: fieldMetadata.type,
       required,
       options: Object.keys(options).length > 0 ? options : undefined,
@@ -90,6 +92,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
 
   const fieldDef: FieldDefinition = {
     name: fieldName,
+    id: generateFieldId(fieldType, fieldName),
     type: fieldType,
     required,
     options,

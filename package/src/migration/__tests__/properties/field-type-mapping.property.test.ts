@@ -114,6 +114,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "text":
       return textOptionsArb.map((options) => ({
         name,
+        id: name,
         type,
         required,
         options,
@@ -122,6 +123,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "number":
       return numberOptionsArb.map((options) => ({
         name,
+        id: name,
         type,
         required,
         options,
@@ -130,6 +132,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "bool":
       return fc.constant({
         name,
+        id: name,
         type,
         required,
       });
@@ -138,6 +141,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "url":
       return domainOptionsArb.map((options) => ({
         name,
+        id: name,
         type,
         required,
         options,
@@ -146,6 +150,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "date":
       return dateOptionsArb.map((options) => ({
         name,
+        id: name,
         type,
         required,
         options,
@@ -154,6 +159,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "select":
       return selectOptionsArb.map((options) => ({
         name,
+        id: name,
         type,
         required,
         options,
@@ -162,6 +168,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "file":
       return fileOptionsArb.map((options) => ({
         name,
+        id: name,
         type,
         required,
         options,
@@ -170,6 +177,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "relation":
       return relationArb.map((relation) => ({
         name,
+        id: name,
         type,
         required,
         relation,
@@ -178,6 +186,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "json":
       return jsonOptionsArb.map((options) => ({
         name,
+        id: name,
         type,
         required,
         options,
@@ -186,6 +195,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "editor":
       return editorOptionsArb.map((options) => ({
         name,
+        id: name,
         type,
         required,
         options,
@@ -194,6 +204,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "autodate":
       return autodateOptionsArb.map((options) => ({
         name,
+        id: name,
         type,
         required,
         options,
@@ -202,6 +213,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     case "geoPoint":
       return fc.constant({
         name,
+        id: name,
         type,
         required,
       });
@@ -209,6 +221,7 @@ function createFieldForType(name: string, type: PocketBaseFieldType, required: b
     default:
       return fc.constant({
         name,
+        id: name,
         type,
         required,
       });

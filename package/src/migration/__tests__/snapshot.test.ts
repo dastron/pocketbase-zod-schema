@@ -33,10 +33,11 @@ describe("Snapshot System - Permissions Support", () => {
           "projects",
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
             fields: [
-              { name: "title", type: "text", required: true },
-              { name: "User", type: "relation", required: true, relation: { collection: "users" } },
+              { name: "title", id: "title_id", type: "text", required: true },
+              { name: "User", id: "User_id", type: "relation", required: true, relation: { collection: "users" } },
             ],
             permissions: {
               listRule: "",
@@ -90,8 +91,9 @@ describe("Snapshot System - Permissions Support", () => {
           "articles",
           {
             name: "articles",
+            id: "articles_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
             // No permissions field
           },
         ],
@@ -120,11 +122,12 @@ describe("Snapshot System - Permissions Support", () => {
           "users",
           {
             name: "users",
+            id: "users_id",
             type: "auth",
             fields: [
-              { name: "email", type: "email", required: true },
-              { name: "password", type: "text", required: true },
-              { name: "name", type: "text", required: false },
+              { name: "email", id: "email_id", type: "email", required: true },
+              { name: "password", id: "password_id", type: "text", required: true },
+              { name: "name", id: "name_id", type: "text", required: false },
             ],
             permissions: {
               listRule: '@request.auth.id != ""',
@@ -162,8 +165,9 @@ describe("Snapshot System - Permissions Support", () => {
           "admin_data",
           {
             name: "admin_data",
+            id: "admin_data_id",
             type: "base",
-            fields: [{ name: "data", type: "json", required: true }],
+            fields: [{ name: "data", id: "data_id", type: "json", required: true }],
             permissions: {
               listRule: null,
               viewRule: null,
@@ -204,8 +208,9 @@ describe("Snapshot System - Permissions Support", () => {
           "public_posts",
           {
             name: "public_posts",
+            id: "public_posts_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
             permissions: {
               listRule: "",
               viewRule: "",
@@ -242,8 +247,9 @@ describe("Snapshot System - Permissions Support", () => {
           "projects",
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
             permissions: {
               listRule: '@request.auth.id != ""',
               viewRule: '@request.auth.id != ""',
@@ -282,10 +288,11 @@ describe("Snapshot Merging", () => {
           "_mfas",
           {
             name: "_mfas",
+            id: "_mfas_id",
             type: "base",
             fields: [
-              { name: "collectionRef", type: "text", required: true },
-              { name: "recordRef", type: "text", required: true },
+              { name: "collectionRef", id: "collectionRef_id", type: "text", required: true },
+              { name: "recordRef", id: "recordRef_id", type: "text", required: true },
             ],
           },
         ],
@@ -293,10 +300,11 @@ describe("Snapshot Merging", () => {
           "users",
           {
             name: "users",
+            id: "users_id",
             type: "auth",
             fields: [
-              { name: "email", type: "email", required: true },
-              { name: "password", type: "text", required: true },
+              { name: "email", id: "email_id", type: "email", required: true },
+              { name: "password", id: "password_id", type: "text", required: true },
             ],
           },
         ],
@@ -311,8 +319,9 @@ describe("Snapshot Merging", () => {
           "projects",
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
-            fields: [{ name: "title", type: "text", required: true }],
+            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
           },
         ],
       ]),
@@ -340,8 +349,9 @@ describe("Snapshot Merging", () => {
           "_mfas",
           {
             name: "_mfas",
+            id: "_mfas_id",
             type: "base",
-            fields: [{ name: "collectionRef", type: "text", required: true }],
+            fields: [{ name: "collectionRef", id: "collectionRef_id", type: "text", required: true }],
           },
         ],
       ]),
@@ -364,8 +374,9 @@ describe("Snapshot Merging", () => {
           "users",
           {
             name: "users",
+            id: "users_id",
             type: "auth",
-            fields: [{ name: "email", type: "email", required: true }],
+            fields: [{ name: "email", id: "email_id", type: "email", required: true }],
           },
         ],
       ]),
@@ -379,10 +390,11 @@ describe("Snapshot Merging", () => {
           "users",
           {
             name: "users",
+            id: "users_id",
             type: "auth",
             fields: [
-              { name: "email", type: "email", required: true },
-              { name: "name", type: "text", required: false },
+              { name: "email", id: "email_id", type: "email", required: true },
+              { name: "name", id: "name_id", type: "text", required: false },
             ],
           },
         ],
@@ -434,9 +446,10 @@ describe("loadSnapshotIfExists with migrations directory", () => {
         const snapshot = [
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
             fields: [
-              { name: "title", type: "text", required: true }
+              { name: "title", id: "title_id", type: "text", required: true }
             ]
           }
         ];
@@ -600,9 +613,10 @@ describe("Snapshot Loading with Multiple Snapshots", () => {
         const snapshot = [
           {
             name: "users",
+            id: "users_id",
             type: "auth",
             fields: [
-              { name: "email", type: "email", required: true }
+              { name: "email", id: "email_id", type: "email", required: true }
             ]
           }
         ];
@@ -614,16 +628,18 @@ describe("Snapshot Loading with Multiple Snapshots", () => {
         const snapshot = [
           {
             name: "users",
+            id: "users_id",
             type: "auth",
             fields: [
-              { name: "email", type: "email", required: true }
+              { name: "email", id: "email_id", type: "email", required: true }
             ]
           },
           {
             name: "projects",
+            id: "projects_id",
             type: "base",
             fields: [
-              { name: "title", type: "text", required: true }
+              { name: "title", id: "title_id", type: "text", required: true }
             ]
           }
         ];

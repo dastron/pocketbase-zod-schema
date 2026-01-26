@@ -42,6 +42,7 @@ const fieldTypeArb = fc.oneof(
  */
 const fieldDefinitionArb = fc.record({
   name: fieldNameArb,
+  id: fieldNameArb,
   type: fieldTypeArb,
   required: fc.boolean(),
   options: fc.constant({}),
