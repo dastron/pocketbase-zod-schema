@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.6.0...pocketbase-zod-schema-v0.6.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* update typegen ([e292f6c](https://github.com/dastron/pocketbase-zod-schema/commit/e292f6c60a71b80b115d1b3896c4908fc0e01295))
+* update typegen ([fe9de77](https://github.com/dastron/pocketbase-zod-schema/commit/fe9de778c48660d82a8e2722999bf474e8a376f0))
+
 ## [0.6.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.5.1...pocketbase-zod-schema-v0.6.0) (2026-01-26)
 
 
