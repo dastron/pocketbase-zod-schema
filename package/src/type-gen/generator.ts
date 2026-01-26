@@ -1,4 +1,5 @@
 import type { CollectionSchema, FieldDefinition, SchemaDefinition } from "../migration/types";
+import { zodToTs } from "./utils";
 
 export interface TypeGeneratorConfig {
   outPath?: string;
@@ -160,6 +161,9 @@ export class TypeGenerator {
         return 'boolean';
 
       case 'json':
+        if (field.zodType) {
+          return zodToTs(field.zodType);
+        }
         return 'any';
 
       case 'file':

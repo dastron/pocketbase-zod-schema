@@ -67,6 +67,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
       type: fieldMetadata.type,
       required,
       options: Object.keys(options).length > 0 ? options : undefined,
+      zodType: zodType,
     };
 
     // If it's a relation type from metadata, we still need to extract relation config
@@ -97,6 +98,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     type: fieldType,
     required,
     options,
+    zodType: zodType,
   };
 
   // Check for explicit relation metadata first (from relation() or relations() helpers)

@@ -10,9 +10,12 @@ export type { PocketBaseFieldType };
 import type { APIRuleType } from "../utils/permissions.js";
 export type { APIRuleType };
 
+import { z } from "zod";
+
 export interface FieldDefinition {
   name: string;
   id: string;
+  zodType?: z.ZodTypeAny;
   type: PocketBaseFieldType;
   required: boolean;
   unique?: boolean;
