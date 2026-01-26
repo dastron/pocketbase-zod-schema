@@ -70,24 +70,24 @@ describe("Project Schema Migration Generation", () => {
     // Should contain all expected fields
     // Note: thumbnailURL and imageFiles are excluded as they are image file handling fields,
     // not actual database fields (they're handled by PocketBase's file system)
-    expect(content).toContain('name: "title"');
-    expect(content).toContain('name: "content"');
-    expect(content).toContain('name: "status"');
-    expect(content).toContain('name: "summary"');
-    expect(content).toContain('name: "OwnerUser"');
-    expect(content).toContain('name: "SubscriberUsers"');
+    expect(content).toContain('"name": "title"');
+    expect(content).toContain('"name": "content"');
+    expect(content).toContain('"name": "status"');
+    expect(content).toContain('"name": "summary"');
+    expect(content).toContain('"name": "OwnerUser"');
+    expect(content).toContain('"name": "SubscriberUsers"');
 
     // Should contain field types
-    expect(content).toContain('type: "text"'); // title, content, summary
-    expect(content).toContain('type: "select"'); // status
-    expect(content).toContain('type: "relation"'); // OwnerUser, SubscriberUsers
+    expect(content).toContain('"type": "text"'); // title, content, summary
+    expect(content).toContain('"type": "select"'); // status
+    expect(content).toContain('"type": "relation"'); // OwnerUser, SubscriberUsers
 
     // Should contain permissions
-    expect(content).toContain("listRule:");
-    expect(content).toContain("viewRule:");
-    expect(content).toContain("createRule:");
-    expect(content).toContain("updateRule:");
-    expect(content).toContain("deleteRule:");
+    expect(content).toContain('"listRule":');
+    expect(content).toContain('"viewRule":');
+    expect(content).toContain('"createRule":');
+    expect(content).toContain('"updateRule":');
+    expect(content).toContain('"deleteRule":');
 
     // Should contain custom permission rules
     // Note: The migration file uses escaped quotes in the string literal

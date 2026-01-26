@@ -136,7 +136,7 @@ describe("Field Type Mapping Integration Tests", () => {
 
       const generated = generateFieldDefinitionObject(field);
 
-      expect(generated).toContain("onlyInt: false");
+      expect(generated).toContain('"onlyInt": false');
     });
   });
 
