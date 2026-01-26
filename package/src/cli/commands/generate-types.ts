@@ -42,7 +42,7 @@ export async function executeGenerateTypes(options: any): Promise<void> {
     const output = await withProgress("Generating TypeScript definitions...", () => Promise.resolve(generator.generate()));
 
     // Write output file
-    const outputPath = options.output || "pocketbase-types.ts";
+    const outputPath = options.output || config.typeGen.outPath;
     const resolvedPath = path.resolve(process.cwd(), outputPath);
 
     fs.writeFileSync(resolvedPath, output);
@@ -69,7 +69,7 @@ export async function executeGenerateTypes(options: any): Promise<void> {
 export function createGenerateTypesCommand(): Command {
   return new Command("generate-types")
     .description("Generate TypeScript definitions from Zod schemas")
-    .option("-o, --output <path>", "Output file path", "pocketbase-types.ts")
+    .option("-o, --output <path>", "Output file path")
     .option("--schema-dir <directory>", "Directory containing Zod schema files")
     .action(executeGenerateTypes);
 }

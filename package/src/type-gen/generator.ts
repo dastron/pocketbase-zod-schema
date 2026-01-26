@@ -92,9 +92,6 @@ export class TypeGenerator {
     lines.push(`}`);
     lines.push(``);
 
-    // Generate Response Interface (with expand)
-    lines.push(`export interface ${typeName}Response extends ${typeName}Record {`);
-
     // Calculate expand type
     const expandFields: string[] = [];
     for (const field of collection.fields) {
@@ -130,15 +127,18 @@ export class TypeGenerator {
       }
     }
 
+    // Generate Response Interface (with expand)
     if (expandFields.length > 0) {
+      lines.push(`export interface ${typeName}Response extends ${typeName}Record {`);
       lines.push(`  expand?: {`);
       for (const ef of expandFields) {
         lines.push(`    ${ef};`);
       }
       lines.push(`  };`);
+      lines.push(`}`);
+    } else {
+      lines.push(`export type ${typeName}Response = ${typeName}Record;`);
     }
-
-    lines.push(`}`);
 
     return lines.join("\n");
   }
