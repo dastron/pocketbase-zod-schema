@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.5.0...pocketbase-zod-schema-v0.5.1) (2026-01-26)
+
+
+### Bug Fixes
+
+* Add Column IDs ([e42e4de](https://github.com/dastron/pocketbase-zod-schema/commit/e42e4def0f756afbf6efcf999ca59d079e9c3e82))
+* **parser:** support addAt and field updates by ID ([9d38759](https://github.com/dastron/pocketbase-zod-schema/commit/9d387597d3082c2409cdfb9d723a30c0fa63fc08))
+* support fields.addAt and generic Field in migration parser ([dfa780e](https://github.com/dastron/pocketbase-zod-schema/commit/dfa780e4daec43a7bae67dfb03fae6f5e3817813))
+
+
+### Performance Improvements
+
+* optimize toPascalCase regex compilation ([e9b1679](https://github.com/dastron/pocketbase-zod-schema/commit/e9b1679af1033fdfa54332fb4dca6c596f0cdda8))
+* Pre-compile regexes and fix escaping ([de78ce1](https://github.com/dastron/pocketbase-zod-schema/commit/de78ce14b495b8dfb34bf0da4d153ea53bc15cf0))
+
 ## [0.5.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.4.2...pocketbase-zod-schema-v0.5.0) (2026-01-23)
 
 
