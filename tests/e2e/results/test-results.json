@@ -223,7 +223,6 @@
           "Migration filename timestamp format differs",
           "Migration filename pattern differs",
           "Collection system mismatch: false vs true",
-          "Field type mismatch: file vs text",
           "Field missing in library migration: password",
           "Field missing in library migration: tokenKey",
           "Field missing in library migration: email",

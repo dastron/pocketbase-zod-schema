@@ -367,7 +367,24 @@ export default {
         break;
 
       case 'file':
-        zodType = 'z.string()';
+        // Attach metadata for file type
+        const fileMetadata = {
+          __pocketbase_field__: {
+            type: 'file',
+            options: field.options || {}
+          }
+        };
+        zodType = `z.string().describe(${JSON.stringify(JSON.stringify(fileMetadata))})`;
+        break;
+
+      case 'geoPoint':
+        // Attach metadata for geoPoint type
+        const geoMetadata = {
+          __pocketbase_field__: {
+            type: 'geoPoint'
+          }
+        };
+        zodType = `z.object({ lon: z.number(), lat: z.number() }).describe(${JSON.stringify(JSON.stringify(geoMetadata))})`;
         break;
 
       case 'relation':
@@ -506,11 +523,32 @@ export default {
         }
 
         // Parse schema fields - look for fields: [...] pattern
-        const fieldsMatch = collectionData.match(/fields:\s*\[([\s\S]*?)\],/);
+        // robust parsing using bracket counting to handle nested arrays in options
+        let fieldsContent = '';
+        const fieldsStartMatch = collectionData.match(/fields:\s*\[/);
+
+        if (fieldsStartMatch && fieldsStartMatch.index !== undefined) {
+          const startIndex = fieldsStartMatch.index + fieldsStartMatch[0].length;
+          let bracketDepth = 1;
+          let currentIndex = startIndex;
+
+          while (currentIndex < collectionData.length && bracketDepth > 0) {
+            if (collectionData[currentIndex] === '[') {
+              bracketDepth++;
+            } else if (collectionData[currentIndex] === ']') {
+              bracketDepth--;
+            }
+            currentIndex++;
+          }
+
+          if (bracketDepth === 0) {
+            fieldsContent = collectionData.substring(startIndex, currentIndex - 1);
+          }
+        }
+
         const fields: ParsedField[] = [];
 
-        if (fieldsMatch) {
-          const fieldsContent = fieldsMatch[1];
+        if (fieldsContent) {
           
           // Parse field objects by finding balanced braces
           // Each field starts with { and we need to find its matching }
