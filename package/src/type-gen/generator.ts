@@ -59,7 +59,6 @@ export class TypeGenerator {
       const typeName = this.toPascalCase(name);
       lines.push(`  collection(idOrName: "${name}"): RecordService<${typeName}Response>;`);
     }
-    lines.push(`  collection(idOrName: string): RecordService;`); // Fallback`);
     lines.push(`}`);
     lines.push(``);
 

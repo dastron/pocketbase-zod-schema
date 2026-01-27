@@ -3,6 +3,9 @@
  * Do not modify it manually.
  */
 
+import PocketBase from "pocketbase";
+import type { RecordService } from "pocketbase";
+
 export interface ProjectsRecord {
   id: string;
   created: string;
@@ -51,11 +54,7 @@ export type CollectionResponses = {
   Users: UsersResponse;
 };
 
-import PocketBase from "pocketbase";
-import { RecordService } from "pocketbase";
-
 export interface TypedPocketBase extends PocketBase {
-  collection(idOrName: string): RecordService;
   collection(idOrName: "Projects"): RecordService<ProjectsResponse>;
   collection(idOrName: "Users"): RecordService<UsersResponse>;
 }

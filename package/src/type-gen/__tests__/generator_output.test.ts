@@ -30,10 +30,7 @@ describe("TypeGenerator", () => {
         expect(output).toContain('export interface TypedPocketBase extends PocketBase {');
         expect(output).toContain('collection(idOrName: "users"): RecordService<UsersResponse>;');
 
-        // Check Order: Specific should be before generic
-        const specificIndex = output.indexOf('collection(idOrName: "users")');
-        const genericIndex = output.indexOf('collection(idOrName: string)');
-        expect(specificIndex).toBeLessThan(genericIndex);
-        expect(specificIndex).not.toBe(-1);
+        // Check that generic fallback is NOT present (strongly typed only)
+        expect(output).not.toContain('collection(idOrName: string)');
     });
 });
