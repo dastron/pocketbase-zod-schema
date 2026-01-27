@@ -13,6 +13,7 @@ import {
   parseSchemaFiles,
   requiresForceFlagValidation as requiresForceFlag,
   summarizeDestructiveChanges,
+  filterDiff,
 } from "../../migration/index.js";
 import {
   ConfigurationError,
@@ -90,6 +91,8 @@ function handleDestructiveChanges(diff: any, config: MigrationConfig, force: boo
   const forceRequired = config.diff.requireForceForDestructive && requiresForceFlag(destructiveChanges);
 
   if (forceRequired && !force) {
+    // This path should technically be unreachable if we filtered destructive changes when !force
+    // But keeping it as a safety net
     logError("Destructive changes require the --force flag to proceed.");
     console.log();
     logInfo("To proceed with these changes, run the command again with --force:");
@@ -110,9 +113,10 @@ function handleDestructiveChanges(diff: any, config: MigrationConfig, force: boo
 /**
  * Executes the generate command
  *
+ * @param filters - Optional filters for collection/field names
  * @param options - Command options
  */
-export async function executeGenerate(options: any): Promise<void> {
+export async function executeGenerate(filters: string[], options: any): Promise<void> {
   try {
     // Set verbosity based on global options
     const parentOpts = options.parent?.opts?.() || {};
@@ -124,6 +128,9 @@ export async function executeGenerate(options: any): Promise<void> {
 
     logDebug("Starting migration generation...");
     logDebug(`Options: ${JSON.stringify(options, null, 2)}`);
+    if (filters && filters.length > 0) {
+        logDebug(`Filters: ${JSON.stringify(filters)}`);
+    }
 
     // Load configuration
     const config = await loadConfig(options);
@@ -159,7 +166,25 @@ export async function executeGenerate(options: any): Promise<void> {
 
     // Compare schemas
     logSection("📊 Comparing Schemas");
-    const diff = compare(currentSchema, previousSnapshot);
+    let diff = compare(currentSchema, previousSnapshot);
+
+    // Apply filtering (patterns and destructive skipping)
+    const skipDestructive = !options.force;
+
+    // Check for destructive changes BEFORE filtering if we are going to skip them (for logging)
+    // Only if we are NOT forcing.
+    if (skipDestructive) {
+        const destructive = detectDestructiveChanges(diff);
+        if (destructive.length > 0) {
+             logInfo(`ℹ️  Omitting ${destructive.length} destructive change(s) because --force is not set.`);
+        }
+    }
+
+    // Apply filter
+    diff = filterDiff(diff, {
+        patterns: filters,
+        skipDestructive: skipDestructive
+    });
 
     // Check if there are any changes
     if (!hasChanges(diff)) {
@@ -174,6 +199,8 @@ export async function executeGenerate(options: any): Promise<void> {
     console.log(formatChangeSummary(diff));
 
     // Handle destructive changes
+    // If skipDestructive was true, diff shouldn't have any destructive changes, so this will pass.
+    // If force was true, skipDestructive was false, diff might have destructive changes, this will warn and proceed.
     if (!handleDestructiveChanges(diff, config, options.force)) {
       process.exit(1);
     }
@@ -282,6 +309,7 @@ export async function executeGenerate(options: any): Promise<void> {
 export function createGenerateCommand(): Command {
   return new Command("generate")
     .description("Generate a migration from schema changes")
+    .argument("[filters...]", "Filter migrations by collection or field name (regex supported)")
     .option("-o, --output <directory>", "Output directory for migration files")
     .option("-f, --force", "Force generation even with destructive changes or duplicates", false)
     .option("--dry-run", "Show what would be generated without creating files", false)
@@ -291,6 +319,8 @@ export function createGenerateCommand(): Command {
       `
 Examples:
   $ pocketbase-migrate generate                    Generate migration from schema changes
+  $ pocketbase-migrate generate User               Generate migration only for User collection
+  $ pocketbase-migrate generate User.name          Generate migration only for User.name field
   $ pocketbase-migrate generate --force            Force generation with destructive changes
   $ pocketbase-migrate generate --dry-run          Preview changes without generating files
   $ pocketbase-migrate generate -o ./migrations    Specify output directory

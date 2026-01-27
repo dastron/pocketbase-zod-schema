@@ -60,6 +60,7 @@ export {
   matchCollectionsByName,
   matchFieldsByName,
   requiresForceFlag,
+  filterDiff,
 } from "./diff/index.js";
 export type { ChangeSummary, DestructiveChange, DiffEngineConfig } from "./diff/index.js";
 
