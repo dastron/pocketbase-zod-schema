@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BaseMutator, Expanded } from "../baseMutator";
-import { RecordModel } from "pocketbase";
+import { BaseMutator } from "../baseMutator";
+import type { RecordModel } from "pocketbase";
 
 // Mock implementation of BaseMutator
 class MockMutator<T extends RecordModel> extends BaseMutator<T, any> {
