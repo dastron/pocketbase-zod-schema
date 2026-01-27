@@ -28,10 +28,13 @@ export class TypeGenerator {
     // Check if RecordModel is needed (used as fallback for relations to collections not in schema)
     const needsRecordModel = this.checkIfRecordModelNeeded();
 
+    lines.push(`import PocketBase from "pocketbase";`);
+    lines.push(`import type { RecordService } from "pocketbase";`);
+
     if (needsRecordModel) {
       lines.push(`import type { RecordModel } from "pocketbase";`);
-      lines.push(``);
     }
+    lines.push(``);
 
     // Generate types for each collection
     const collectionNames = Array.from(this.schema.collections.keys());
@@ -51,15 +54,12 @@ export class TypeGenerator {
     lines.push(``);
 
     // Generate TypedPocketBase interface
-    lines.push(`import PocketBase from "pocketbase";`);
-    lines.push(`import { RecordService } from "pocketbase";`);
-    lines.push(``);
     lines.push(`export interface TypedPocketBase extends PocketBase {`);
-    lines.push(`  collection(idOrName: string): RecordService;`); // Fallback`);
     for (const name of collectionNames) {
       const typeName = this.toPascalCase(name);
       lines.push(`  collection(idOrName: "${name}"): RecordService<${typeName}Response>;`);
     }
+    lines.push(`  collection(idOrName: string): RecordService;`); // Fallback`);
     lines.push(`}`);
     lines.push(``);
 

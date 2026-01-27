@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z, ZodIntersection, ZodTuple, ZodNativeEnum, ZodMap, ZodSet, ZodTypeAny } from "zod";
 
 export function zodToTs(schema: z.ZodTypeAny): string {
   if (schema instanceof z.ZodString) {
@@ -48,10 +48,57 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     const options = schema.options as z.ZodTypeAny[];
     return options.map((opt) => zodToTs(opt)).join(" | ");
   }
+
+  const isInstance = (target: any, typeName: string, fallbackClass?: any) => {
+    if (fallbackClass && target instanceof fallbackClass) return true;
+    if ((z as any)[typeName] && target instanceof (z as any)[typeName]) return true;
+    return false;
+  };
+
+  if (isInstance(schema, 'ZodIntersection', ZodIntersection)) {
+    const left = zodToTs(schema._def.left);
+    const right = zodToTs(schema._def.right);
+    return `(${left} & ${right})`;
+  }
+
+  if (isInstance(schema, 'ZodTuple', ZodTuple)) {
+    const items = (schema as any).items || (schema._def as any).items;
+    if (Array.isArray(items)) {
+        const itemTypes = items.map((item: ZodTypeAny) => zodToTs(item));
+        return `[${itemTypes.join(", ")}]`;
+    }
+    return "any[]";
+  }
+
   if (schema instanceof z.ZodEnum) {
     const values = schema.options as string[];
     return values.map((v) => `"${v}"`).join(" | ");
   }
+
+  if (isInstance(schema, 'ZodNativeEnum', ZodNativeEnum)) {
+    const enumObj = (schema as any).enum || (schema._def as any).values;
+    if (enumObj) {
+        // Filter out numeric keys (reverse mapping in TS enums) to get the "real" keys
+        const keys = Object.keys(enumObj).filter(k => isNaN(Number(k)));
+        const values = keys.map(k => enumObj[k]);
+
+        const uniqueValues = Array.from(new Set(values));
+        return uniqueValues.map(v => typeof v === 'string' ? `"${v}"` : v).join(" | ");
+    }
+    return "any";
+  }
+
+  if (isInstance(schema, 'ZodMap', ZodMap)) {
+      const keyType = zodToTs(schema._def.keyType);
+      const valueType = zodToTs(schema._def.valueType);
+      return `Record<${keyType}, ${valueType}>`;
+  }
+
+  if (isInstance(schema, 'ZodSet', ZodSet)) {
+      const valueType = zodToTs(schema._def.valueType);
+      return `${valueType}[]`;
+  }
+
   if (schema instanceof z.ZodRecord) {
     const valueType = zodToTs(schema.valueType as z.ZodTypeAny);
     return `Record<string, ${valueType}>`;
@@ -62,8 +109,6 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     return String(val);
   }
 
-  // Handle Wrapped types (Pipe, Default, etc.)
-  // Note: Zod v4 has no ZodEffects; refinements (.min(), .max(), etc.) stay on base types (ZodString, etc.)
   if (schema instanceof z.ZodPipe) {
       return zodToTs(schema._def.in as z.ZodTypeAny);
   }
@@ -71,9 +116,7 @@ export function zodToTs(schema: z.ZodTypeAny): string {
       return zodToTs(schema._def.innerType as z.ZodTypeAny);
   }
   if (schema instanceof z.ZodLazy) {
-      // Lazy is hard because we might recurse infinitely or need names.
-      // For now, return any.
-      return "any";
+      return "any /* z.lazy() */";
   }
 
   return "any";

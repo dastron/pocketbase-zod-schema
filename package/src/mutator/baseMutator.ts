@@ -18,7 +18,7 @@ export interface MutatorOptions {
 // Helper to infer the type of the expanded resource
 export type Expanded<
   T extends RecordModel,
-  E extends keyof NonNullable<T["expand"]> | string
+  E extends keyof NonNullable<T["expand"]>
 > = [E] extends [never]
   ? T
   : T & {
@@ -98,9 +98,9 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Create a new entity
    */
-  async create<E extends keyof NonNullable<T["expand"]> | string = never>(
+  async create<E extends keyof NonNullable<T["expand"]> = never>(
     input: InputType,
-    expand?: E | E[] | string
+    expand?: E | E[]
   ): Promise<Expanded<T, E>> {
     try {
       const data = await this.validateInput(input);
@@ -117,10 +117,10 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Update an existing entity
    */
-  async update<E extends keyof NonNullable<T["expand"]> | string = never>(
+  async update<E extends keyof NonNullable<T["expand"]> = never>(
     id: string,
     input: Partial<T>,
-    expand?: E | E[] | string
+    expand?: E | E[]
   ): Promise<Expanded<T, E>> {
     try {
       const finalExpand = this.prepareExpand(expand as string | string[]);
@@ -136,9 +136,9 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Create or update entity (upsert)
    */
-  async upsert<E extends keyof NonNullable<T["expand"]> | string = never>(
+  async upsert<E extends keyof NonNullable<T["expand"]> = never>(
     input: InputType & { id?: string },
-    expand?: E | E[] | string
+    expand?: E | E[]
   ): Promise<Expanded<T, E>> {
     if (input?.id) {
       return await this.update(input.id, input as Partial<T>, expand);
@@ -152,9 +152,9 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Get entity by ID
    */
-  async getById<E extends keyof NonNullable<T["expand"]> | string = never>(
+  async getById<E extends keyof NonNullable<T["expand"]> = never>(
     id: string,
-    expand?: E | E[] | string
+    expand?: E | E[]
   ): Promise<Expanded<T, E> | null> {
     try {
       const record = await this.entityGetById(id, expand as string | string[]);
@@ -167,9 +167,9 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Get first entity by filter
    */
-  async getFirstByFilter<E extends keyof NonNullable<T["expand"]> | string = never>(
+  async getFirstByFilter<E extends keyof NonNullable<T["expand"]> = never>(
     filter: string | string[],
-    expand?: E | E[] | string,
+    expand?: E | E[],
     sort?: string
   ): Promise<Expanded<T, E> | null> {
     try {
@@ -187,12 +187,12 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Get list of entities
    */
-  async getList<E extends keyof NonNullable<T["expand"]> | string = never>(
+  async getList<E extends keyof NonNullable<T["expand"]> = never>(
     page = 1,
     perPage = 100,
     filter?: string | string[],
     sort?: string,
-    expand?: E | E[] | string
+    expand?: E | E[]
   ): Promise<ListResult<Expanded<T, E>>> {
     try {
       const result = await this.entityGetList(
@@ -491,10 +491,10 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    * @param expand Optional expand parameters
    * @returns Promise that resolves to an unsubscribe function
    */
-  async subscribeToRecord<E extends keyof NonNullable<T["expand"]> | string = never>(
+  async subscribeToRecord<E extends keyof NonNullable<T["expand"]> = never>(
     id: string,
     callback: (data: RecordSubscription<Expanded<T, E>>) => void,
-    expand?: E | E[] | string
+    expand?: E | E[]
   ): Promise<UnsubscribeFunc> {
     const finalExpand = this.prepareExpand(expand as string | string[]);
     const options: RecordSubscribeOptions = finalExpand
@@ -511,10 +511,10 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    * @returns Promise that resolves to an unsubscribe function
    */
   async subscribeToCollection<
-    E extends keyof NonNullable<T["expand"]> | string = never
+    E extends keyof NonNullable<T["expand"]> = never
   >(
     callback: (data: RecordSubscription<Expanded<T, E>>) => void,
-    expand?: E | E[] | string
+    expand?: E | E[]
   ): Promise<UnsubscribeFunc> {
     const finalExpand = this.prepareExpand(expand as string | string[]);
     const options: RecordSubscribeOptions = finalExpand
