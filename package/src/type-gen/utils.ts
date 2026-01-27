@@ -1,6 +1,7 @@
-import { z } from "zod";
+import { z, ZodIntersection, ZodTuple, ZodMap, ZodSet } from "zod";
+import type { ZodTypeAny } from "zod";
 
-export function zodToTs(schema: z.ZodTypeAny): string {
+export function zodToTs(schema: ZodTypeAny): string {
   if (schema instanceof z.ZodString) {
     return "string";
   }
@@ -17,7 +18,7 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     return "any";
   }
   if (schema instanceof z.ZodArray) {
-    const elemType = zodToTs(schema.element as z.ZodTypeAny);
+    const elemType = zodToTs(schema.element as ZodTypeAny);
     // Wrap in parens if it looks like a union or complex type
     if (elemType.includes("|") || elemType.includes(" ") || elemType.startsWith("{")) {
       return `(${elemType})[]`;
@@ -29,31 +30,68 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     const lines: string[] = ["{"];
     for (const [key, value] of Object.entries(shape)) {
       const isOptional = value instanceof z.ZodOptional;
-      const typeStr = zodToTs(value as z.ZodTypeAny);
+      const typeStr = zodToTs(value as ZodTypeAny);
       lines.push(`  ${key}${isOptional ? "?" : ""}: ${typeStr};`);
     }
     lines.push("}");
     return lines.join("\n");
   }
   if (schema instanceof z.ZodOptional) {
-    const inner = zodToTs(schema.unwrap() as z.ZodTypeAny);
+    const inner = zodToTs(schema.unwrap() as ZodTypeAny);
     if (inner.includes('| undefined')) return inner;
     return `${inner} | undefined`;
   }
   if (schema instanceof z.ZodNullable) {
-    const inner = zodToTs(schema.unwrap() as z.ZodTypeAny);
+    const inner = zodToTs(schema.unwrap() as ZodTypeAny);
     return `${inner} | null`;
   }
   if (schema instanceof z.ZodUnion) {
-    const options = schema.options as z.ZodTypeAny[];
+    const options = schema.options as ZodTypeAny[];
     return options.map((opt) => zodToTs(opt)).join(" | ");
   }
-  if (schema instanceof z.ZodEnum) {
-    const values = schema.options as string[];
-    return values.map((v) => `"${v}"`).join(" | ");
+
+  const isInstance = (target: any, typeName: string, fallbackClass?: any) => {
+    if (fallbackClass && target instanceof fallbackClass) return true;
+    if ((z as any)[typeName] && target instanceof (z as any)[typeName]) return true;
+    return false;
+  };
+
+  if (isInstance(schema, "ZodIntersection", ZodIntersection)) {
+    const def = schema._def as unknown as { left: ZodTypeAny; right: ZodTypeAny };
+    const left = zodToTs(def.left);
+    const right = zodToTs(def.right);
+    return `(${left} & ${right})`;
   }
+
+  if (isInstance(schema, "ZodTuple", ZodTuple)) {
+    const items = (schema as { items?: ZodTypeAny[] }).items ?? (schema._def as { items?: ZodTypeAny[] }).items;
+    if (Array.isArray(items)) {
+      const itemTypes = items.map((item: ZodTypeAny) => zodToTs(item));
+      return `[${itemTypes.join(", ")}]`;
+    }
+    return "any[]";
+  }
+
+  if (schema instanceof z.ZodEnum) {
+    const options = schema.options as unknown[];
+    return options.map((v) => (typeof v === "string" ? `"${v}"` : String(v))).join(" | ");
+  }
+
+  if (isInstance(schema, "ZodMap", ZodMap)) {
+    const def = schema._def as unknown as { keyType: ZodTypeAny; valueType: ZodTypeAny };
+    const keyType = zodToTs(def.keyType);
+    const valueType = zodToTs(def.valueType);
+    return `Record<${keyType}, ${valueType}>`;
+  }
+
+  if (isInstance(schema, "ZodSet", ZodSet)) {
+    const def = schema._def as unknown as { valueType: ZodTypeAny };
+    const valueType = zodToTs(def.valueType);
+    return `${valueType}[]`;
+  }
+
   if (schema instanceof z.ZodRecord) {
-    const valueType = zodToTs(schema.valueType as z.ZodTypeAny);
+    const valueType = zodToTs(schema.valueType as ZodTypeAny);
     return `Record<string, ${valueType}>`;
   }
   if (schema instanceof z.ZodLiteral) {
@@ -62,18 +100,14 @@ export function zodToTs(schema: z.ZodTypeAny): string {
     return String(val);
   }
 
-  // Handle Wrapped types (Pipe, Default, etc.)
-  // Note: Zod v4 has no ZodEffects; refinements (.min(), .max(), etc.) stay on base types (ZodString, etc.)
   if (schema instanceof z.ZodPipe) {
-      return zodToTs(schema._def.in as z.ZodTypeAny);
+    return zodToTs((schema._def as unknown as { in: ZodTypeAny }).in);
   }
   if (schema instanceof z.ZodDefault) {
-      return zodToTs(schema._def.innerType as z.ZodTypeAny);
+    return zodToTs((schema._def as unknown as { innerType: ZodTypeAny }).innerType);
   }
   if (schema instanceof z.ZodLazy) {
-      // Lazy is hard because we might recurse infinitely or need names.
-      // For now, return any.
-      return "any";
+      return "any /* z.lazy() */";
   }
 
   return "any";
