@@ -201,3 +201,4 @@ export class DiffEngine {
     return requiresForceFlag(diff, this.config);
   }
 }
+export * from "./filter.js";
