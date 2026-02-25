@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.6.1...pocketbase-zod-schema-v0.7.0) (2026-02-13)
+
+
+### Features
+
+* Add migration filtering and skip destructive changes without force ([8b6f4f1](https://github.com/dastron/pocketbase-zod-schema/commit/8b6f4f1e918c40052ec15390b7c5c4df87e8a871))
+* Add migration filtering and skip destructive changes without force ([1a8ea15](https://github.com/dastron/pocketbase-zod-schema/commit/1a8ea15489957ec2407af8b57316f703eb40db57))
+* enhance codegen with complex types and strict mutators ([4086561](https://github.com/dastron/pocketbase-zod-schema/commit/4086561aa4ae8f132e965ff7672a581644eaa364))
+
+
+### Bug Fixes
+
+* remove idOrName:string from typegen ([423dcbb](https://github.com/dastron/pocketbase-zod-schema/commit/423dcbb1a584f9bf3722c797297cc9450ba45325))
+
 ## [0.6.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.6.0...pocketbase-zod-schema-v0.6.1) (2026-01-26)
 
 
