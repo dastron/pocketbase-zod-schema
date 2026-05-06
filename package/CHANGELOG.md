@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.7.0...pocketbase-zod-schema-v0.7.1) (2026-05-06)
+
+
+### Bug Fixes
+
+* missing autodate fields ([e3d6dc6](https://github.com/dastron/pocketbase-zod-schema/commit/e3d6dc60d2e6b7d0fa9a52b6bace3c2d3addfc84))
+
 ## [0.7.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.6.1...pocketbase-zod-schema-v0.7.0) (2026-02-13)
 
 
