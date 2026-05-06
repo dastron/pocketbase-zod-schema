@@ -2,7 +2,14 @@ import type { CollectionSchema } from "../types";
 import { generateFieldsArray } from "./fields";
 import { generateIndexesArray } from "./indexes";
 import { generateCollectionPermissions, generateCollectionRules } from "./rules";
-import { formatValue, generateFindCollectionCode, getAuthSystemFields, getAuthSystemIndexes, getSystemFields } from "./utils";
+import {
+  formatValue,
+  generateFindCollectionCode,
+  getAuthSystemFields,
+  getAuthSystemIndexes,
+  getSystemFields,
+  getSystemTimestampFields,
+} from "./utils";
 
 /**
  * Generates Collection constructor call for creating a new collection
@@ -45,14 +52,15 @@ export function generateCollectionCreation(
   }
   const userFields = collection.fields.filter((f) => !systemFieldNames.includes(f.name));
 
-  // Build field list in correct order: id, [auth fields], user fields
-  const allFields = [...getSystemFields().filter((f) => f.name === "id")];
+  // Build field list in correct order: id, [auth fields], user fields, created, updated
+  const allFields = [...getSystemFields()];
 
   if (collection.type === "auth") {
     allFields.push(...getAuthSystemFields());
   }
 
   allFields.push(...userFields);
+  allFields.push(...getSystemTimestampFields());
 
   // Add fields
   lines.push(`    "fields": ${generateFieldsArray(allFields, collectionIdMap)},`);

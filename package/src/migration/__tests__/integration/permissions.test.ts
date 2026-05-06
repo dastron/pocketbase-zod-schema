@@ -11,6 +11,7 @@ import * as path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compare } from "../../diff";
 import { generate } from "../../generator";
+import { parseMigrationOperations } from "../../migration-parser";
 import type { SchemaDefinition } from "../../types";
 import {
   CreateAuthCollectionWithManageRuleSchema,
@@ -130,6 +131,56 @@ describe("Permission Handling Integration Tests", () => {
       // Verify custom fields are present (auth system fields are added automatically by PocketBase)
       const fieldNames = collection.fields.map((f: any) => f.name);
       expect(fieldNames).toContain("name");
+    });
+  });
+
+  describe("8.4 Parser detects unmarshal rule changes", () => {
+    it("should parse rule values from unmarshal({...}, collection) blocks", () => {
+      const migrationContent = `/// <reference path="../pb_data/types.d.ts" />
+migrate((app) => {
+  const collection = app.findCollectionByNameOrId("pb_abc123") // TestCollection;
+  unmarshal({
+    "createRule": "@collection.Admins.user ?= @request.auth.id",
+    "deleteRule": "@collection.Admins.user ?= @request.auth.id",
+    "updateRule": "@collection.Admins.user ?= @request.auth.id"
+  }, collection)
+  return app.save(collection)
+}, (app) => {
+  const collection = app.findCollectionByNameOrId("pb_abc123") // TestCollection;
+  unmarshal({
+    "createRule": null,
+    "deleteRule": null,
+    "updateRule": null
+  }, collection)
+  return app.save(collection)
+})`;
+
+      const result = parseMigrationOperations(migrationContent);
+
+      expect(result.collectionsToUpdate).toHaveLength(1);
+      const update = result.collectionsToUpdate[0];
+      expect(update.rulesToUpdate["createRule"]).toBe("@collection.Admins.user ?= @request.auth.id");
+      expect(update.rulesToUpdate["deleteRule"]).toBe("@collection.Admins.user ?= @request.auth.id");
+      expect(update.rulesToUpdate["updateRule"]).toBe("@collection.Admins.user ?= @request.auth.id");
+    });
+
+    it("should parse null rule values from unmarshal blocks", () => {
+      const migrationContent = `/// <reference path="../pb_data/types.d.ts" />
+migrate((app) => {
+  const col = app.findCollectionByNameOrId("my_collection") // MyCollection;
+  unmarshal({
+    "listRule": null,
+    "viewRule": null
+  }, col)
+  return app.save(col)
+}, (app) => {})`;
+
+      const result = parseMigrationOperations(migrationContent);
+
+      expect(result.collectionsToUpdate).toHaveLength(1);
+      const update = result.collectionsToUpdate[0];
+      expect(update.rulesToUpdate["listRule"]).toBeNull();
+      expect(update.rulesToUpdate["viewRule"]).toBeNull();
     });
   });
 });

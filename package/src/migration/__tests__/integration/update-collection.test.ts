@@ -346,6 +346,75 @@ describe("Collection Update Integration Tests", () => {
     });
   });
 
+  describe("6.9.1 Grouped unmarshal for multiple permission changes", () => {
+    it("should use unmarshal pattern when 2+ permissions change", () => {
+      const beforeSchema: any = {
+        name: "multi_perm_collection",
+        id: "multi_perm_id",
+        type: "base" as const,
+        fields: [],
+        indexes: [],
+        permissions: { listRule: null, viewRule: null, createRule: null, updateRule: null, deleteRule: null },
+      };
+
+      const afterSchema: any = {
+        name: "multi_perm_collection",
+        id: "multi_perm_id",
+        type: "base" as const,
+        fields: [],
+        indexes: [],
+        permissions: {
+          listRule: null,
+          viewRule: null,
+          createRule: "@collection.Admins.user ?= @request.auth.id",
+          updateRule: "@collection.Admins.user ?= @request.auth.id",
+          deleteRule: "@collection.Admins.user ?= @request.auth.id",
+        },
+      };
+
+      const snapshot = { version: "1.0.0", timestamp: new Date().toISOString(), collections: createSchemaDefinition(beforeSchema).collections };
+      const diff = compare(createSchemaDefinition(afterSchema), snapshot);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+
+      const content = fs.readFileSync(generatedPaths[0], "utf-8");
+      expect(content).toContain("unmarshal({");
+      // Only one findCollectionByNameOrId call per direction (not one per rule)
+      const upSection = content.split("}, (app) =>")[0];
+      const findCalls = (upSection.match(/findCollectionByNameOrId/g) || []).length;
+      expect(findCalls).toBe(1);
+    });
+
+    it("should keep direct assignment when only 1 permission changes", () => {
+      const beforeSchema: any = {
+        name: "single_perm_collection",
+        id: "single_perm_id",
+        type: "base" as const,
+        fields: [],
+        indexes: [],
+        permissions: { listRule: null, viewRule: null, createRule: null, updateRule: null, deleteRule: null },
+      };
+
+      const afterSchema: any = {
+        name: "single_perm_collection",
+        id: "single_perm_id",
+        type: "base" as const,
+        fields: [],
+        indexes: [],
+        permissions: { listRule: null, viewRule: null, createRule: '@request.auth.id != ""', updateRule: null, deleteRule: null },
+      };
+
+      const snapshot = { version: "1.0.0", timestamp: new Date().toISOString(), collections: createSchemaDefinition(beforeSchema).collections };
+      const diff = compare(createSchemaDefinition(afterSchema), snapshot);
+      const generatedPaths = generate(diff, tempDir);
+      expect(generatedPaths).toHaveLength(1);
+
+      const content = fs.readFileSync(generatedPaths[0], "utf-8");
+      expect(content).not.toContain("unmarshal({");
+      expect(content).toContain("createRule");
+    });
+  });
+
   describe("6.3 Adding index to collection", () => {
     it("should generate migration with index added to indexes array", () => {
       // Load reference migration

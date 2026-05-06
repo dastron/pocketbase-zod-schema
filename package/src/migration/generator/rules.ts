@@ -141,3 +141,35 @@ export function generatePermissionUpdate(
 
   return lines.join("\n");
 }
+
+/**
+ * Generates a single unmarshal({...}, collection) block for multiple rule/permission changes.
+ * Used when 2+ rules change at once to match PocketBase's native migration style.
+ *
+ * @param collectionName - Name of the collection
+ * @param entries - Array of { ruleType, value } to include in the unmarshal object
+ * @param varSuffix - Suffix for the variable name (e.g. "rules" or "revert_rules")
+ * @param isLast - Whether this is the last operation (will use return app.save)
+ * @param collectionIdMap - Map of collection names to IDs
+ * @returns JavaScript code block
+ */
+export function generateGroupedRuleUpdates(
+  collectionName: string,
+  entries: Array<{ ruleType: string; value: string | null }>,
+  varSuffix: string,
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
+): string {
+  const collectionVar = `collection_${collectionName}_${varSuffix}`;
+  const lines: string[] = [];
+
+  lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
+  lines.push(`  unmarshal({`);
+  for (const entry of entries) {
+    lines.push(`    "${entry.ruleType}": ${formatValue(entry.value)},`);
+  }
+  lines.push(`  }, ${collectionVar})`);
+  lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
+
+  return lines.join("\n");
+}

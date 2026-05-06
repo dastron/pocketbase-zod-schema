@@ -2,7 +2,7 @@ import type { CollectionOperation, CollectionSchema, FieldModification, SchemaDi
 import { generateCollectionCreation, generateCollectionDeletion } from "./collections";
 import { generateFieldAddition, generateFieldDeletion, generateFieldModification } from "./fields";
 import { generateIndexAddition, generateIndexRemoval } from "./indexes";
-import { generatePermissionUpdate, generateRuleUpdate } from "./rules";
+import { generateGroupedRuleUpdates, generatePermissionUpdate, generateRuleUpdate } from "./rules";
 
 /**
  * Generates the up migration code for a single collection operation
@@ -38,8 +38,7 @@ export function generateOperationUpMigration(
       modification.fieldsToRemove.length +
       modification.indexesToAdd.length +
       modification.indexesToRemove.length +
-      modification.rulesToUpdate.length +
-      modification.permissionsToUpdate.length;
+      (modification.permissionsToUpdate.length > 0 ? 1 : modification.rulesToUpdate.length > 0 ? 1 : 0);
 
     // Add new fields
     for (let i = 0; i < modification.fieldsToAdd.length; i++) {
@@ -91,23 +90,29 @@ export function generateOperationUpMigration(
 
     // Update permissions (preferred) or rules (fallback)
     if (modification.permissionsToUpdate && modification.permissionsToUpdate.length > 0) {
-      for (const permission of modification.permissionsToUpdate) {
-        operationCount++;
+      operationCount++;
+      const isLast = operationCount === totalOperations;
+      if (modification.permissionsToUpdate.length >= 2) {
+        const entries = modification.permissionsToUpdate.map((p) => ({ ruleType: p.ruleType, value: p.newValue }));
+        lines.push(generateGroupedRuleUpdates(collectionName, entries, "rules", isLast, collectionIdMap));
+      } else {
+        const permission = modification.permissionsToUpdate[0];
         const varName = `collection_${collectionName}_perm_${permission.ruleType}`;
-        const isLast = operationCount === totalOperations;
-        lines.push(
-          generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName, isLast, collectionIdMap)
-        );
-        if (!isLast) lines.push("");
+        lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName, isLast, collectionIdMap));
       }
+      if (!isLast) lines.push("");
     } else if (modification.rulesToUpdate.length > 0) {
-      for (const rule of modification.rulesToUpdate) {
-        operationCount++;
+      operationCount++;
+      const isLast = operationCount === totalOperations;
+      if (modification.rulesToUpdate.length >= 2) {
+        const entries = modification.rulesToUpdate.map((r) => ({ ruleType: r.ruleType, value: r.newValue }));
+        lines.push(generateGroupedRuleUpdates(collectionName, entries, "rules", isLast, collectionIdMap));
+      } else {
+        const rule = modification.rulesToUpdate[0];
         const varName = `collection_${collectionName}_rule_${rule.ruleType}`;
-        const isLast = operationCount === totalOperations;
         lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.newValue, varName, isLast, collectionIdMap));
-        if (!isLast) lines.push("");
       }
+      if (!isLast) lines.push("");
     }
   } else if (operation.type === "delete") {
     // Handle collection deletion
@@ -196,28 +201,33 @@ export function generateOperationDownMigration(
       modification.fieldsToRemove.length +
       modification.indexesToAdd.length +
       modification.indexesToRemove.length +
-      modification.rulesToUpdate.length +
-      modification.permissionsToUpdate.length;
+      (modification.permissionsToUpdate.length > 0 ? 1 : modification.rulesToUpdate.length > 0 ? 1 : 0);
 
     // Revert permissions (preferred) or rules (fallback)
     if (modification.permissionsToUpdate && modification.permissionsToUpdate.length > 0) {
-      for (const permission of modification.permissionsToUpdate) {
-        operationCount++;
+      operationCount++;
+      const isLast = operationCount === totalOperations;
+      if (modification.permissionsToUpdate.length >= 2) {
+        const entries = modification.permissionsToUpdate.map((p) => ({ ruleType: p.ruleType, value: p.oldValue }));
+        lines.push(generateGroupedRuleUpdates(collectionName, entries, "revert_rules", isLast, collectionIdMap));
+      } else {
+        const permission = modification.permissionsToUpdate[0];
         const varName = `collection_${collectionName}_revert_perm_${permission.ruleType}`;
-        const isLast = operationCount === totalOperations;
-        lines.push(
-          generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName, isLast, collectionIdMap)
-        );
-        if (!isLast) lines.push("");
+        lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName, isLast, collectionIdMap));
       }
+      if (!isLast) lines.push("");
     } else if (modification.rulesToUpdate.length > 0) {
-      for (const rule of modification.rulesToUpdate) {
-        operationCount++;
+      operationCount++;
+      const isLast = operationCount === totalOperations;
+      if (modification.rulesToUpdate.length >= 2) {
+        const entries = modification.rulesToUpdate.map((r) => ({ ruleType: r.ruleType, value: r.oldValue }));
+        lines.push(generateGroupedRuleUpdates(collectionName, entries, "revert_rules", isLast, collectionIdMap));
+      } else {
+        const rule = modification.rulesToUpdate[0];
         const varName = `collection_${collectionName}_revert_rule_${rule.ruleType}`;
-        const isLast = operationCount === totalOperations;
         lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.oldValue, varName, isLast, collectionIdMap));
-        if (!isLast) lines.push("");
       }
+      if (!isLast) lines.push("");
     }
 
     // Revert index removals (add them back)
@@ -436,20 +446,26 @@ export function generateUpMigration(diff: SchemaDiff): string {
       // Update permissions (preferred) or rules (fallback)
       if (modification.permissionsToUpdate && modification.permissionsToUpdate.length > 0) {
         lines.push(`  // Update permissions for ${collectionName}`);
-        for (const permission of modification.permissionsToUpdate) {
+        if (modification.permissionsToUpdate.length >= 2) {
+          const entries = modification.permissionsToUpdate.map((p) => ({ ruleType: p.ruleType, value: p.newValue }));
+          lines.push(generateGroupedRuleUpdates(collectionName, entries, "rules", false, collectionIdMap));
+        } else {
+          const permission = modification.permissionsToUpdate[0];
           const varName = `collection_${collectionName}_perm_${permission.ruleType}`;
-          lines.push(
-            generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName, false, collectionIdMap)
-          );
-          lines.push(``);
+          lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.newValue, varName, false, collectionIdMap));
         }
+        lines.push(``);
       } else if (modification.rulesToUpdate.length > 0) {
         lines.push(`  // Update rules for ${collectionName}`);
-        for (const rule of modification.rulesToUpdate) {
+        if (modification.rulesToUpdate.length >= 2) {
+          const entries = modification.rulesToUpdate.map((r) => ({ ruleType: r.ruleType, value: r.newValue }));
+          lines.push(generateGroupedRuleUpdates(collectionName, entries, "rules", false, collectionIdMap));
+        } else {
+          const rule = modification.rulesToUpdate[0];
           const varName = `collection_${collectionName}_rule_${rule.ruleType}`;
           lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.newValue, varName, false, collectionIdMap));
-          lines.push(``);
         }
+        lines.push(``);
       }
     }
   }
@@ -573,20 +589,26 @@ export function generateDownMigration(diff: SchemaDiff): string {
       // Revert permissions (preferred) or rules (fallback)
       if (modification.permissionsToUpdate && modification.permissionsToUpdate.length > 0) {
         lines.push(`  // Revert permissions for ${collectionName}`);
-        for (const permission of modification.permissionsToUpdate) {
+        if (modification.permissionsToUpdate.length >= 2) {
+          const entries = modification.permissionsToUpdate.map((p) => ({ ruleType: p.ruleType, value: p.oldValue }));
+          lines.push(generateGroupedRuleUpdates(collectionName, entries, "revert_rules", false, collectionIdMap));
+        } else {
+          const permission = modification.permissionsToUpdate[0];
           const varName = `collection_${collectionName}_revert_perm_${permission.ruleType}`;
-            lines.push(
-              generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName, false, collectionIdMap)
-            );
-          lines.push(``);
+          lines.push(generatePermissionUpdate(collectionName, permission.ruleType, permission.oldValue, varName, false, collectionIdMap));
         }
+        lines.push(``);
       } else if (modification.rulesToUpdate.length > 0) {
         lines.push(`  // Revert rules for ${collectionName}`);
-        for (const rule of modification.rulesToUpdate) {
+        if (modification.rulesToUpdate.length >= 2) {
+          const entries = modification.rulesToUpdate.map((r) => ({ ruleType: r.ruleType, value: r.oldValue }));
+          lines.push(generateGroupedRuleUpdates(collectionName, entries, "revert_rules", false, collectionIdMap));
+        } else {
+          const rule = modification.rulesToUpdate[0];
           const varName = `collection_${collectionName}_revert_rule_${rule.ruleType}`;
-            lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.oldValue, varName, false, collectionIdMap));
-          lines.push(``);
+          lines.push(generateRuleUpdate(collectionName, rule.ruleType, rule.oldValue, varName, false, collectionIdMap));
         }
+        lines.push(``);
       }
 
       // Revert index removals (add them back)

@@ -119,6 +119,43 @@ export function getSystemFields(): FieldDefinition[] {
 }
 
 /**
+ * Generates the autodate timestamp system fields (created, updated)
+ * These appear at the end of every collection's field list, after user fields
+ *
+ * @returns Array of system timestamp field definitions
+ */
+export function getSystemTimestampFields(): FieldDefinition[] {
+  return [
+    {
+      name: "created",
+      id: "autodate2990389176",
+      type: "autodate",
+      required: false,
+      options: {
+        hidden: false,
+        onCreate: true,
+        onUpdate: false,
+        presentable: false,
+        system: true,
+      },
+    },
+    {
+      name: "updated",
+      id: "autodate3332085495",
+      type: "autodate",
+      required: false,
+      options: {
+        hidden: false,
+        onCreate: true,
+        onUpdate: true,
+        presentable: false,
+        system: true,
+      },
+    },
+  ];
+}
+
+/**
  * Generates auth-specific system fields
  *
  * @returns Array of auth system field definitions

@@ -502,7 +502,64 @@ function parseMigrationOperationsFromContent(content: string): {
       }
     }
 
-    // 3d. Indexes push/splice
+    // 3d. unmarshal({...}, collectionVar) — PocketBase-native grouped rule/permission updates
+    const unmarshalRegex = /unmarshal\s*\(/g;
+    let unmarshalMatch;
+    while ((unmarshalMatch = unmarshalRegex.exec(content)) !== null) {
+      let i = unmarshalMatch.index + unmarshalMatch[0].length;
+
+      // Skip whitespace
+      while (i < content.length && /\s/.test(content[i])) i++;
+
+      // Expect opening brace
+      if (content[i] !== "{") continue;
+
+      // Extract object literal using brace matching
+      const objStart = i;
+      let braceCount = 1;
+      let inStr = false;
+      let strChar: string | null = null;
+      i++;
+      while (i < content.length && braceCount > 0) {
+        const ch = content[i];
+        const prev = i > 0 ? content[i - 1] : "";
+        if (!inStr && (ch === '"' || ch === "'")) { inStr = true; strChar = ch; }
+        else if (inStr && ch === strChar && prev !== "\\") { inStr = false; strChar = null; }
+        if (!inStr) {
+          if (ch === "{") braceCount++;
+          if (ch === "}") braceCount--;
+        }
+        i++;
+      }
+      if (braceCount !== 0) continue;
+
+      const objStr = content.substring(objStart, i);
+
+      // Skip comma and whitespace, then read the collection variable name
+      while (i < content.length && /[\s,]/.test(content[i])) i++;
+      const varStart = i;
+      while (i < content.length && /\w/.test(content[i])) i++;
+      const colVarName = content.substring(varStart, i);
+
+      const colInfo = variables.get(colVarName);
+      if (!colInfo || colInfo.type !== "collection") continue;
+
+      // Parse the object for *Rule keys
+      const keyValRegex = /"(\w+Rule)"\s*:\s*([^,}\n]+)/g;
+      let kvMatch;
+      while ((kvMatch = keyValRegex.exec(objStr)) !== null) {
+        const ruleKey = kvMatch[1];
+        const valStr = kvMatch[2].trim();
+        try {
+          const value = new Function("app", `return ${valStr}`)(mockApp);
+          getUpdate(colInfo.name).rulesToUpdate[ruleKey] = value;
+        } catch {
+          getUpdate(colInfo.name).rulesToUpdate[ruleKey] = valStr;
+        }
+      }
+    }
+
+    // 3e. Indexes push/splice
     // col.indexes.push("...")
     const idxPushRegex = /(\w+)\.indexes\.push\s*\(/g;
     let match;
