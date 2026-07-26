@@ -5,6 +5,7 @@ import type {
   FieldModification,
   SchemaDefinition,
   SchemaSnapshot,
+  ViewQueryUpdate,
 } from "../types";
 import { type DiffEngineConfig } from "./config";
 import { detectFieldChanges, findNewFields, findRemovedFields, matchFieldsByName } from "./fields";
@@ -255,6 +256,54 @@ function compareCollectionFields(
 }
 
 /**
+ * Normalizes a SQL view query for comparison
+ * Collapses whitespace so re-indenting or re-wrapping a query does not produce
+ * a migration
+ *
+ * @param query - The SQL query
+ * @returns Normalized query text
+ */
+export function normalizeSql(query: string | null | undefined): string {
+  if (!query) {
+    return "";
+  }
+
+  return query
+    .split("\n")
+    .map((line) => line.trim())
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Compares the SQL query of two view collections
+ *
+ * @param currentCollection - Current collection schema
+ * @param previousCollection - Previous collection schema
+ * @returns A ViewQueryUpdate when the query changed, undefined otherwise
+ */
+function compareViewQuery(
+  currentCollection: CollectionSchema,
+  previousCollection: CollectionSchema
+): ViewQueryUpdate | undefined {
+  const newValue = currentCollection.viewQuery;
+
+  if (typeof newValue !== "string") {
+    return undefined;
+  }
+
+  if (normalizeSql(newValue) === normalizeSql(previousCollection.viewQuery)) {
+    return undefined;
+  }
+
+  return {
+    oldValue: previousCollection.viewQuery ?? null,
+    newValue,
+  };
+}
+
+/**
  * Builds a CollectionModification for a matched collection pair
  *
  * @param currentCollection - Current collection schema
@@ -268,6 +317,30 @@ export function buildCollectionModification(
   config?: DiffEngineConfig,
   collectionIdToName?: Map<string, string>
 ): CollectionModification {
+  // View collections are defined entirely by their SQL query: PocketBase
+  // derives the fields from it and views cannot have indexes, so only the
+  // query and the read rules are diffed
+  const isView = currentCollection.type === "view" || previousCollection.type === "view";
+
+  if (isView) {
+    return {
+      collection: currentCollection.name,
+      fieldsToAdd: [],
+      fieldsToRemove: [],
+      fieldsToModify: [],
+      indexesToAdd: [],
+      indexesToRemove: [],
+      rulesToUpdate: compareRules(
+        currentCollection.rules,
+        previousCollection.rules,
+        currentCollection.permissions,
+        previousCollection.permissions
+      ),
+      permissionsToUpdate: comparePermissions(currentCollection.permissions, previousCollection.permissions),
+      viewQueryUpdate: compareViewQuery(currentCollection, previousCollection),
+    };
+  }
+
   // Compare fields
   const { fieldsToAdd, fieldsToRemove, fieldsToModify } = compareCollectionFields(
     currentCollection,

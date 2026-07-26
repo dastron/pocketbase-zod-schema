@@ -47,7 +47,8 @@ function hasChanges(modification: CollectionModification): boolean {
     modification.indexesToAdd.length > 0 ||
     modification.indexesToRemove.length > 0 ||
     modification.rulesToUpdate.length > 0 ||
-    modification.permissionsToUpdate.length > 0
+    modification.permissionsToUpdate.length > 0 ||
+    modification.viewQueryUpdate !== undefined
   );
 }
 

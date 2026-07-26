@@ -19,6 +19,7 @@ Contains manually created PocketBase migrations copied from `pocketbase/pb_migra
 - `1764626004_updated_edit_collection_add_field.js` - Update migration adding a field
 - `1764626024_created_edit_collection_add_index.js` - Initial migration for index addition test
 - `1764626069_updated_edit_collection_add_index.js` - Update migration adding an index
+- `1769500000_created_view_collection.js` - Read-only view collection backed by a SQL query (captured from PocketBase 0.35.0's automigrate output; note the derived `fields` array with regenerated `_clone_*` ids, which is why the generator never emits fields for a view)
 
 ### schemas/
 
@@ -35,6 +36,7 @@ Contains Zod schema definitions that correspond to the reference migrations. The
 - `edit-collection-add-field-after.ts` - Schema for collection after adding a text field
 - `edit-collection-add-index-before.ts` - Schema for collection before adding an index (only base fields)
 - `edit-collection-add-index-after.ts` - Schema for collection after adding a number field and index
+- `create-view-collection.ts` - Schema for a read-only view collection (no fields, no indexes, SQL query + read rules)
 - `index.ts` - Exports all schema fixtures for easy import
 
 ### snapshots/

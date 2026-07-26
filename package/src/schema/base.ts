@@ -363,11 +363,24 @@ export interface CollectionConfig {
    * Optional collection type
    * - "base": Standard collection (default)
    * - "auth": Authentication collection with system auth fields
+   * - "view": Read-only collection backed by a SQL query (requires viewQuery)
    *
    * If not specified, the type will be auto-detected based on field presence
    * (collections with both email and password fields are detected as auth)
+   *
+   * Prefer defineView() over type: "view" - it enforces the constraints
+   * PocketBase places on view collections at compile time.
    */
-  type?: "base" | "auth";
+  type?: "base" | "auth" | "view";
+
+  /**
+   * SQL SELECT statement backing a view collection
+   *
+   * Only valid when type is "view", where it is required. PocketBase derives
+   * the collection's fields by running this query, so the Zod schema is used
+   * for TypeScript types only.
+   */
+  viewQuery?: string;
 
   /**
    * Future extensibility - additional options can be added here
@@ -453,7 +466,7 @@ export interface CollectionConfig {
  * });
  */
 export function defineCollection(config: CollectionConfig): z.ZodObject<any> {
-  const { collectionName, schema, permissions, indexes, type, ...futureOptions } = config;
+  const { collectionName, schema, permissions, indexes, type, viewQuery, ...futureOptions } = config;
 
   // Build metadata object
   const metadata: any = {
@@ -463,6 +476,11 @@ export function defineCollection(config: CollectionConfig): z.ZodObject<any> {
   // Add type if provided
   if (type) {
     metadata.type = type;
+  }
+
+  // Add the SQL query backing a view collection
+  if (viewQuery !== undefined) {
+    metadata.viewQuery = viewQuery;
   }
 
   // Add permissions if provided

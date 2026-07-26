@@ -10,6 +10,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { dedentSql } from "../schema/view";
 import { convertPocketBaseCollection, convertPocketBaseField } from "./pocketbase-converter";
 import type { CollectionSchema, FieldDefinition } from "./types";
 
@@ -24,6 +25,8 @@ export interface ParsedCollectionUpdate {
   indexesToAdd: string[];
   indexesToRemove: string[];
   rulesToUpdate: Record<string, string | null>;
+  /** New SQL query for a view collection, when the migration updates one */
+  viewQuery?: string;
 }
 
 /**
@@ -95,6 +98,49 @@ export function findMigrationsAfterSnapshot(migrationsPath: string, snapshotTime
     console.warn(`Error finding migrations after snapshot: ${error}`);
     return [];
   }
+}
+
+/**
+ * Skips over a template literal starting at the given backtick
+ *
+ * View queries are emitted as backtick templates and routinely contain braces,
+ * double quotes and apostrophes (in SQL comments), all of which would otherwise
+ * desynchronize the object scanner.
+ *
+ * @param content - Full migration content
+ * @param start - Index of the opening backtick
+ * @returns Index just past the closing backtick (or end of content)
+ */
+function skipTemplateLiteral(content: string, start: number): number {
+  let i = start + 1;
+
+  while (i < content.length) {
+    const char = content[i];
+
+    if (char === "\\") {
+      // Skip the escaped character
+      i += 2;
+      continue;
+    }
+
+    if (char === "`") {
+      return i + 1;
+    }
+
+    i++;
+  }
+
+  return i;
+}
+
+/**
+ * Reverses the escaping applied when a value is emitted as a template literal
+ *
+ * @param raw - Template literal body (without the surrounding backticks)
+ * @returns The original string
+ */
+function unescapeTemplateLiteral(raw: string): string {
+  return raw.replace(/\\(`|\$\{|\\)/g, "$1");
 }
 
 /**
@@ -235,6 +281,13 @@ function parseMigrationOperationsFromContent(content: string): {
       while (i < content.length && bCount > 0) {
         const char = content[i];
         const prev = i > 0 ? content[i - 1] : "";
+
+        // Template literals (used for view queries) can contain braces, quotes
+        // and apostrophes, so skip over them wholesale
+        if (!inStr && char === "`") {
+          i = skipTemplateLiteral(content, i);
+          continue;
+        }
 
         if (!inStr && (char === '"' || char === "'")) {
           inStr = true;
@@ -502,6 +555,35 @@ function parseMigrationOperationsFromContent(content: string): {
       }
     }
 
+    // 3c-2. View query updates: `collectionVar.viewQuery = `...`;`
+    // Handled separately from the generic assignment regex above because the
+    // SQL is a multi-line template literal that may contain semicolons
+    const viewQueryRegex = /(\w+)\.viewQuery\s*=\s*/g;
+    let viewQueryMatch;
+    while ((viewQueryMatch = viewQueryRegex.exec(content)) !== null) {
+      const varInfo = variables.get(viewQueryMatch[1]);
+      if (!varInfo || varInfo.type !== "collection") continue;
+
+      const valueStart = viewQueryMatch.index + viewQueryMatch[0].length;
+
+      if (content[valueStart] === "`") {
+        const end = skipTemplateLiteral(content, valueStart);
+        const raw = content.substring(valueStart + 1, end - 1);
+        // Undo the indentation the generator applied to fit the query into the code
+        getUpdate(varInfo.name).viewQuery = dedentSql(unescapeTemplateLiteral(raw));
+        viewQueryRegex.lastIndex = end;
+      } else {
+        // Plain string literal
+        const terminator = content.indexOf(";", valueStart);
+        const valueStr = content.substring(valueStart, terminator === -1 ? content.length : terminator);
+        try {
+          getUpdate(varInfo.name).viewQuery = dedentSql(new Function("app", `return ${valueStr}`)(mockApp));
+        } catch {
+          getUpdate(varInfo.name).viewQuery = dedentSql(valueStr.trim());
+        }
+      }
+    }
+
     // 3d. unmarshal({...}, collectionVar) — PocketBase-native grouped rule/permission updates
     const unmarshalRegex = /unmarshal\s*\(/g;
     let unmarshalMatch;
@@ -523,6 +605,8 @@ function parseMigrationOperationsFromContent(content: string): {
       while (i < content.length && braceCount > 0) {
         const ch = content[i];
         const prev = i > 0 ? content[i - 1] : "";
+        // Template literals (view queries) can contain braces and apostrophes
+        if (!inStr && ch === "`") { i = skipTemplateLiteral(content, i); continue; }
         if (!inStr && (ch === '"' || ch === "'")) { inStr = true; strChar = ch; }
         else if (inStr && ch === strChar && prev !== "\\") { inStr = false; strChar = null; }
         if (!inStr) {
@@ -555,6 +639,24 @@ function parseMigrationOperationsFromContent(content: string): {
           getUpdate(colInfo.name).rulesToUpdate[ruleKey] = value;
         } catch {
           getUpdate(colInfo.name).rulesToUpdate[ruleKey] = valStr;
+        }
+      }
+
+      // Parse a viewQuery key, whose value is a multi-line template literal
+      const viewQueryKey = objStr.match(/"viewQuery"\s*:\s*/);
+      if (viewQueryKey) {
+        const valueStart = viewQueryKey.index! + viewQueryKey[0].length;
+        if (objStr[valueStart] === "`") {
+          const end = skipTemplateLiteral(objStr, valueStart);
+          const raw = objStr.substring(valueStart + 1, end - 1);
+          getUpdate(colInfo.name).viewQuery = dedentSql(unescapeTemplateLiteral(raw));
+        } else {
+          const valStr = objStr.substring(valueStart).replace(/[,}\s]+$/, "");
+          try {
+            getUpdate(colInfo.name).viewQuery = dedentSql(new Function("app", `return ${valStr}`)(mockApp));
+          } catch {
+            getUpdate(colInfo.name).viewQuery = dedentSql(valStr);
+          }
         }
       }
     }
@@ -734,6 +836,12 @@ export function parseMigrationOperations(migrationContent: string): {
     while (i < migrationContent.length && braceCount > 0) {
       const char = migrationContent[i];
       const prevChar = i > 0 ? migrationContent[i - 1] : "";
+
+      // Template literals (view queries) can contain braces and apostrophes
+      if (!inString && char === "`") {
+        i = skipTemplateLiteral(migrationContent, i);
+        continue;
+      }
 
       if (!inString && (char === '"' || char === "'")) {
         inString = true;

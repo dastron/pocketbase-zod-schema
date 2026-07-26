@@ -32,14 +32,15 @@ export function filterDiff(diff: SchemaDiff, options: FilterOptions): SchemaDiff
   });
 
   // 2. Filter Collections to Delete
+  // View collections are kept even when skipping destructive changes: they
+  // store no data, so dropping one loses nothing
   let collectionsToDelete = diff.collectionsToDelete;
   if (skipDestructive) {
-    collectionsToDelete = [];
-  } else {
-    collectionsToDelete = collectionsToDelete.filter(col => {
-      return matchesPattern(col.name, patterns);
-    });
+    collectionsToDelete = collectionsToDelete.filter(col => col.type === "view");
   }
+  collectionsToDelete = collectionsToDelete.filter(col => {
+    return matchesPattern(col.name, patterns);
+  });
 
   // 3. Filter Collections to Modify
   const collectionsToModify = diff.collectionsToModify.map(mod => {
@@ -77,6 +78,7 @@ export function filterDiff(diff: SchemaDiff, options: FilterOptions): SchemaDiff
     const indexesToRemove = collectionMatches ? mod.indexesToRemove : [];
     const rulesToUpdate = collectionMatches ? mod.rulesToUpdate : [];
     const permissionsToUpdate = collectionMatches ? mod.permissionsToUpdate : [];
+    const viewQueryUpdate = collectionMatches ? mod.viewQueryUpdate : undefined;
 
     return {
       ...mod,
@@ -86,7 +88,8 @@ export function filterDiff(diff: SchemaDiff, options: FilterOptions): SchemaDiff
       indexesToAdd,
       indexesToRemove,
       rulesToUpdate,
-      permissionsToUpdate
+      permissionsToUpdate,
+      viewQueryUpdate
     };
   }).filter(mod => {
      // Keep modification object only if there is something left to modify
@@ -96,7 +99,8 @@ export function filterDiff(diff: SchemaDiff, options: FilterOptions): SchemaDiff
             mod.indexesToAdd.length > 0 ||
             mod.indexesToRemove.length > 0 ||
             mod.rulesToUpdate.length > 0 ||
-            mod.permissionsToUpdate.length > 0;
+            mod.permissionsToUpdate.length > 0 ||
+            mod.viewQueryUpdate !== undefined;
   });
 
   return {

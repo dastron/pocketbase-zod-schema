@@ -4,6 +4,9 @@ export * from "./base";
 // Field type helpers with metadata
 export * from "./fields";
 
+// View collection support (defineView, sql tagged template)
+export * from "./view";
+
 // Permission system
 export * from "../utils/permission-templates";
 export * from "../utils/permissions";

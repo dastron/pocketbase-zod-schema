@@ -66,6 +66,28 @@ export function formatValue(value: any): string {
 }
 
 /**
+ * Formats a SQL view query as a JavaScript template literal
+ *
+ * Emitted as a backtick template (rather than a JSON string) so the SQL stays
+ * readable in the generated migration. Backticks and `${` are escaped so the
+ * query can never break out of the literal or be interpolated.
+ *
+ * @param query - The SQL query
+ * @param indent - Indentation prefix applied to each line of SQL
+ * @returns Template literal source, including the surrounding backticks
+ */
+export function formatSqlTemplate(query: string, indent: string = "      "): string {
+  const escaped = query.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
+
+  const body = escaped
+    .split("\n")
+    .map((line) => (line.trim() === "" ? "" : `${indent}${line}`))
+    .join("\n");
+
+  return `\`\n${body}\n${indent.slice(0, -2)}\``;
+}
+
+/**
  * Gets the appropriate Field constructor name for a field type
  *
  * @param fieldType - PocketBase field type

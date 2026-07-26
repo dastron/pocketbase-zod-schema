@@ -11,6 +11,7 @@ export * from "./create-collection-with-null-permissions";
 export * from "./create-collection-with-restricted-api-rules";
 export * from "./create-collection-with-unique-index";
 export * from "./create-collection-with-unrestricted-api-rules";
+export * from "./create-view-collection";
 export * from "./edit-collection-add-field-after";
 export * from "./edit-collection-add-field-before";
 export * from "./edit-collection-add-index-after";

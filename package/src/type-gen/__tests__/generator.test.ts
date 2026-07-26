@@ -105,4 +105,56 @@ describe("TypeGenerator", () => {
     expect(output).toContain('status: "draft" | "published";');
     expect(output).toContain('tags?: ("news" | "tech")[];');
   });
+
+  it("should generate types for view collections without created/updated or expand", () => {
+    const projectStatsCollection: CollectionSchema = {
+      name: "ProjectStats",
+      type: "view",
+      viewQuery: "SELECT p.OwnerUser AS id, COUNT(*) AS projectCount FROM Projects p GROUP BY p.OwnerUser",
+      fields: [
+        {
+          id: "pb_owner_field",
+          name: "OwnerUser",
+          type: "relation",
+          required: true,
+          relation: { collection: "Users", maxSelect: 1 },
+        },
+        { id: "pb_count_field", name: "projectCount", type: "number", required: true },
+      ],
+    };
+
+    const usersCollection: CollectionSchema = {
+      name: "Users",
+      type: "auth",
+      fields: [],
+    };
+
+    const schema: SchemaDefinition = {
+      collections: new Map([
+        ["Users", usersCollection],
+        ["ProjectStats", projectStatsCollection],
+      ]),
+    };
+
+    const output = new TypeGenerator(schema).generate();
+
+    expect(output).toContain("export interface ProjectStatsRecord {");
+    expect(output).toContain("projectCount: number;");
+    expect(output).toContain('collectionName: "ProjectStats";');
+
+    // A view only has the columns its query selects
+    const recordBody = output.slice(
+      output.indexOf("export interface ProjectStatsRecord {"),
+      output.indexOf("export type ProjectStatsResponse")
+    );
+    expect(recordBody).not.toContain("created: string;");
+    expect(recordBody).not.toContain("updated: string;");
+
+    // Relation expansion does not cross a view
+    expect(output).toContain("export type ProjectStatsResponse = ProjectStatsRecord;");
+
+    // Views are still reachable through the typed client
+    expect(output).toContain("ProjectStats: ProjectStatsResponse;");
+    expect(output).toContain('collection(idOrName: "ProjectStats"): RecordService<ProjectStatsResponse>;');
+  });
 });

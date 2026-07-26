@@ -2,7 +2,7 @@ import type { CollectionOperation, CollectionSchema, FieldModification, SchemaDi
 import { generateCollectionCreation, generateCollectionDeletion } from "./collections";
 import { generateFieldAddition, generateFieldDeletion, generateFieldModification } from "./fields";
 import { generateIndexAddition, generateIndexRemoval } from "./indexes";
-import { generateGroupedRuleUpdates, generatePermissionUpdate, generateRuleUpdate } from "./rules";
+import { generateGroupedRuleUpdates, generatePermissionUpdate, generateRuleUpdate, generateViewQueryUpdate } from "./rules";
 
 /**
  * Generates the up migration code for a single collection operation
@@ -38,7 +38,24 @@ export function generateOperationUpMigration(
       modification.fieldsToRemove.length +
       modification.indexesToAdd.length +
       modification.indexesToRemove.length +
+      (modification.viewQueryUpdate ? 1 : 0) +
       (modification.permissionsToUpdate.length > 0 ? 1 : modification.rulesToUpdate.length > 0 ? 1 : 0);
+
+    // Update the view query (view collections only)
+    if (modification.viewQueryUpdate) {
+      operationCount++;
+      const isLast = operationCount === totalOperations;
+      lines.push(
+        generateViewQueryUpdate(
+          collectionName,
+          modification.viewQueryUpdate.newValue,
+          undefined,
+          isLast,
+          collectionIdMap
+        )
+      );
+      if (!isLast) lines.push("");
+    }
 
     // Add new fields
     for (let i = 0; i < modification.fieldsToAdd.length; i++) {
@@ -201,7 +218,24 @@ export function generateOperationDownMigration(
       modification.fieldsToRemove.length +
       modification.indexesToAdd.length +
       modification.indexesToRemove.length +
+      (modification.viewQueryUpdate ? 1 : 0) +
       (modification.permissionsToUpdate.length > 0 ? 1 : modification.rulesToUpdate.length > 0 ? 1 : 0);
+
+    // Restore the previous view query (view collections only)
+    if (modification.viewQueryUpdate) {
+      operationCount++;
+      const isLast = operationCount === totalOperations;
+      lines.push(
+        generateViewQueryUpdate(
+          collectionName,
+          modification.viewQueryUpdate.oldValue ?? "",
+          `collection_${collectionName}_revert_viewQuery`,
+          isLast,
+          collectionIdMap
+        )
+      );
+      if (!isLast) lines.push("");
+    }
 
     // Revert permissions (preferred) or rules (fallback)
     if (modification.permissionsToUpdate && modification.permissionsToUpdate.length > 0) {
@@ -390,6 +424,22 @@ export function generateUpMigration(diff: SchemaDiff): string {
     lines.push(`  // Modify existing collections`);
     for (const modification of diff.collectionsToModify) {
       const collectionName = modification.collection;
+
+      // Update the view query (view collections only)
+      if (modification.viewQueryUpdate) {
+        lines.push(`  // Update the view query of ${collectionName}`);
+        lines.push(
+          generateViewQueryUpdate(
+            collectionName,
+            modification.viewQueryUpdate.newValue,
+            undefined,
+            false,
+            collectionIdMap
+          )
+        );
+        lines.push(``);
+      }
+
       // Add new fields
       if (modification.fieldsToAdd.length > 0) {
         lines.push(`  // Add fields to ${collectionName}`);
@@ -586,6 +636,22 @@ export function generateDownMigration(diff: SchemaDiff): string {
     lines.push(`  // Revert modifications`);
     for (const modification of diff.collectionsToModify) {
       const collectionName = modification.collection;
+
+      // Restore the previous view query (view collections only)
+      if (modification.viewQueryUpdate) {
+        lines.push(`  // Restore the view query of ${collectionName}`);
+        lines.push(
+          generateViewQueryUpdate(
+            collectionName,
+            modification.viewQueryUpdate.oldValue ?? "",
+            `collection_${collectionName}_revert_viewQuery`,
+            false,
+            collectionIdMap
+          )
+        );
+        lines.push(``);
+      }
+
       // Revert permissions (preferred) or rules (fallback)
       if (modification.permissionsToUpdate && modification.permissionsToUpdate.length > 0) {
         lines.push(`  // Revert permissions for ${collectionName}`);

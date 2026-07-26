@@ -172,7 +172,12 @@ export function formatChangeSummary(diff: SchemaDiff): string {
     lines.push(chalk.green.bold(`✓ ${totalCollectionsToCreate} collection(s) to create:`));
     for (const collection of diff.collectionsToCreate) {
       lines.push(chalk.green(`  + ${collection.name} (${collection.type})`));
-      lines.push(chalk.gray(`    ${collection.fields.length} field(s)`));
+      if (collection.type === "view") {
+        // A view's fields are derived by PocketBase from its SQL query
+        lines.push(chalk.gray(`    fields derived from the view query`));
+      } else {
+        lines.push(chalk.gray(`    ${collection.fields.length} field(s)`));
+      }
     }
     lines.push("");
   }
@@ -232,6 +237,11 @@ export function formatChangeSummary(diff: SchemaDiff): string {
       // Rules
       if (modification.rulesToUpdate.length > 0) {
         lines.push(chalk.yellow(`    ~ ${modification.rulesToUpdate.length} rule(s) to update`));
+      }
+
+      // View query
+      if (modification.viewQueryUpdate) {
+        lines.push(chalk.yellow(`    ~ view query to update`));
       }
 
       lines.push("");

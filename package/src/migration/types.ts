@@ -31,7 +31,7 @@ export interface FieldDefinition {
 
 export interface CollectionSchema {
   name: string;
-  type: "base" | "auth";
+  type: "base" | "auth" | "view";
   /**
    * Pre-generated collection ID for use in migrations
    * Format: pb_ followed by 15 alphanumeric lowercase characters
@@ -39,6 +39,12 @@ export interface CollectionSchema {
    * This ID is generated during migration creation to avoid runtime lookups
    */
   id?: string;
+  /**
+   * SQL SELECT statement backing a view collection (type: "view" only)
+   * PocketBase derives the collection's fields from this query, so `fields`
+   * is not emitted into migrations for view collections
+   */
+  viewQuery?: string;
   fields: FieldDefinition[];
   indexes?: string[];
   rules?: {
@@ -97,6 +103,15 @@ export interface PermissionChange {
   newValue: string | null;
 }
 
+/**
+ * View query change tracking for view collections
+ * Applied in place so the collection ID stays stable
+ */
+export interface ViewQueryUpdate {
+  oldValue: string | null;
+  newValue: string;
+}
+
 export interface CollectionModification {
   collection: string;
   fieldsToAdd: FieldDefinition[];
@@ -106,6 +121,10 @@ export interface CollectionModification {
   indexesToRemove: string[];
   rulesToUpdate: RuleUpdate[];
   permissionsToUpdate: PermissionChange[];
+  /**
+   * Set when a view collection's SQL query changed (view collections only)
+   */
+  viewQueryUpdate?: ViewQueryUpdate;
 }
 
 export interface SchemaDiff {

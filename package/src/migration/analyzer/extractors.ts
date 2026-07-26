@@ -46,20 +46,44 @@ export function extractCollectionNameFromSchema(zodSchema: z.ZodTypeAny): string
  * the collection type in the schema description
  *
  * @param zodSchema - The Zod schema to extract collection type from
- * @returns The collection type ("base" | "auth") if found in metadata, null otherwise
+ * @returns The collection type ("base" | "auth" | "view") if found in metadata, null otherwise
  */
-export function extractCollectionTypeFromSchema(zodSchema: z.ZodTypeAny): "base" | "auth" | null {
+export function extractCollectionTypeFromSchema(zodSchema: z.ZodTypeAny): "base" | "auth" | "view" | null {
   if (!zodSchema.description) {
     return null;
   }
 
   try {
     const metadata = JSON.parse(zodSchema.description);
-    if (metadata.type === "base" || metadata.type === "auth") {
+    if (metadata.type === "base" || metadata.type === "auth" || metadata.type === "view") {
       return metadata.type;
     }
   } catch {
     // Not JSON or no type - this is expected for schemas without explicit type
+  }
+
+  return null;
+}
+
+/**
+ * Extracts the SQL query backing a view collection from a Zod schema's metadata
+ * Set by defineView() (or defineCollection with type: "view")
+ *
+ * @param zodSchema - The Zod schema to extract the view query from
+ * @returns The SQL query if found in metadata, null otherwise
+ */
+export function extractViewQueryFromSchema(zodSchema: z.ZodTypeAny): string | null {
+  if (!zodSchema.description) {
+    return null;
+  }
+
+  try {
+    const metadata = JSON.parse(zodSchema.description);
+    if (typeof metadata.viewQuery === "string") {
+      return metadata.viewQuery;
+    }
+  } catch {
+    // Not JSON or no viewQuery - expected for non-view collections
   }
 
   return null;

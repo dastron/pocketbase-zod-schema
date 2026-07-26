@@ -6,7 +6,13 @@ import { PermissionAnalyzer } from "../permission-analyzer";
 import type { CollectionSchema, FieldDefinition } from "../types";
 import { getMaxSelect, getMinSelect, isRelationField, resolveTargetCollection } from "../utils/relation-detector";
 import { extractFieldOptions, isFieldRequired, mapZodTypeToPocketBase, unwrapZodType } from "../utils/type-mapper";
-import { extractCollectionTypeFromSchema, extractFieldDefinitions, extractIndexes } from "./extractors";
+import { validateViewQuery } from "../../schema/view";
+import {
+  extractCollectionTypeFromSchema,
+  extractFieldDefinitions,
+  extractIndexes,
+  extractViewQueryFromSchema,
+} from "./extractors";
 import { generateFieldId } from "../utils/collection-id-generator.js";
 
 /**
@@ -175,10 +181,22 @@ export function convertZodSchemaToCollectionSchema(
   // Extract field definitions from Zod schema
   const rawFields = extractFieldDefinitions(zodSchema);
 
-  // Determine collection type (auth or base)
+  // Determine collection type (auth, view or base)
   // Prefer explicit type from metadata, fall back to field detection
   const explicitType = extractCollectionTypeFromSchema(zodSchema);
   const collectionType = explicitType ?? (isAuthCollection(rawFields) ? "auth" : "base");
+  const isView = collectionType === "view";
+
+  // View collections are backed by SQL - the query is required
+  const viewQuery = extractViewQueryFromSchema(zodSchema);
+  if (isView) {
+    validateViewQuery(collectionName, viewQuery);
+  } else if (viewQuery !== null) {
+    console.warn(
+      `[${collectionName}] viewQuery is only used by view collections and will be ignored. ` +
+        `Use defineView() or set type: "view" to define a view collection.`
+    );
+  }
 
   // Build field definitions with constraints
   const fields: FieldDefinition[] = rawFields
@@ -256,7 +274,14 @@ export function convertZodSchemaToCollectionSchema(
   }
 
   // Extract indexes from schema
+  // View collections cannot have indexes - PocketBase rejects them
   const indexes = extractIndexes(zodSchema) || [];
+  if (isView && indexes.length > 0) {
+    throw new Error(
+      `View collection "${collectionName}" cannot declare indexes. ` +
+        `PocketBase view collections are backed by a SQL query and do not support indexes.`
+    );
+  }
 
   // Extract and validate permissions from schema
   const permissionAnalyzer = new PermissionAnalyzer();
@@ -270,24 +295,40 @@ export function convertZodSchemaToCollectionSchema(
     // Resolve template configurations to concrete rules
     const resolvedPermissions = permissionAnalyzer.resolvePermissions(extractedPermissions);
 
-    // Validate permissions against collection fields
-    const validationResults = permissionAnalyzer.validatePermissions(
-      collectionName,
-      resolvedPermissions,
-      fields,
-      collectionType === "auth"
-    );
-
-    // Log validation errors and warnings
-    for (const [ruleType, result] of validationResults) {
-      if (!result.valid) {
-        console.error(`[${collectionName}] Permission validation failed for ${ruleType}:`);
-        result.errors.forEach((error) => console.error(`  - ${error}`));
+    // View collections are read-only - warn and drop any write rules
+    if (isView) {
+      for (const ruleType of ["createRule", "updateRule", "deleteRule", "manageRule"] as const) {
+        if (resolvedPermissions[ruleType]) {
+          console.warn(
+            `[${collectionName}] ${ruleType} is not supported on view collections and will be set to null.`
+          );
+        }
+        resolvedPermissions[ruleType] = null;
       }
+    }
 
-      if (result.warnings.length > 0) {
-        console.warn(`[${collectionName}] Permission warnings for ${ruleType}:`);
-        result.warnings.forEach((warning) => console.warn(`  - ${warning}`));
+    // Validate permissions against collection fields
+    // Skipped for views: their real fields come from the SQL query, so field
+    // references in the rules can't be checked against the Zod shape
+    if (!isView) {
+      const validationResults = permissionAnalyzer.validatePermissions(
+        collectionName,
+        resolvedPermissions,
+        fields,
+        collectionType === "auth"
+      );
+
+      // Log validation errors and warnings
+      for (const [ruleType, result] of validationResults) {
+        if (!result.valid) {
+          console.error(`[${collectionName}] Permission validation failed for ${ruleType}:`);
+          result.errors.forEach((error) => console.error(`  - ${error}`));
+        }
+
+        if (result.warnings.length > 0) {
+          console.warn(`[${collectionName}] Permission warnings for ${ruleType}:`);
+          result.warnings.forEach((warning) => console.warn(`  - ${warning}`));
+        }
       }
     }
 
@@ -313,6 +354,10 @@ export function convertZodSchemaToCollectionSchema(
     },
     permissions,
   };
+
+  if (isView) {
+    collectionSchema.viewQuery = viewQuery as string;
+  }
 
   return collectionSchema;
 }

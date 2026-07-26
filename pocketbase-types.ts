@@ -32,6 +32,16 @@ export interface ProjectsResponse extends ProjectsRecord {
   };
 }
 
+export interface ProjectStatsRecord {
+  id: string;
+  collectionId: string;
+  collectionName: "ProjectStats";
+  OwnerUser: string;
+  projectCount: number;
+}
+
+export type ProjectStatsResponse = ProjectStatsRecord;
+
 export interface UsersRecord {
   id: string;
   created: string;
@@ -51,10 +61,12 @@ export type UsersResponse = UsersRecord;
 
 export type CollectionResponses = {
   Projects: ProjectsResponse;
+  ProjectStats: ProjectStatsResponse;
   Users: UsersResponse;
 };
 
 export interface TypedPocketBase extends PocketBase {
   collection(idOrName: "Projects"): RecordService<ProjectsResponse>;
+  collection(idOrName: "ProjectStats"): RecordService<ProjectStatsResponse>;
   collection(idOrName: "Users"): RecordService<UsersResponse>;
 }

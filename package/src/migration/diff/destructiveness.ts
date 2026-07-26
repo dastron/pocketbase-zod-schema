@@ -27,7 +27,12 @@ export function detectDestructiveChanges(diff: SchemaDiff, config?: DiffEngineCo
   const mergedConfig = mergeConfig(config);
 
   // Collection deletions are always high severity
+  // Views are exempt: they store no data, so dropping one loses nothing
   for (const collection of diff.collectionsToDelete) {
+    if (collection.type === "view") {
+      continue;
+    }
+
     destructiveChanges.push({
       type: "collection_delete",
       severity: "high",

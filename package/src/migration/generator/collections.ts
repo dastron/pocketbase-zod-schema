@@ -3,6 +3,7 @@ import { generateFieldsArray } from "./fields";
 import { generateIndexesArray } from "./indexes";
 import { generateCollectionPermissions, generateCollectionRules } from "./rules";
 import {
+  formatSqlTemplate,
   formatValue,
   generateFindCollectionCode,
   getAuthSystemFields,
@@ -43,6 +44,17 @@ export function generateCollectionCreation(
     lines.push(`    ${permissionsCode},`);
   } else if (rulesCode) {
     lines.push(`    ${rulesCode},`);
+  }
+
+  // View collections are defined by their SQL query: PocketBase derives the
+  // fields by running it, and views support neither fields nor indexes here
+  if (collection.type === "view") {
+    lines.push(`    "viewQuery": ${formatSqlTemplate(collection.viewQuery ?? "")},`);
+    lines.push(`  });`);
+    lines.push(``);
+    lines.push(isLast ? `  return app.save(${varName});` : `  app.save(${varName});`);
+
+    return lines.join("\n");
   }
 
   // Filter out system fields (they will be added back in correct order)

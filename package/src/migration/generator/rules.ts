@@ -1,5 +1,5 @@
 import type { CollectionSchema } from "../types";
-import { formatValue, generateFindCollectionCode } from "./utils";
+import { formatSqlTemplate, formatValue, generateFindCollectionCode } from "./utils";
 
 /**
  * Generates collection rules object
@@ -10,6 +10,18 @@ import { formatValue, generateFindCollectionCode } from "./utils";
 export function generateCollectionRules(rules?: CollectionSchema["rules"], collectionType: string = "base"): string {
   if (!rules) {
     return "";
+  }
+
+  // View collections are read-only: the write rules are always null and
+  // manageRule is not applicable
+  if (collectionType === "view") {
+    return [
+      `"listRule": ${formatValue(rules.listRule ?? null)}`,
+      `"viewRule": ${formatValue(rules.viewRule ?? null)}`,
+      `"createRule": null`,
+      `"updateRule": null`,
+      `"deleteRule": null`,
+    ].join(",\n    ");
   }
 
   const parts: string[] = [];
@@ -54,6 +66,18 @@ export function generateCollectionPermissions(
 ): string {
   if (!permissions) {
     return "";
+  }
+
+  // View collections are read-only: the write rules are always null and
+  // manageRule is not applicable
+  if (collectionType === "view") {
+    return [
+      `"listRule": ${formatValue(permissions.listRule ?? null)}`,
+      `"viewRule": ${formatValue(permissions.viewRule ?? null)}`,
+      `"createRule": null`,
+      `"updateRule": null`,
+      `"deleteRule": null`,
+    ].join(",\n    ");
   }
 
   const parts: string[] = [];
@@ -137,6 +161,42 @@ export function generatePermissionUpdate(
 
   lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(`  ${collectionVar}.${ruleType} = ${formatValue(newValue)};`);
+  lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
+
+  return lines.join("\n");
+}
+
+/**
+ * Generates code for updating a view collection's SQL query
+ *
+ * Applied in place so the collection ID stays stable - PocketBase re-derives
+ * the view's fields when the collection is saved.
+ *
+ * Uses unmarshal() rather than a direct `collection.viewQuery = ...`
+ * assignment: viewQuery lives on an embedded struct in PocketBase's Go model,
+ * and a direct assignment from the migration JS runtime is silently dropped.
+ *
+ * @param collectionName - Name of the view collection
+ * @param viewQuery - The SQL query to set
+ * @param varName - Variable name to use for the collection (default: auto-generated)
+ * @param isLast - Whether this is the last operation (will return the result)
+ * @param collectionIdMap - Map of collection names to IDs
+ * @returns JavaScript code for updating the view query
+ */
+export function generateViewQueryUpdate(
+  collectionName: string,
+  viewQuery: string,
+  varName?: string,
+  isLast: boolean = false,
+  collectionIdMap?: Map<string, string>
+): string {
+  const lines: string[] = [];
+  const collectionVar = varName || `collection_${collectionName}_viewQuery`;
+
+  lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
+  lines.push(`  unmarshal({`);
+  lines.push(`    "viewQuery": ${formatSqlTemplate(viewQuery, "      ")},`);
+  lines.push(`  }, ${collectionVar})`);
   lines.push(isLast ? `  return app.save(${collectionVar});` : `  app.save(${collectionVar});`);
 
   return lines.join("\n");

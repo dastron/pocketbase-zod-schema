@@ -11,6 +11,7 @@ A TypeScript-first migration generator for PocketBase that uses Zod schemas to c
 - 🔒 **Type-Safe**: Full TypeScript support with Zod schema validation
 - 🚀 **Schema-Driven**: Define your database structure using Zod schemas
 - 🔄 **Automatic Migrations**: Generate PocketBase migrations from schema changes
+- 👁️ **View Collections**: Define read-only SQL views alongside your regular collections
 - 🔍 **Change Detection**: Smart diff engine with destructive change warnings
 - 📋 **Status Reporting**: Check migration status without generating files
 - 🛠️ **CLI Tools**: Command-line interface for migration management
@@ -300,6 +301,46 @@ export const ProductCollection = defineCollection({
 });
 ```
 
+### Defining View Collections
+
+Use `defineView()` for read-only [view collections](docs/VIEW_COLLECTIONS.md) backed by a SQL
+query. PocketBase runs the query and derives the collection's fields from it, so the Zod schema
+describes the row shape for TypeScript only:
+
+```typescript
+import { z } from 'zod';
+import { baseSchema, defineView, sql } from 'pocketbase-zod-schema/schema';
+
+const ProductStatsSchema = z
+  .object({
+    vendor: z.string(),
+    productCount: z.number(),
+  })
+  .extend(baseSchema);
+
+export default defineView({
+  collectionName: 'ProductStats',
+  schema: ProductStatsSchema,
+  viewQuery: sql`
+    SELECT p.vendor AS id,
+           p.vendor AS vendor,
+           COUNT(*) AS productCount
+      FROM products p
+     GROUP BY p.vendor
+  `,
+  permissions: {
+    listRule: 'vendor.owner = @request.auth.id',
+    viewRule: 'vendor.owner = @request.auth.id',
+  },
+});
+```
+
+Views are read-only, so `defineView()` accepts only `listRule` and `viewRule`, and rejects
+indexes. Editing the SQL produces an in-place update migration that keeps the collection id
+stable. Re-indenting the query produces no migration at all. See
+[docs/VIEW_COLLECTIONS.md](docs/VIEW_COLLECTIONS.md) for the rules PocketBase places on view
+queries.
+
 ### Permission Templates
 
 Use permission templates for common access patterns:
@@ -445,6 +486,7 @@ export const CategoryCollection = defineCollection({
 - [Configuration Guide](docs/CONFIGURATION.md)
 - [Migration Guide](docs/MIGRATION_GUIDE.md)
 - [Type Mapping](docs/TYPE_MAPPING.md)
+- [View Collections](docs/VIEW_COLLECTIONS.md)
 - [Naming Conventions](docs/NAMING_CONVENTIONS.md)
 
 ## Development (repo contributors)

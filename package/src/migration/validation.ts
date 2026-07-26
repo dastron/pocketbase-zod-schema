@@ -41,6 +41,11 @@ function detectCollectionDeletions(diff: SchemaDiff): DestructiveChange[] {
   const changes: DestructiveChange[] = [];
 
   for (const collection of diff.collectionsToDelete) {
+    // View collections store no data, so dropping one is not destructive
+    if (collection.type === "view") {
+      continue;
+    }
+
     changes.push({
       type: DestructiveChangeType.COLLECTION_DELETION,
       description: `Delete collection: ${collection.name}`,

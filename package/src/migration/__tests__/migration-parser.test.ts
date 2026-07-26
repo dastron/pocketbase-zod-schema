@@ -152,6 +152,98 @@ describe("migration-parser", () => {
       expect(result.collectionsToDelete).toHaveLength(0);
     });
 
+    it("should parse a view collection with a template-literal query", () => {
+      const migrationContent = `
+        migrate((app) => {
+          const collection = new Collection({
+            "id": "pb_projectstats01",
+            "name": "ProjectStats",
+            "type": "view",
+            "system": false,
+            "listRule": null,
+            "viewRule": null,
+            "createRule": null,
+            "updateRule": null,
+            "deleteRule": null,
+            "viewQuery": \`
+              -- the curator's tag {not an object}
+              SELECT p.id AS id,
+                     json_object('key', p.title, 'note', "quoted") AS meta
+                FROM Projects p
+               WHERE p.title != '}'
+            \`,
+          });
+
+          return app.save(collection);
+        }, (app) => {
+          const collection = app.findCollectionByNameOrId("pb_projectstats01") // ProjectStats;
+          return app.delete(collection);
+        });
+      `;
+
+      const result = parseMigrationOperations(migrationContent);
+
+      expect(result.collectionsToCreate).toHaveLength(1);
+
+      const collection = result.collectionsToCreate[0];
+      expect(collection.name).toBe("ProjectStats");
+      expect(collection.type).toBe("view");
+      expect(collection.fields).toHaveLength(0);
+
+      // Braces, apostrophes and quotes inside the SQL must not break the scanner
+      expect(collection.viewQuery).toBe(
+        [
+          "-- the curator's tag {not an object}",
+          "SELECT p.id AS id,",
+          "       json_object('key', p.title, 'note', \"quoted\") AS meta",
+          "  FROM Projects p",
+          " WHERE p.title != '}'",
+        ].join("\n")
+      );
+
+      // The down migration must not leak into the parsed up operations
+      expect(result.collectionsToDelete).toHaveLength(0);
+    });
+
+    it("should parse an in-place view query update", () => {
+      const migrationContent = `
+        migrate((app) => {
+          const collection_ProjectStats_viewQuery = app.findCollectionByNameOrId("pb_projectstats01") // ProjectStats;
+          unmarshal({
+            "viewQuery": \`
+              SELECT p.id AS id
+                FROM Projects p
+               WHERE p.status = 'active'
+            \`,
+          }, collection_ProjectStats_viewQuery)
+          return app.save(collection_ProjectStats_viewQuery);
+        }, (app) => {});
+      `;
+
+      const result = parseMigrationOperations(migrationContent);
+
+      expect(result.collectionsToUpdate).toHaveLength(1);
+      expect(result.collectionsToUpdate[0].collectionName).toBe("ProjectStats");
+      expect(result.collectionsToUpdate[0].viewQuery).toBe(
+        "SELECT p.id AS id\n  FROM Projects p\n WHERE p.status = 'active'"
+      );
+    });
+
+    it("should parse a hand-written direct view query assignment", () => {
+      const migrationContent = `
+        migrate((app) => {
+          const collection = app.findCollectionByNameOrId("ProjectStats");
+          collection.viewQuery = \`SELECT p.id AS id FROM Projects p\`;
+          return app.save(collection);
+        }, (app) => {});
+      `;
+
+      const result = parseMigrationOperations(migrationContent);
+
+      expect(result.collectionsToUpdate).toHaveLength(1);
+      expect(result.collectionsToUpdate[0].viewQuery).toBe("SELECT p.id AS id FROM Projects p");
+    });
+
     it("should parse collection deletion from app.delete()", () => {
       const migrationContent = `
         migrate((app) => {

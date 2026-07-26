@@ -6,6 +6,7 @@
  * (as found in migration files and snapshots) and our internal schema representation.
  */
 
+import { dedentSql } from "../schema/view";
 import { SnapshotError } from "./errors";
 import type { CollectionSchema, FieldDefinition, SchemaSnapshot } from "./types";
 
@@ -148,12 +149,15 @@ export function convertPocketBaseField(pbField: any): FieldDefinition {
  */
 export function convertPocketBaseCollection(pbCollection: any): CollectionSchema {
   const fields: any[] = [];
+  const isView = pbCollection.type === "view";
 
   // System field names that should always be excluded
   const systemFieldNames = ["id", "created", "updated", "collectionId", "collectionName", "expand"];
 
+  // View collections have no stored fields - PocketBase derives them from the
+  // view query, so anything present here is generated output, not schema
   // Convert PocketBase fields to our FieldDefinition format
-  if (pbCollection.fields && Array.isArray(pbCollection.fields)) {
+  if (!isView && pbCollection.fields && Array.isArray(pbCollection.fields)) {
     for (const pbField of pbCollection.fields) {
       // Skip system fields by checking both the system flag and field name
       // Some PocketBase exports mark created/updated as system: false
@@ -184,6 +188,13 @@ export function convertPocketBaseCollection(pbCollection: any): CollectionSchema
   // Preserve collection ID if present (needed for relation resolution)
   if (pbCollection.id) {
     schema.id = pbCollection.id;
+  }
+
+  // Preserve the SQL query backing a view collection
+  // Dedented so a query indented to fit the migration file compares equal to
+  // the one declared in the schema
+  if (typeof pbCollection.viewQuery === "string") {
+    schema.viewQuery = dedentSql(pbCollection.viewQuery);
   }
 
   // Add indexes if present

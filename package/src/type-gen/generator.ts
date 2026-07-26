@@ -67,15 +67,20 @@ export class TypeGenerator {
 
   private generateCollectionType(collection: CollectionSchema): string {
     const typeName = this.toPascalCase(collection.name);
+    const isView = collection.type === "view";
     const lines: string[] = [];
 
     // Generate Record Interface (base fields)
     lines.push(`export interface ${typeName}Record {`);
 
     // System fields
+    // Views only have the columns their query selects, so created/updated are
+    // not guaranteed to exist
     lines.push(`  id: string;`);
-    lines.push(`  created: string;`);
-    lines.push(`  updated: string;`);
+    if (!isView) {
+      lines.push(`  created: string;`);
+      lines.push(`  updated: string;`);
+    }
     lines.push(`  collectionId: string;`);
     lines.push(`  collectionName: "${collection.name}";`);
 
@@ -93,8 +98,9 @@ export class TypeGenerator {
     lines.push(``);
 
     // Calculate expand type
+    // Views don't support relation expansion, so they never get an expand block
     const expandFields: string[] = [];
-    for (const field of collection.fields) {
+    for (const field of isView ? [] : collection.fields) {
       if (field.type === 'relation' && field.relation) {
         const targetCollection = field.relation.collection;
         // Check if target exists in schema or is system collection

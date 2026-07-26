@@ -16,6 +16,7 @@ export interface ChangeSummary {
   indexChanges: number;
   ruleChanges: number;
   permissionChanges: number;
+  viewQueryChanges: number;
   destructiveChanges: DestructiveChange[];
   nonDestructiveChanges: string[];
 }
@@ -38,9 +39,13 @@ export function categorizeChangesBySeverity(
   const destructive: string[] = [];
   const nonDestructive: string[] = [];
 
-  // Collection deletions are destructive
+  // Collection deletions are destructive, except for views which hold no data
   for (const collection of diff.collectionsToDelete) {
-    destructive.push(`Delete collection: ${collection.name}`);
+    if (collection.type === "view") {
+      nonDestructive.push(`Delete view collection: ${collection.name}`);
+    } else {
+      destructive.push(`Delete collection: ${collection.name}`);
+    }
   }
 
   // Collection creations are non-destructive
@@ -91,6 +96,11 @@ export function categorizeChangesBySeverity(
     for (const rule of modification.rulesToUpdate) {
       nonDestructive.push(`Update rule: ${collectionName}.${rule.ruleType}`);
     }
+
+    // View query changes are non-destructive - a view stores no data
+    if (modification.viewQueryUpdate) {
+      nonDestructive.push(`Update view query: ${collectionName}`);
+    }
   }
 
   return { destructive, nonDestructive };
@@ -114,6 +124,7 @@ export function generateChangeSummary(diff: SchemaDiff, config?: DiffEngineConfi
   let indexChanges = 0;
   let ruleChanges = 0;
   let permissionChanges = 0;
+  let viewQueryChanges = 0;
 
   for (const modification of diff.collectionsToModify) {
     fieldsToAdd += modification.fieldsToAdd.length;
@@ -122,6 +133,9 @@ export function generateChangeSummary(diff: SchemaDiff, config?: DiffEngineConfi
     indexChanges += modification.indexesToAdd.length + modification.indexesToRemove.length;
     ruleChanges += modification.rulesToUpdate.length;
     permissionChanges += modification.permissionsToUpdate.length;
+    if (modification.viewQueryUpdate) {
+      viewQueryChanges += 1;
+    }
   }
 
   return {
@@ -135,6 +149,7 @@ export function generateChangeSummary(diff: SchemaDiff, config?: DiffEngineConfi
     indexChanges,
     ruleChanges,
     permissionChanges,
+    viewQueryChanges,
     destructiveChanges,
     nonDestructiveChanges: nonDestructive,
   };

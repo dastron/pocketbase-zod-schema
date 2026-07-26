@@ -602,6 +602,11 @@ export function applyMigrationOperations(
         }
       }
 
+      // View query (view collections only)
+      if (update.viewQuery !== undefined) {
+        collection.viewQuery = update.viewQuery;
+      }
+
       // Rules
       if (Object.keys(update.rulesToUpdate).length > 0) {
         if (!collection.rules) collection.rules = {};
