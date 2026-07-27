@@ -10,7 +10,7 @@ import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 import { compare } from "../diff";
-import { parseMigrationOperations } from "../migration-parser";
+import { executeMigrationFiles } from "./helpers/migration-executor";
 import { convertPocketBaseCollection } from "../pocketbase-converter";
 import type { CollectionSchema, SchemaDefinition, SchemaSnapshot } from "../types";
 
@@ -44,20 +44,17 @@ describe("unchanged-schema detection", () => {
         __dirname,
         "fixtures/reference-migrations/1764625735_created_create_new_collection_blank.js"
       );
-      const migrationContent = fs.readFileSync(migrationPath, "utf-8");
+      // Execute the migration and read the collections it created
+      const created = executeMigrationFiles([migrationPath]).created;
 
-      // Parse migration operations (works with new Collection() format)
-      const operations = parseMigrationOperations(migrationContent);
-
-      // Create schema and snapshot from parsed operations
       const schema: SchemaDefinition = {
-        collections: new Map(operations.collectionsToCreate.map((c) => [c.name, c])),
+        collections: new Map(created.map((c) => [c.name, c])),
       };
 
       const snapshot: SchemaSnapshot = {
         version: "1.0.0",
         timestamp: new Date().toISOString(),
-        collections: new Map(operations.collectionsToCreate.map((c) => [c.name, c])),
+        collections: new Map(created.map((c) => [c.name, c])),
       };
 
       // Compare schema with itself (should show no changes)
@@ -73,21 +70,19 @@ describe("unchanged-schema detection", () => {
         __dirname,
         "fixtures/reference-migrations/1764625712_created_create_new_collection_with_columns.js"
       );
-      const migrationContent = fs.readFileSync(migrationPath, "utf-8");
-
-      // Parse migration twice
-      const operations1 = parseMigrationOperations(migrationContent);
-      const operations2 = parseMigrationOperations(migrationContent);
+      // Execute the migration twice, in independent stores
+      const created1 = executeMigrationFiles([migrationPath]).created;
+      const created2 = executeMigrationFiles([migrationPath]).created;
 
       // Create schemas from both
       const schema1: SchemaDefinition = {
-        collections: new Map(operations1.collectionsToCreate.map((c) => [c.name, c])),
+        collections: new Map(created1.map((c) => [c.name, c])),
       };
 
       const snapshot2: SchemaSnapshot = {
         version: "1.0.0",
         timestamp: new Date().toISOString(),
-        collections: new Map(operations2.collectionsToCreate.map((c) => [c.name, c])),
+        collections: new Map(created2.map((c) => [c.name, c])),
       };
 
       // Compare the two
@@ -103,21 +98,18 @@ describe("unchanged-schema detection", () => {
         __dirname,
         "fixtures/reference-migrations/1764625943_created_create_new_collection_with_restricted_api_rules.js"
       );
-      const migrationContent = fs.readFileSync(migrationPath, "utf-8");
+      // Execute the migration and read the collections it created
+      const created = executeMigrationFiles([migrationPath]).created;
 
-      // Parse migration operations
-      const operations = parseMigrationOperations(migrationContent);
-
-      // Create schema from parsed operations
       const schema: SchemaDefinition = {
-        collections: new Map(operations.collectionsToCreate.map((c) => [c.name, c])),
+        collections: new Map(created.map((c) => [c.name, c])),
       };
 
-      // Create snapshot from the same operations
+      // Build a snapshot from the same collections
       const snapshot: SchemaSnapshot = {
         version: "1.0.0",
         timestamp: new Date().toISOString(),
-        collections: new Map(operations.collectionsToCreate.map((c) => [c.name, c])),
+        collections: new Map(created.map((c) => [c.name, c])),
       };
 
       // Compare - should show no changes
@@ -278,22 +270,19 @@ describe("unchanged-schema detection", () => {
         return;
       }
 
-      const migrationContent = fs.readFileSync(migrationPath, "utf-8");
+      const created = executeMigrationFiles([migrationPath]).created;
 
-      // Parse using parseMigrationOperations (works with new Collection() format)
-      const operations = parseMigrationOperations(migrationContent);
+      expect(created.length).toBeGreaterThan(0);
 
-      expect(operations.collectionsToCreate.length).toBeGreaterThan(0);
-
-      // Create schema and snapshot from operations
+      // Create schema and snapshot from the executed state
       const schema: SchemaDefinition = {
-        collections: new Map(operations.collectionsToCreate.map((c) => [c.name, c])),
+        collections: new Map(created.map((c) => [c.name, c])),
       };
 
       const snapshot: SchemaSnapshot = {
         version: "1.0.0",
         timestamp: new Date().toISOString(),
-        collections: new Map(operations.collectionsToCreate.map((c) => [c.name, c])),
+        collections: new Map(created.map((c) => [c.name, c])),
       };
 
       // Compare - should show no changes
@@ -315,34 +304,27 @@ describe("unchanged-schema detection", () => {
         }
 
         const migrationPath = path.join(migrationsDir, file);
-        const migrationContent = fs.readFileSync(migrationPath, "utf-8");
 
-        try {
-          // Parse migration operations (works with both formats)
-          const operations = parseMigrationOperations(migrationContent);
+        // A migration the engine cannot execute is a real defect — let it throw
+        const created = executeMigrationFiles([migrationPath]).created;
 
-          if (operations.collectionsToCreate.length > 0) {
-            // Create schema and snapshot from operations
-            const schema: SchemaDefinition = {
-              collections: new Map(operations.collectionsToCreate.map((c) => [c.name, c])),
-            };
+        if (created.length > 0) {
+          const schema: SchemaDefinition = {
+            collections: new Map(created.map((c) => [c.name, c])),
+          };
 
-            const snapshot: SchemaSnapshot = {
-              version: "1.0.0",
-              timestamp: new Date().toISOString(),
-              collections: new Map(operations.collectionsToCreate.map((c) => [c.name, c])),
-            };
+          const snapshot: SchemaSnapshot = {
+            version: "1.0.0",
+            timestamp: new Date().toISOString(),
+            collections: new Map(created.map((c) => [c.name, c])),
+          };
 
-            // Compare with itself - should show no changes
-            const diff = compare(schema, snapshot);
+          // Compare with itself - should show no changes
+          const diff = compare(schema, snapshot);
 
-            expect(diff.collectionsToCreate).toHaveLength(0);
-            expect(diff.collectionsToDelete).toHaveLength(0);
-            expect(diff.collectionsToModify).toHaveLength(0);
-          }
-        } catch (error) {
-          // If parsing fails, that's a problem we should know about
-          throw error;
+          expect(diff.collectionsToCreate).toHaveLength(0);
+          expect(diff.collectionsToDelete).toHaveLength(0);
+          expect(diff.collectionsToModify).toHaveLength(0);
         }
       }
     });

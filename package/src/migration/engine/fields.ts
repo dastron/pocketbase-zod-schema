@@ -8,7 +8,7 @@
  *
  * The constructors deliberately add no default properties beyond `type`:
  * the resulting state must match what the migration file literally declares,
- * the same data the static parser would have extracted from the same literal.
+ * the same data the literal declares, materialized as a real object.
  */
 
 /**

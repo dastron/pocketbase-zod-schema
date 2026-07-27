@@ -21,7 +21,6 @@ export type { SchemaAnalyzerConfig } from "./analyzer/index.js";
 // Snapshot module
 export {
   SnapshotManager,
-  convertPocketBaseMigration,
   findLatestSnapshot,
   getSnapshotPath,
   getSnapshotVersion,
@@ -111,6 +110,7 @@ export {
   executeMigrationDownSource,
   executeMigrationFile,
   executeMigrationSource,
+  extractTimestampFromFilename,
   formatGojaLintFinding,
   gojaFindingsFromWarnings,
   isDbxExpression,

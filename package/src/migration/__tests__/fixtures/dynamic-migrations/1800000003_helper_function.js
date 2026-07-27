@@ -1,6 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 // A helper function constructs the fields — no literal new XField({...})
-// call site next to fields.add for a static parser to match.
+// call site next to fields.add to match on.
 migrate((app) => {
   function makeTextField(name, max) {
     return new TextField({

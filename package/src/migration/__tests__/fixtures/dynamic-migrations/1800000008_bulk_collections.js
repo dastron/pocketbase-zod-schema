@@ -1,6 +1,6 @@
 /// <reference path="../pb_data/types.d.ts" />
 // One migration creating several collections from data — a common
-// hand-written pattern the static parser sees as a single opaque blob.
+// hand-written pattern; no collection name appears literally in the file.
 migrate((app) => {
   const names = ["bulk_alpha", "bulk_beta", "bulk_gamma"];
 

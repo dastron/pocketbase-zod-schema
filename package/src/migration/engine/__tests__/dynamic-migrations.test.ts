@@ -1,14 +1,13 @@
 /**
  * The motivating cases for the execution engine: migrations that use loops,
  * helper functions, conditionals, variable indirection, and computed values.
- * The static parser provably cannot reconstruct these (documented by the
- * "static parser misses" test at the bottom); the engine must.
+ * No amount of reading the file text reconstructs these — the fields and
+ * collection names only exist once the code has run.
  */
 
 import * as fs from "fs";
 import * as path from "path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { parseMigrationOperations } from "../../migration-parser";
 import { replayMigrations } from "../replayer";
 import type { CollectionStore } from "../store";
 
@@ -94,20 +93,5 @@ describe("Dynamic migration execution", () => {
       "step_3",
       "step_5",
     ]);
-  });
-
-  it("documents that the static parser misses these constructs", () => {
-    // Loop-added fields: static parsing finds the collection creation but
-    // none of the five step_* fields added inside the for loop
-    const loopContent = fs.readFileSync(path.join(FIXTURES_DIR, "1800000001_loop_add_fields.js"), "utf-8");
-    const loopOps = parseMigrationOperations(loopContent);
-    const staticLoopCollection = loopOps.collectionsToCreate.find((c) => c.name === "dynamic_loop");
-    const staticFieldNames = (staticLoopCollection?.fields ?? []).map((f) => f.name);
-    expect(staticFieldNames).not.toContain("step_1");
-
-    // Bulk creation from data: static parsing sees no literal collection names
-    const bulkContent = fs.readFileSync(path.join(FIXTURES_DIR, "1800000008_bulk_collections.js"), "utf-8");
-    const bulkOps = parseMigrationOperations(bulkContent);
-    expect(bulkOps.collectionsToCreate.map((c) => c.name)).not.toContain("bulk_alpha");
   });
 });

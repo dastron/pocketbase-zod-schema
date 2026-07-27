@@ -1,5 +1,5 @@
 /// <reference path="../pb_data/types.d.ts" />
-// removeById in the UP body — the static parser only understands
+// removeById in the UP body — a text scanner only ever understood
 // removeByName.
 migrate((app) => {
   const collection = app.findCollectionByNameOrId("dynamic_loop");

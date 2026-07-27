@@ -18,7 +18,7 @@ import { fileURLToPath } from "url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compare } from "../../diff";
 import { generate } from "../../generator";
-import { parseMigrationOperations } from "../../migration-parser";
+import { executeMigrationFiles } from "../helpers/migration-executor";
 import type { SchemaDefinition } from "../../types";
 import { CreateViewCollectionSchema } from "../fixtures/schemas";
 
@@ -27,11 +27,9 @@ const REFERENCE_PATH = join(__dirname, "../fixtures/reference-migrations/1769500
 
 describe("View Collection - PocketBase reference migration", () => {
   const tempDir = path.join(os.tmpdir(), "migration-test-view-ref-" + Date.now());
-  let referenceContent: string;
 
   beforeAll(() => {
     fs.mkdirSync(tempDir, { recursive: true });
-    referenceContent = fs.readFileSync(REFERENCE_PATH, "utf-8");
   });
 
   afterAll(() => {
@@ -40,12 +38,12 @@ describe("View Collection - PocketBase reference migration", () => {
     }
   });
 
-  it("parses PocketBase's own view migration", () => {
-    const result = parseMigrationOperations(referenceContent);
+  it("reads PocketBase's own view migration", () => {
+    const result = executeMigrationFiles([REFERENCE_PATH]);
 
-    expect(result.collectionsToCreate).toHaveLength(1);
+    expect(result.created).toHaveLength(1);
 
-    const collection = result.collectionsToCreate[0];
+    const collection = result.created[0];
     expect(collection.name).toBe("view_collection");
     expect(collection.type).toBe("view");
     expect(collection.viewQuery).toBe(CreateViewCollectionSchema.viewQuery);
@@ -60,10 +58,9 @@ describe("View Collection - PocketBase reference migration", () => {
     };
 
     const generatedPath = generate(compare(schema, null), tempDir)[0];
-    const generated = fs.readFileSync(generatedPath, "utf-8");
 
-    const reference = parseMigrationOperations(referenceContent).collectionsToCreate[0];
-    const ours = parseMigrationOperations(generated).collectionsToCreate[0];
+    const reference = executeMigrationFiles([REFERENCE_PATH]).created[0];
+    const ours = executeMigrationFiles([generatedPath]).created[0];
 
     expect(ours.type).toBe(reference.type);
     expect(ours.viewQuery).toBe(reference.viewQuery);
@@ -74,7 +71,7 @@ describe("View Collection - PocketBase reference migration", () => {
     expect(ours.rules?.deleteRule).toBeNull();
   });
 
-  it("re-parsing our own output needs no follow-up migration", () => {
+  it("re-reading our own output needs no follow-up migration", () => {
     const schema: SchemaDefinition = {
       collections: new Map([[CreateViewCollectionSchema.name, CreateViewCollectionSchema]]),
     };
@@ -83,12 +80,7 @@ describe("View Collection - PocketBase reference migration", () => {
     fs.mkdirSync(dir, { recursive: true });
     const generatedPath = generate(compare(schema, null), dir)[0];
 
-    const parsed = parseMigrationOperations(fs.readFileSync(generatedPath, "utf-8"));
-    const snapshot = {
-      version: "1.0.0",
-      timestamp: new Date().toISOString(),
-      collections: new Map(parsed.collectionsToCreate.map((c) => [c.name, c])),
-    };
+    const snapshot = executeMigrationFiles([generatedPath]).snapshot;
 
     expect(compare(schema, snapshot).collectionsToModify).toHaveLength(0);
   });

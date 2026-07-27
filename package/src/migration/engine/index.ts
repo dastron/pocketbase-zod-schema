@@ -57,7 +57,7 @@ export {
   lintMigrationSource,
 } from "./goja-lint";
 export type { GojaLintFinding, GojaLintOptions, GojaLintResult, GojaLintRule, GojaLintSeverity } from "./goja-lint";
-export { discoverMigrations, planMigrationReplay } from "./migration-plan";
+export { discoverMigrations, extractTimestampFromFilename, planMigrationReplay } from "./migration-plan";
 export type { DiscoveredMigration, MigrationPlan, PlanOptions } from "./migration-plan";
 export { RecordModel, RecordStore, generateRecordId } from "./records";
 export { replayMigrations, replayMigrationsDirectory } from "./replayer";

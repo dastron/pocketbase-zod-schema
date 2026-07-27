@@ -1,9 +1,29 @@
-
 import { describe, expect, it } from "vitest";
-import { parseMigrationOperations } from "../migration-parser";
+import { executeMigrationSources, requireCollection } from "./helpers/migration-executor";
 
+/**
+ * PocketBase writes its own field updates as `fields.addAt(index, new Field({...}))`
+ * against a collection looked up by id. The regression this file guards is that
+ * those land as real fields on the collection, and that addressing the
+ * collection by id works — neither is visible from the file text alone.
+ */
 describe("reproduction of missed updates", () => {
-  it("should parse fields.addAt as an update or addition", () => {
+  it("should apply fields.addAt to a collection addressed by id", () => {
+    const baseline = [
+      {
+        id: "pb_7mbdu2xml9nggre",
+        name: "Assets",
+        type: "base",
+        fields: [
+          { id: "text1", name: "one", type: "text" },
+          { id: "text2", name: "two", type: "text" },
+          { id: "text3", name: "three", type: "text" },
+          { id: "text4", name: "four", type: "text" },
+          { id: "text5", name: "five", type: "text" },
+        ],
+      },
+    ];
+
     const migrationContent = `
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
@@ -42,27 +62,24 @@ migrate((app) => {
 })
     `;
 
-    const result = parseMigrationOperations(migrationContent);
+    const result = executeMigrationSources([migrationContent], { baseline });
 
-    // We expect to find updates for the collection
-    expect(result.collectionsToUpdate.length).toBeGreaterThan(0);
-    const update = result.collectionsToUpdate[0];
+    expect(result.created).toHaveLength(0);
+    expect(result.updated).toHaveLength(1);
+    expect(result.updated[0].name).toBe("Assets");
 
-    // Since findCollectionByNameOrId uses an ID, we might not get the name back unless we mock it or infer it.
-    // The parser mocks app.findCollectionByNameOrId to return { id: name, name: name }.
-    // So collectionName will be "pb_7mbdu2xml9nggre".
-    expect(update.collectionName).toBe("pb_7mbdu2xml9nggre");
+    const collection = requireCollection(result.snapshot, "Assets");
+    expect(collection.fields).toHaveLength(7);
 
-    // fields.addAt should probably result in fieldsToAdd, because addAt adds/replaces a field definition.
-    // If the parser supports it.
-    expect(update.fieldsToAdd.length).toBe(2);
-
-    const boundingBox = update.fieldsToAdd.find(f => f.name === "boundingBox");
+    const boundingBox = collection.fields.find((f) => f.name === "boundingBox");
     expect(boundingBox).toBeDefined();
     expect(boundingBox?.type).toBe("json");
 
-    const imageRef = update.fieldsToAdd.find(f => f.name === "ImageRef");
+    const imageRef = collection.fields.find((f) => f.name === "ImageRef");
     expect(imageRef).toBeDefined();
     expect(imageRef?.type).toBe("relation");
+
+    // addAt honours position: the new fields land at indexes 5 and 6
+    expect(collection.fields.map((f) => f.name).slice(5)).toEqual(["boundingBox", "ImageRef"]);
   });
 });

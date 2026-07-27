@@ -1,41 +1,41 @@
 /**
- * Executing a native snapshot migration (app.importCollections) through the
- * engine must produce the same SchemaSnapshot as the legacy regex extraction
- * in convertPocketBaseMigration — the two state-reconstruction paths have to
- * agree on the format the diff engine consumes.
+ * Native PocketBase snapshot migrations (app.importCollections) executed
+ * through the engine, which is the only reader for them: the state has to come
+ * out in the format the diff engine consumes, and importCollections has to
+ * honour its deleteMissing flag.
  */
 
-import * as fs from "fs";
 import * as path from "path";
 import { describe, expect, it } from "vitest";
-import { convertPocketBaseMigration } from "../../pocketbase-converter";
 import { replayMigrations } from "../replayer";
 import { executeMigrationSource } from "../runner";
 
 const FIXTURE = path.resolve(__dirname, "../../__tests__/fixtures/native-snapshot-trimmed.js");
 
 describe("Snapshot migration execution", () => {
-  it("engine execution matches the regex-based converter output", () => {
-    const staticSnapshot = convertPocketBaseMigration(fs.readFileSync(FIXTURE, "utf-8"));
-    const engineSnapshot = replayMigrations([FIXTURE]).snapshot;
+  it("imports every collection in the snapshot array", () => {
+    const snapshot = replayMigrations([FIXTURE]).snapshot;
 
-    expect([...engineSnapshot.collections.keys()].sort()).toEqual([...staticSnapshot.collections.keys()].sort());
+    expect([...snapshot.collections.keys()].sort()).toEqual(["article_stats", "articles", "users"]);
 
-    for (const [name, staticCollection] of staticSnapshot.collections) {
-      const engineCollection = engineSnapshot.collections.get(name)!;
+    const articles = snapshot.collections.get("articles")!;
+    expect(articles.type).toBe("base");
+    expect(articles.fields.map((f) => f.name)).toContain("title");
 
-      expect(engineCollection.type, `${name} type`).toBe(staticCollection.type);
-      expect(engineCollection.id, `${name} id`).toBe(staticCollection.id);
-      expect(engineCollection.fields, `${name} fields`).toEqual(staticCollection.fields);
-      expect(engineCollection.indexes, `${name} indexes`).toEqual(staticCollection.indexes);
-      expect(engineCollection.rules, `${name} rules`).toEqual(staticCollection.rules);
-      expect(engineCollection.viewQuery, `${name} viewQuery`).toEqual(staticCollection.viewQuery);
-    }
+    const users = snapshot.collections.get("users")!;
+    expect(users.type).toBe("auth");
+    expect(users.id).toBe("_pb_users_auth_");
+
+    // A view's fields are derived by PocketBase from its query, so the
+    // converted form carries the query and no fields
+    const stats = snapshot.collections.get("article_stats")!;
+    expect(stats.type).toBe("view");
+    expect(String(stats.viewQuery).toUpperCase()).toContain("SELECT");
+    expect(stats.fields).toEqual([]);
   });
 
   it("importCollections with deleteMissing removes collections absent from the import", () => {
-    const replay = replayMigrations([FIXTURE]);
-    const store = replay.store;
+    const store = replayMigrations([FIXTURE]).store;
     expect(store.getByNameOrId("articles")).toBeDefined();
 
     // A second snapshot containing only users, with deleteMissing=true
