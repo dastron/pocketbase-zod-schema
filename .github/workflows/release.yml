@@ -28,7 +28,7 @@ jobs:
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Release Please
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         id: release
         with:
           config-file: release-please-config.json
@@ -50,17 +50,20 @@ jobs:
       }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # npm 12+ (needed for OIDC trusted publishing) requires Node >=22.22.2
           node-version: '22'
           check-latest: true
           registry-url: 'https://registry.npmjs.org'
+          # Corepack is enabled after this step; the built-in yarn cache would
+          # resolve against the runner's preinstalled yarn 1.x instead.
+          package-manager-cache: false
 
       - name: Enable Corepack
         run: corepack enable
