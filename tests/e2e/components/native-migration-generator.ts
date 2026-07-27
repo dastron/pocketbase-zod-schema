@@ -9,7 +9,8 @@ import { readdir, readFile, stat, copyFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { TestWorkspace } from './workspace-manager.js';
 import { CollectionDefinition, FieldDefinition, CollectionRules } from '../fixtures/test-scenarios.js';
-import { logger, sleep, retry } from '../utils/test-helpers.js';
+import { authenticateSuperuser } from './pb-admin-api.js';
+import { logger, sleep } from '../utils/test-helpers.js';
 
 export interface CollectionChanges {
   addFields?: FieldDefinition[];
@@ -384,52 +385,8 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
    * Uses retry logic to handle timing issues after PocketBase startup
    */
   private async authenticateAdmin(adminUrl: string): Promise<{ token: string }> {
-    return await retry(
-      async () => {
-        // Try to authenticate as superuser (v0.23+)
-        let authResponse = await fetch(`${adminUrl}/api/collections/_superusers/auth-with-password`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            identity: 'test@example.com',
-            password: 'testpassword123',
-          }),
-          signal: AbortSignal.timeout(this.adminApiTimeout),
-        });
-
-        // Fallback for older versions (pre v0.23)
-        if (authResponse.status === 404) {
-          authResponse = await fetch(`${adminUrl}/api/admins/auth-with-password`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              identity: 'test@example.com',
-              password: 'testpassword123',
-            }),
-            signal: AbortSignal.timeout(this.adminApiTimeout),
-          });
-        }
-
-        if (!authResponse.ok) {
-          const errorText = await authResponse.text();
-          throw new Error(`Failed to authenticate admin: ${authResponse.status} - ${errorText}`);
-        }
-
-        const authData = await authResponse.json();
-        logger.debug('Admin authentication successful');
-        return authData;
-      },
-      {
-        maxAttempts: 5,
-        baseDelay: 500,
-        maxDelay: 2000,
-        backoffFactor: 1.5,
-      }
-    );
+    const token = await authenticateSuperuser(adminUrl, { timeout: this.adminApiTimeout });
+    return { token };
   }
 
   /**

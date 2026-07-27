@@ -11,6 +11,12 @@ import { join, resolve } from 'path';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import { createPBDownloader, PBDownloader } from './pb-downloader.js';
 import {
+  adminUrlForPort,
+  authenticateSuperuser,
+  SUPERUSER_EMAIL,
+  SUPERUSER_PASSWORD,
+} from './pb-admin-api.js';
+import {
   generateTestId,
   createTempDir,
   cleanupTempDir,
@@ -33,6 +39,7 @@ export interface TestWorkspace {
 export interface WorkspaceManager {
   createWorkspace(): Promise<TestWorkspace>;
   initializePocketBase(workspace: TestWorkspace): Promise<void>;
+  createSuperuserBeforeStart(workspace: TestWorkspace): Promise<void>;
   startPocketBase(workspace: TestWorkspace): Promise<void>;
   stopPocketBase(workspace: TestWorkspace): Promise<void>;
   cleanupWorkspace(workspace: TestWorkspace): Promise<void>;
@@ -144,7 +151,7 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
 
       // Use 'upsert' instead of 'create' to handle cases where superuser might already exist
       // This is safer and matches PocketBase best practices
-      const command = `"${workspace.pocketbasePath}" superuser upsert test@example.com testpassword123 --dir "${absoluteDataDir}"`;
+      const command = `"${workspace.pocketbasePath}" superuser upsert ${SUPERUSER_EMAIL} ${SUPERUSER_PASSWORD} --dir "${absoluteDataDir}"`;
 
       logger.debug(`Executing command: ${command}`);
       logger.debug(`Working directory: ${workspace.workspaceDir}`);
@@ -271,67 +278,16 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
   async verifySuperuser(workspace: TestWorkspace): Promise<void> {
     logger.debug(`Verifying superuser for workspace ${workspace.workspaceId}`);
 
-    const adminUrl = `http://127.0.0.1:${workspace.pocketbasePort}`;
-
     // Wait a moment for migrations to complete and superuser to be available
     await sleep(1000);
 
-    // Verify authentication works (this is the real test)
-    const maxAuthAttempts = 5;
-    for (let attempt = 1; attempt <= maxAuthAttempts; attempt++) {
-      try {
-        // Try to authenticate as superuser (v0.23+)
-        let authResponse = await fetch(`${adminUrl}/api/collections/_superusers/auth-with-password`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            identity: 'test@example.com',
-            password: 'testpassword123',
-          }),
-          signal: AbortSignal.timeout(5000),
-        });
-
-        // Fallback for older versions (pre v0.23)
-        if (authResponse.status === 404) {
-          authResponse = await fetch(`${adminUrl}/api/admins/auth-with-password`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              identity: 'test@example.com',
-              password: 'testpassword123',
-            }),
-            signal: AbortSignal.timeout(5000),
-          });
-        }
-
-        if (authResponse.ok) {
-          logger.debug(`Superuser verified for workspace ${workspace.workspaceId}`);
-          return;
-        }
-
-        // If not successful and not the last attempt, wait and retry
-        if (attempt < maxAuthAttempts) {
-          const errorText = await authResponse.text();
-          logger.debug(`Authentication attempt ${attempt} failed (${authResponse.status}), retrying...`);
-          await sleep(500 * attempt);
-          continue;
-        }
-
-        // Last attempt failed
-        const errorText = await authResponse.text();
-        throw new Error(`Failed to verify superuser after ${maxAuthAttempts} attempts: ${authResponse.status} - ${errorText}`);
-
-      } catch (error: any) {
-        if (attempt === maxAuthAttempts) {
-          logger.error(`Failed to verify superuser for workspace ${workspace.workspaceId}:`, error);
-          throw new Error(`Failed to verify superuser: ${error.message}`);
-        }
-        await sleep(500 * attempt);
-      }
+    try {
+      // Authenticating is the real test - it retries while PocketBase settles
+      await authenticateSuperuser(adminUrlForPort(workspace.pocketbasePort), { timeout: 5000 });
+      logger.debug(`Superuser verified for workspace ${workspace.workspaceId}`);
+    } catch (error: any) {
+      logger.error(`Failed to verify superuser for workspace ${workspace.workspaceId}:`, error);
+      throw new Error(`Failed to verify superuser: ${error.message}`);
     }
   }
 
@@ -555,12 +511,12 @@ export class WorkspaceManagerImpl implements WorkspaceManager {
 migrate((app) => {
   const superusers = app.findCollectionByNameOrId("_superusers");
   const record = new Record(superusers);
-  record.set("email", "test@example.com");
-  record.set("password", "testpassword123");
+  record.set("email", "${SUPERUSER_EMAIL}");
+  record.set("password", "${SUPERUSER_PASSWORD}");
   app.save(record);
 }, (app) => {
   try {
-    const record = app.findAuthRecordByEmail("_superusers", "test@example.com");
+    const record = app.findAuthRecordByEmail("_superusers", "${SUPERUSER_EMAIL}");
     if (record) {
       app.delete(record);
     }

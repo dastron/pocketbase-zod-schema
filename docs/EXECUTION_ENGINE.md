@@ -177,5 +177,13 @@ If you hit a failing migration you cannot fix immediately, `--engine static`
 - `tests/e2e/components/engine-state-comparator.ts` — the e2e harness
   executes the native-captured and library-generated migrations and diffs
   the resulting states (semantic equivalence instead of text similarity).
+- `tests/e2e/components/real-apply-verifier.ts` — the oracle: applies the
+  library-generated migration with a **real PocketBase binary**
+  (`pocketbase migrate up`), reads the collections back through
+  `GET /api/collections`, and diffs that real state against the engine's
+  simulation of the same files. Both sides start from the collections a
+  freshly-initialized instance has, so a simulation that drifts from
+  reality — or a migration PocketBase refuses to apply — fails the e2e
+  workflow. This is what keeps the caveats below honest.
 
 See `EXECUTION_ENGINE_ROADMAP.md` for planned work.
