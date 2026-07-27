@@ -11,14 +11,10 @@
  * the legacy text-similarity comparison.
  */
 
-import {
-  Collection,
-  CollectionStore,
-  executeMigrationFile,
-  replayMigrations,
-} from '../../../package/src/migration/engine/index.js';
+import { executeMigrationFile } from '../../../package/src/migration/engine/index.js';
 import type { SchemaDiff } from '../../../package/src/migration/types.js';
 import { logger } from '../utils/test-helpers.js';
+import { createBaselineStore } from './migration-inspector.js';
 import { alignOptionDefaults, describeDiff, diffStates, scoreDiff } from './state-diff.js';
 
 export interface StateComparisonResult {
@@ -42,27 +38,6 @@ export interface EngineStateComparator {
   ): StateComparisonResult;
 }
 
-/**
- * Minimal users auth collection every real PocketBase instance has —
- * migrations routinely reference it by name or by the _pb_users_auth_ id.
- */
-function seedBaselineStore(baselineFiles: string[]): CollectionStore {
-  const store = baselineFiles.length > 0 ? replayMigrations(baselineFiles).store : new CollectionStore();
-
-  if (!store.getByNameOrId('users')) {
-    store.upsert(
-      new Collection({
-        id: '_pb_users_auth_',
-        name: 'users',
-        type: 'auth',
-        fields: [],
-      })
-    );
-  }
-
-  return store;
-}
-
 class EngineStateComparatorImpl implements EngineStateComparator {
   compareByExecution(
     nativeMigrationFile: string,
@@ -71,7 +46,7 @@ class EngineStateComparatorImpl implements EngineStateComparator {
   ): StateComparisonResult {
     const executionErrors: { file: string; error: string }[] = [];
 
-    const baseline = seedBaselineStore(baselineFiles);
+    const baseline = createBaselineStore({ baselineFiles });
     const nativeStore = baseline.clone();
     const libraryStore = baseline.clone();
 

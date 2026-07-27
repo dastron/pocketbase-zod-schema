@@ -20,13 +20,22 @@ export {
   createWorkspaceManager,
 } from './workspace-manager.js';
 
+// Migration Inspector (engine-backed migration reader)
+export {
+  type InspectedMigration,
+  type InspectOptions,
+  type ParsedCollection,
+  type ParsedField,
+  type ParsedMigration,
+  createBaselineStore,
+  inspectMigrationFile,
+  inspectMigrationSource,
+} from './migration-inspector.js';
+
 // Native Migration Generator
 export {
   type NativeMigrationGenerator,
   type CollectionChanges,
-  type ParsedCollection,
-  type ParsedField,
-  type ParsedMigration,
   NativeMigrationGeneratorImpl,
   createNativeMigrationGenerator,
 } from './native-migration-generator.js';

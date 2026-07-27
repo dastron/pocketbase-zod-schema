@@ -119,6 +119,17 @@ export class ScenarioConfigLoader {
       return false;
     }
 
+    // The two gated agreement scores are optional (they default to 100), but
+    // a malformed one would silently widen the gate rather than fail loudly
+    for (const gate of [scenario.minimumStateEquivalenceScore, scenario.minimumRealApplyScore]) {
+      if (gate === undefined) {
+        continue;
+      }
+      if (typeof gate !== 'number' || gate < 0 || gate > 100) {
+        return false;
+      }
+    }
+
     // Validate collection definition
     const collection = scenario.collectionDefinition;
     if (!['base', 'auth', 'view'].includes(collection.type)) {
