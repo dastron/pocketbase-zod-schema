@@ -66,6 +66,23 @@ Configuration for migration file generation.
 - `'timestamp_description'` - `[timestamp]_[description].js` (recommended)
 - `'timestamp'` - `[timestamp].js` (minimal)
 
+#### migrations.engine
+
+**Type:** `'runtime' | 'static'`  
+**Default:** `'runtime'`  
+**Description:** How existing migration files are read to reconstruct the current
+database state. `'runtime'` executes them in a simulated PocketBase JSVM;
+`'static'` uses the legacy regex-based parser. See
+[EXECUTION_ENGINE.md](EXECUTION_ENGINE.md).
+
+#### migrations.verify
+
+**Type:** `boolean`  
+**Default:** `false`  
+**Description:** Whether `generate` executes each new migration's `up()` and
+`down()` in the simulation before writing it, and refuses to write one whose
+rollback does not restore the previous state.
+
 ### diff
 
 Configuration for schema comparison and change detection.
@@ -135,6 +152,26 @@ pocketbase-migrate generate --force
 pocketbase-migrate generate --schema-dir ./src/models
 ```
 
+#### --engine
+
+**Type:** `'runtime' | 'static'`  
+**Description:** Override how existing migrations are read
+
+```bash
+pocketbase-migrate generate --engine static
+```
+
+#### --verify / --no-verify
+
+**Type:** `boolean`  
+**Description:** Execute `up()` and `down()` before writing and abort if the
+migration does not roll back cleanly. `--no-verify` skips the check when it is
+enabled in the configuration file.
+
+```bash
+pocketbase-migrate generate --verify
+```
+
 ## Environment Variables
 
 ```bash
@@ -149,6 +186,12 @@ MIGRATION_OUTPUT_DIR=database/migrations
 
 # Skip force requirement
 MIGRATION_REQUIRE_FORCE=false
+
+# Read existing migrations with the legacy static parser
+MIGRATION_ENGINE=static
+
+# Verify new migrations round-trip before writing them
+MIGRATION_VERIFY=true
 ```
 
 ## Complete Configuration Example
@@ -168,6 +211,8 @@ export default {
   migrations: {
     directory: process.env.MIGRATION_DIR || 'pocketbase/pb_migrations',
     format: 'timestamp_description',
+    engine: 'runtime',
+    verify: false,
   },
   diff: {
     warnOnDelete: process.env.NODE_ENV === 'production',

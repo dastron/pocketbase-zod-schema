@@ -24,6 +24,12 @@ export interface MigrationConfig {
      * "static" uses the legacy regex-based parser.
      */
     engine: "runtime" | "static";
+    /**
+     * Whether `generate` executes each new migration's up() and down() in the
+     * simulation before writing it, and refuses to write one that does not
+     * roll back cleanly. Off by default.
+     */
+    verify: boolean;
   };
   diff: {
     warnOnDelete: boolean;
@@ -68,6 +74,7 @@ const DEFAULT_CONFIG: MigrationConfig = {
     directory: "pocketbase/pb_migrations",
     format: "timestamp_description",
     engine: "runtime",
+    verify: false,
   },
   diff: {
     warnOnDelete: true,
@@ -188,6 +195,13 @@ function loadConfigFromEnv(): PartialMigrationConfig {
     };
   }
 
+  if (process.env.MIGRATION_VERIFY !== undefined) {
+    config.migrations = {
+      ...config.migrations,
+      verify: process.env.MIGRATION_VERIFY === "true",
+    };
+  }
+
   if (process.env.MIGRATION_REQUIRE_FORCE !== undefined) {
     config.diff = { requireForceForDestructive: process.env.MIGRATION_REQUIRE_FORCE === "true" };
   }
@@ -213,6 +227,12 @@ export function loadConfigFromArgs(options: any): PartialMigrationConfig {
     config.migrations = { ...config.migrations, engine: options.engine };
   }
 
+  // Commander sets verify to false for --no-verify, so only an explicit
+  // boolean overrides the config file
+  if (typeof options.verify === "boolean") {
+    config.migrations = { ...config.migrations, verify: options.verify };
+  }
+
   return config;
 }
 
@@ -236,6 +256,10 @@ function validateConfig(config: MigrationConfig, configPath?: string): void {
 
   if (config.migrations.engine !== "runtime" && config.migrations.engine !== "static") {
     invalidFields.push('migrations.engine (must be "runtime" or "static")');
+  }
+
+  if (typeof config.migrations.verify !== "boolean") {
+    invalidFields.push("migrations.verify (must be a boolean)");
   }
 
   if (typeof config.diff.warnOnDelete !== "boolean") {
@@ -382,6 +406,7 @@ export default {
     directory: "pocketbase/pb_migrations",
     format: "timestamp_description",
     engine: "runtime",
+    verify: false,
   },
   diff: {
     warnOnDelete: true,

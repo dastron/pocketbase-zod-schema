@@ -7,36 +7,56 @@
  * reconstructed correctly.
  */
 
+export { createSimulatedApp, type SimulatedApp } from "./app";
 export { Collection, generateRuntimeCollectionId } from "./collection";
-export { FieldsList } from "./fields-list";
 export {
-  Field,
-  TextField,
-  EmailField,
-  URLField,
-  NumberField,
+  AutodateField,
   BoolField,
   DateField,
-  SelectField,
-  RelationField,
-  FileField,
-  JSONField,
   EditorField,
-  GeoPointField,
-  AutodateField,
-  PasswordField,
+  EmailField,
   FIELD_CONSTRUCTORS,
+  Field,
+  FileField,
+  GeoPointField,
+  JSONField,
+  NumberField,
+  PasswordField,
+  RelationField,
+  SelectField,
+  TextField,
+  URLField,
 } from "./fields";
-export { unmarshal } from "./unmarshal";
-export { CollectionStore } from "./store";
-export { createSimulatedApp, type SimulatedApp } from "./app";
-export { executeMigrationSource, executeMigrationFile } from "./runner";
+export { FieldsList } from "./fields-list";
 export { replayMigrations, replayMigrationsDirectory } from "./replayer";
+export {
+  executeMigrationDownFile,
+  executeMigrationDownSource,
+  executeMigrationFile,
+  executeMigrationSource,
+} from "./runner";
+export { compareRawCollections, compareStores, describeStateDifferences } from "./state-compare";
+export type { StateCompareOptions, StateDifference } from "./state-compare";
+export { CollectionStore } from "./store";
 export type {
   EngineOptions,
   EngineStrictness,
   EngineWarning,
+  MigrationDirection,
   MigrationExecutionResult,
   RawCollection,
   ReplayResult,
 } from "./types";
+export { unmarshal } from "./unmarshal";
+export {
+  verifyMigrationFileRoundTrip,
+  verifyMigrationFiles,
+  verifyMigrationRoundTrip,
+  verifyMigrationSources,
+} from "./verify";
+export type {
+  MigrationRoundTripResult,
+  MigrationSourceRef,
+  MigrationVerificationReport,
+  VerifyOptions,
+} from "./verify";

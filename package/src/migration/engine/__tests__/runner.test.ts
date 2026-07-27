@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MigrationExecutionError } from "../../errors";
-import { CollectionStore } from "../store";
 import { executeMigrationSource } from "../runner";
+import { CollectionStore } from "../store";
 
 function run(source: string, store = new CollectionStore(), options = {}) {
   return { result: executeMigrationSource(source, store, { filename: "test-migration.js", ...options }), store };
@@ -38,7 +38,7 @@ describe("executeMigrationSource", () => {
     expect(store.getByNameOrId("posts")).toBeDefined();
   });
 
-  it("never executes the down function", () => {
+  it("never executes the down function while running up", () => {
     const { store } = run(`
       migrate((app) => {
         return app.save(new Collection({ id: "pbc_keep", name: "keep_me" }));
@@ -48,6 +48,11 @@ describe("executeMigrationSource", () => {
     `);
 
     expect(store.getByNameOrId("keep_me")).toBeDefined();
+  });
+
+  it("reports the direction it ran", () => {
+    const { result } = run(`migrate((app) => null, (app) => null);`);
+    expect(result.direction).toBe("up");
   });
 
   it("reports applied=false when no migrate() call is registered", () => {

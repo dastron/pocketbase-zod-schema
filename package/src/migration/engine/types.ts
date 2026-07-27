@@ -41,9 +41,17 @@ export interface EngineOptions {
   timeoutMs?: number;
 }
 
+/** Which of a migration's two closures was executed */
+export type MigrationDirection = "up" | "down";
+
 export interface MigrationExecutionResult {
   file?: string;
-  /** False only when the file registered no migrate() call */
+  /** Which closure ran. Defaults to "up" for state reconstruction. */
+  direction: MigrationDirection;
+  /**
+   * False when the file registered no closure for this direction — no
+   * migrate() call at all, or a migrate(up) with no down.
+   */
   applied: boolean;
   warnings: EngineWarning[];
 }
