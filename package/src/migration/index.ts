@@ -88,6 +88,22 @@ export {
 } from "./generator/index.js";
 export type { MigrationGeneratorConfig } from "./generator/index.js";
 
+// Execution engine module
+export {
+  CollectionStore,
+  executeMigrationFile,
+  executeMigrationSource,
+  replayMigrations,
+  replayMigrationsDirectory,
+} from "./engine/index.js";
+export type {
+  EngineOptions,
+  EngineStrictness,
+  EngineWarning,
+  MigrationExecutionResult,
+  ReplayResult,
+} from "./engine/index.js";
+
 // Types
 export * from "./types.js";
 

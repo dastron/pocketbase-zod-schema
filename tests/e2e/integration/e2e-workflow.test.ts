@@ -6,6 +6,7 @@ import { createPBDownloader, PBDownloader } from '../components/pb-downloader.js
 import { createNativeMigrationGenerator, NativeMigrationGenerator } from '../components/native-migration-generator.js';
 import { createLibraryCLI, LibraryCLI, LibraryWorkspace } from '../components/library-cli.js';
 import { createCLIResponseAnalyzer, CLIResponseAnalyzer } from '../components/cli-response-analyzer.js';
+import { createEngineStateComparator, EngineStateComparator } from '../components/engine-state-comparator.js';
 import { ScenarioRunner } from '../utils/scenario-runner.js';
 import { logger } from '../utils/test-helpers.js';
 import { TestScenario } from '../fixtures/test-scenarios.js';
@@ -19,6 +20,7 @@ describe('E2E Migration Workflow', () => {
   let nativeGen: NativeMigrationGenerator;
   let libraryCLI: LibraryCLI;
   let analyzer: CLIResponseAnalyzer;
+  let stateComparator: EngineStateComparator;
 
   beforeAll(async () => {
     logger.info('Starting E2E Migration Tests');
@@ -29,6 +31,7 @@ describe('E2E Migration Workflow', () => {
     nativeGen = createNativeMigrationGenerator();
     libraryCLI = createLibraryCLI();
     analyzer = createCLIResponseAnalyzer();
+    stateComparator = createEngineStateComparator();
 
     // Ensure PocketBase is downloaded once before tests start
     await pbDownloader.downloadPocketBase();
@@ -102,6 +105,19 @@ describe('E2E Migration Workflow', () => {
 
       const libraryMigration = await libraryCLI.parseMigrationFile(libraryMigrationFile);
 
+      // 3.5. Execute both migrations through the engine and compare states
+      // (semantic equivalence, independent of the text comparison below)
+      logger.debug(`Executing migrations through the engine for ${scenario.name}`);
+      const stateComparison = stateComparator.compareByExecution(nativeMigrationFile, libraryMigrationFile);
+
+      // Hard gate: both the native-captured and the library-generated
+      // migration must be executable. A migration the engine cannot run is
+      // a real regression regardless of any similarity score.
+      expect(
+        stateComparison.executionErrors,
+        `migrations must execute cleanly: ${JSON.stringify(stateComparison.executionErrors)}`
+      ).toEqual([]);
+
       // 4. Compare Migrations
       logger.debug(`Comparing migrations for ${scenario.name}`);
       const comparison = await analyzer.compareMigrations(
@@ -109,6 +125,8 @@ describe('E2E Migration Workflow', () => {
         libraryMigration,
         scenario.name
       );
+      comparison.stateEquivalenceScore = stateComparison.stateEquivalenceScore;
+      comparison.stateDifferences = stateComparison.stateDifferences;
 
       // 5. Assertions & Benchmarking
       // Note: Score thresholds are logged for benchmarking but don't cause test failures
@@ -117,6 +135,13 @@ describe('E2E Migration Workflow', () => {
       // Log overall score for benchmarking (threshold will be enforced later)
       const scoreStatus = comparison.overallScore >= scenario.minimumScore ? 'PASS' : 'BELOW_THRESHOLD';
       logger.info(`Scenario ${scenario.name} score: ${comparison.overallScore}/${scenario.minimumScore} (${scoreStatus})`);
+
+      // Log the engine-based state equivalence score alongside the text score
+      const stateStatus = stateComparison.equivalent ? 'EQUIVALENT' : 'DIVERGENT';
+      logger.info(`Scenario ${scenario.name} state equivalence: ${stateComparison.stateEquivalenceScore}/100 (${stateStatus})`);
+      if (stateComparison.stateDifferences.length > 0) {
+        logger.warn(`State differences in ${scenario.name}:`, stateComparison.stateDifferences);
+      }
 
       // Log critical differences for benchmarking (warnings only, not failures)
       if (comparison.criticalDifferences.length > 0) {

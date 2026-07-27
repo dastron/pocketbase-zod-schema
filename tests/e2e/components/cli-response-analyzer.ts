@@ -27,6 +27,15 @@ export interface MigrationComparison {
   minorDifferences: Difference[];
   structuralSimilarity: number;
   contentSimilarity: number;
+  /**
+   * Semantic equivalence score from executing both migrations through the
+   * engine and diffing the resulting states (see engine-state-comparator).
+   * 100 = states identical. Populated by the e2e workflow after the
+   * text-based comparison.
+   */
+  stateEquivalenceScore?: number;
+  /** State-level differences found by the engine comparison */
+  stateDifferences?: string[];
 }
 
 export interface FilenameComparison {

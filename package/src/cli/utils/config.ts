@@ -18,6 +18,12 @@ export interface MigrationConfig {
   migrations: {
     directory: string;
     format: string;
+    /**
+     * How existing migrations are read to reconstruct the current state:
+     * "runtime" executes them in a simulated PocketBase JSVM (default),
+     * "static" uses the legacy regex-based parser.
+     */
+    engine: "runtime" | "static";
   };
   diff: {
     warnOnDelete: boolean;
@@ -61,6 +67,7 @@ const DEFAULT_CONFIG: MigrationConfig = {
   migrations: {
     directory: "pocketbase/pb_migrations",
     format: "timestamp_description",
+    engine: "runtime",
   },
   diff: {
     warnOnDelete: true,
@@ -174,6 +181,13 @@ function loadConfigFromEnv(): PartialMigrationConfig {
     config.migrations = { directory: process.env.MIGRATION_OUTPUT_DIR };
   }
 
+  if (process.env.MIGRATION_ENGINE) {
+    config.migrations = {
+      ...config.migrations,
+      engine: process.env.MIGRATION_ENGINE as "runtime" | "static",
+    };
+  }
+
   if (process.env.MIGRATION_REQUIRE_FORCE !== undefined) {
     config.diff = { requireForceForDestructive: process.env.MIGRATION_REQUIRE_FORCE === "true" };
   }
@@ -195,6 +209,10 @@ export function loadConfigFromArgs(options: any): PartialMigrationConfig {
     config.schema = { directory: options.schemaDir };
   }
 
+  if (options.engine) {
+    config.migrations = { ...config.migrations, engine: options.engine };
+  }
+
   return config;
 }
 
@@ -214,6 +232,10 @@ function validateConfig(config: MigrationConfig, configPath?: string): void {
 
   if (typeof config.migrations.directory !== "string" || config.migrations.directory.trim() === "") {
     invalidFields.push("migrations.directory (must be a non-empty string)");
+  }
+
+  if (config.migrations.engine !== "runtime" && config.migrations.engine !== "static") {
+    invalidFields.push('migrations.engine (must be "runtime" or "static")');
   }
 
   if (typeof config.diff.warnOnDelete !== "boolean") {
@@ -359,6 +381,7 @@ export default {
   migrations: {
     directory: "pocketbase/pb_migrations",
     format: "timestamp_description",
+    engine: "runtime",
   },
   diff: {
     warnOnDelete: true,
