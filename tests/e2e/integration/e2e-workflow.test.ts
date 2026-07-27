@@ -7,12 +7,14 @@ import { createNativeMigrationGenerator, NativeMigrationGenerator } from '../com
 import { createLibraryCLI, LibraryCLI, LibraryWorkspace } from '../components/library-cli.js';
 import { createCLIResponseAnalyzer, CLIResponseAnalyzer } from '../components/cli-response-analyzer.js';
 import { createEngineStateComparator, EngineStateComparator } from '../components/engine-state-comparator.js';
+import { createRealApplyVerifier, RealApplyVerifier } from '../components/real-apply-verifier.js';
 import { ScenarioRunner } from '../utils/scenario-runner.js';
 import { logger } from '../utils/test-helpers.js';
 import { TestScenario } from '../fixtures/test-scenarios.js';
 
-// Set higher timeout for E2E tests
-const TEST_TIMEOUT = 60000; // 1 minute per test
+// Set higher timeout for E2E tests: each scenario drives two PocketBase
+// instances (native capture and the real-apply stage)
+const TEST_TIMEOUT = 120000; // 2 minutes per test
 
 describe('E2E Migration Workflow', () => {
   let pbDownloader: PBDownloader;
@@ -21,6 +23,7 @@ describe('E2E Migration Workflow', () => {
   let libraryCLI: LibraryCLI;
   let analyzer: CLIResponseAnalyzer;
   let stateComparator: EngineStateComparator;
+  let realApplyVerifier: RealApplyVerifier;
 
   beforeAll(async () => {
     logger.info('Starting E2E Migration Tests');
@@ -32,10 +35,15 @@ describe('E2E Migration Workflow', () => {
     libraryCLI = createLibraryCLI();
     analyzer = createCLIResponseAnalyzer();
     stateComparator = createEngineStateComparator();
+    realApplyVerifier = createRealApplyVerifier(workspaceManager);
 
     // Ensure PocketBase is downloaded once before tests start
     await pbDownloader.downloadPocketBase();
-  }, 120000); // 2 minutes setup timeout
+
+    // Capture the collections a fresh PocketBase starts with once, so every
+    // scenario's simulation begins from the same state PocketBase does
+    await realApplyVerifier.getBaselineCollections();
+  }, 180000); // 3 minutes setup timeout
 
   afterAll(async () => {
     // Cleanup any remaining resources
@@ -118,6 +126,19 @@ describe('E2E Migration Workflow', () => {
         `migrations must execute cleanly: ${JSON.stringify(stateComparison.executionErrors)}`
       ).toEqual([]);
 
+      // 3.6. Apply the library migration with a real PocketBase binary and
+      // diff the resulting database against the engine's simulation — the
+      // oracle for both the generated migration and the engine itself
+      logger.debug(`Applying the library migration to real PocketBase for ${scenario.name}`);
+      const realApply = await realApplyVerifier.applyAndCompare([libraryMigrationFile]);
+
+      // Hard gate: a migration real PocketBase refuses to apply is broken,
+      // whatever it looks like next to the native one
+      expect(
+        realApply.applyFailures,
+        `library migration must apply to real PocketBase: ${JSON.stringify(realApply.applyFailures)}`
+      ).toEqual([]);
+
       // 4. Compare Migrations
       logger.debug(`Comparing migrations for ${scenario.name}`);
       const comparison = await analyzer.compareMigrations(
@@ -127,6 +148,8 @@ describe('E2E Migration Workflow', () => {
       );
       comparison.stateEquivalenceScore = stateComparison.stateEquivalenceScore;
       comparison.stateDifferences = stateComparison.stateDifferences;
+      comparison.realApplyScore = realApply.realApplyScore;
+      comparison.realApplyDifferences = realApply.differences;
 
       // 5. Assertions & Benchmarking
       // Note: Score thresholds are logged for benchmarking but don't cause test failures
@@ -141,6 +164,17 @@ describe('E2E Migration Workflow', () => {
       logger.info(`Scenario ${scenario.name} state equivalence: ${stateComparison.stateEquivalenceScore}/100 (${stateStatus})`);
       if (stateComparison.stateDifferences.length > 0) {
         logger.warn(`State differences in ${scenario.name}:`, stateComparison.stateDifferences);
+      }
+
+      // Log how faithfully the engine simulated what PocketBase really did
+      // (threshold to be enforced once a baseline is established)
+      const realApplyStatus = realApply.equivalent ? 'MATCHES_REAL' : 'DIVERGES_FROM_REAL';
+      logger.info(
+        `Scenario ${scenario.name} real apply: ${realApply.realApplyScore}/100 (${realApplyStatus}), ` +
+          `collections compared: ${realApply.comparedCollections.join(', ') || 'none'}`
+      );
+      if (realApply.differences.length > 0) {
+        logger.warn(`Real PocketBase vs engine differences in ${scenario.name}:`, realApply.differences);
       }
 
       // Log critical differences for benchmarking (warnings only, not failures)

@@ -39,6 +39,42 @@ export {
   createLibraryCLI,
 } from './library-cli.js';
 
+// PocketBase Admin REST API helpers
+export {
+  SUPERUSER_EMAIL,
+  SUPERUSER_PASSWORD,
+  adminUrlForPort,
+  authenticateSuperuser,
+  fetchCollections,
+} from './pb-admin-api.js';
+
+// State diff helpers
+export {
+  type StateLabels,
+  alignOptionDefaults,
+  describeDiff,
+  diffStates,
+  scopeSnapshot,
+  scoreDiff,
+} from './state-diff.js';
+
+// Engine State Comparator
+export {
+  type EngineStateComparator,
+  type StateComparisonResult,
+  createEngineStateComparator,
+} from './engine-state-comparator.js';
+
+// Real Apply Verifier
+export {
+  type RealApplyComparison,
+  type RealApplyOptions,
+  type RealApplyOutcome,
+  type RealApplyVerifier,
+  createRealApplyVerifier,
+  parseMigrateOutput,
+} from './real-apply-verifier.js';
+
 // CLI Response Analyzer
 export {
   type CLIResponseAnalyzer,

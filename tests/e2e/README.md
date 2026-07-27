@@ -9,7 +9,45 @@ The E2E test system:
 2. Creates isolated test workspaces
 3. Generates migrations using both PocketBase CLI and the library
 4. Compares the generated migrations for compatibility
-5. Reports detailed compatibility metrics
+5. Applies the library migration with the real binary and checks the result
+6. Reports detailed compatibility metrics
+
+### Validation stages
+
+Each scenario is checked three ways, from weakest to strongest signal:
+
+| Stage | Component | What it proves |
+| --- | --- | --- |
+| Text comparison | `cli-response-analyzer.ts` | How closely the generated file resembles PocketBase's own (`overallScore`) |
+| State equivalence | `engine-state-comparator.ts` | Both migrations, executed in the engine, produce the same schema (`stateEquivalenceScore`) |
+| Real apply | `real-apply-verifier.ts` | PocketBase itself applies the migration, and the engine simulated exactly what it stored (`realApplyScore`) |
+
+The real-apply stage is the oracle: it copies the library-generated
+migration into a fresh workspace, runs `pocketbase migrate up`, reads the
+collections back through `GET /api/collections`, and diffs that against the
+engine's simulation of the same files. Both sides start from the collections
+a freshly-initialized instance has, captured once per run.
+
+Two failure modes it catches that nothing else does: a migration PocketBase
+refuses to apply (a hard test failure — note `migrate up` exits 0 even when
+a migration fails, so the outcome is parsed from its output), and a
+migration PocketBase applies *differently* than the engine simulated, which
+is a defect in the engine or the generator. Option defaults PocketBase
+materializes (`pattern: ""`, `min: 0`) are reconciled first, so what remains
+is real divergence.
+
+#### Known divergences
+
+Currently reported by the stage, logged rather than gated (both are
+generator-side, and PocketBase corrects them on apply):
+
+- **`pattern` on `email`/`date`/`autodate` fields** (`all-field-types`,
+  `unique-indexes`): the generator carries the Zod `.email()`/`.datetime()`
+  regex into the migration, but those PocketBase field types have no
+  `pattern` option, so the stored field has none.
+- **`password` on auth collections** (`auth-collection`): the generator
+  emits the injected system field as `type: "text", min: 0`; PocketBase
+  stores it as `type: "password", min: 8`.
 
 ## Directory Structure
 
@@ -73,6 +111,8 @@ Test individual E2E system components in isolation:
 - Native Migration Generator
 - Library CLI Simulator
 - Diff Analyzer
+- Engine State Comparator
+- Real Apply Verifier
 - Report Generator
 
 ### Integration Tests (`integration/`)

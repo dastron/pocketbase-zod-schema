@@ -385,13 +385,29 @@ export default {
         zodType = `z.object({ lon: z.number(), lat: z.number() }).describe(${JSON.stringify(JSON.stringify(geoMetadata))})`;
         break;
 
-      case 'relation':
-        if (field.options?.maxSelect === 1) {
-          zodType = 'z.string()';
-        } else {
-          zodType = 'z.array(z.string())';
-        }
+      case 'relation': {
+        // Mirror the metadata RelationField/RelationsField attach. Without a
+        // target collection the analyzer still infers a relation from the
+        // array-of-strings shape, but emits it with no collectionId - which
+        // real PocketBase rejects with "collectionId: cannot be blank"
+        const relation = field.relationConfig;
+        const maxSelect = relation?.maxSelect ?? field.options?.maxSelect ?? 1;
+        const multiple = maxSelect !== 1;
+        const relationMetadata = {
+          __pocketbase_relation__: {
+            type: multiple ? 'multiple' : 'single',
+            collection: relation?.collectionId ?? '',
+            cascadeDelete: relation?.cascadeDelete ?? false,
+            maxSelect: multiple ? maxSelect : 1,
+            minSelect: relation?.minSelect ?? 0,
+            displayFields: relation?.displayFields ?? null,
+          },
+        };
+
+        const base = multiple ? 'z.array(z.string())' : 'z.string()';
+        zodType = `${base}.describe(${JSON.stringify(JSON.stringify(relationMetadata))})`;
         break;
+      }
 
       case 'json':
         zodType = 'z.record(z.any())';

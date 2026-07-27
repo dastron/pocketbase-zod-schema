@@ -6,26 +6,15 @@ simulated PocketBase JSVM for state reconstruction and e2e state comparison;
 these items extend it toward full-fidelity verification against real
 PocketBase.
 
-## 1. E2E "real apply" stage — the ultimate oracle
+> **Done:** the e2e "real apply" stage
+> (`tests/e2e/components/real-apply-verifier.ts`). Every scenario now applies
+> its library-generated migration with a real PocketBase binary
+> (`pocketbase migrate up`), reads the collections back through
+> `GET /api/collections`, and diffs that against the engine's simulation of
+> the same files. Applying cleanly is a hard gate; the state agreement is
+> reported as `realApplyScore`.
 
-The e2e harness already downloads and runs real PocketBase binaries
-(`tests/e2e/components/pb-downloader.ts`, `workspace-manager.ts`). Extend the
-workflow to:
-
-1. Copy the library-generated migration into a fresh workspace's
-   `pb_migrations/`.
-2. Run `pocketbase migrate up` (or start the server and let automigrate
-   apply it).
-3. Read the resulting collections back via the admin REST API
-   (`GET /api/collections`).
-4. Diff that real state against the engine's simulated state for the same
-   files.
-
-This validates both the generated migrations (do they apply cleanly?) and
-the engine itself (does simulation match reality?). Divergences become
-fixtures.
-
-## 2. Down-migration verification
+## 1. Down-migration verification
 
 The engine captures `down()` closures but never runs them. Add
 `executeDown()` to the runner and a verification mode: execute `up`, then
@@ -33,16 +22,17 @@ The engine captures `down()` closures but never runs them. Add
 round-trip integration tests per fixture, then have `generate` optionally
 self-verify new migrations before writing them.
 
-## 3. Promote the e2e state-equivalence score to a gate
+## 2. Promote the e2e equivalence scores to gates
 
-`e2e-workflow.test.ts` currently hard-asserts only that both migrations
-execute; the state-equivalence score from `engine-state-comparator.ts` is
-logged. Once a few runs establish the baseline (expected: 100 for most
-scenarios), assert `stateEquivalenceScore >= threshold` per scenario and let
-regressions fail CI. The legacy text-similarity score can then become
-informational only.
+`e2e-workflow.test.ts` hard-asserts only that both migrations execute and
+that the library migration applies to real PocketBase; the two agreement
+scores — `stateEquivalenceScore` (native vs library, both executed) and
+`realApplyScore` (real PocketBase vs the engine) — are logged. Once a few
+runs establish the baseline (expected: 100 for most scenarios), assert both
+per scenario and let regressions fail CI. The legacy text-similarity score
+can then become informational only.
 
-## 4. Replace the e2e regex parsers with the engine
+## 3. Replace the e2e regex parsers with the engine
 
 `native-migration-generator.ts` (`parseCollectionsFromMigration`) and
 `library-cli.ts` contain duplicate regex-based migration parsers feeding the
@@ -50,7 +40,7 @@ text comparison. Both should execute the file through the engine and read
 collections from the store, removing ~200 lines of fragile scanning and a
 third parallel parser implementation.
 
-## 5. `_migrations` table awareness / partial replay
+## 4. `_migrations` table awareness / partial replay
 
 PocketBase records applied migrations in its internal `_migrations` table.
 Today the engine replays snapshot + everything after it, assuming all files
@@ -61,7 +51,7 @@ are applied. Add:
 - Detection of migrations present on disk but not applied (and vice versa)
   for a `status --verify` command.
 
-## 6. `$dbx` / `Record` data simulation
+## 5. `$dbx` / `Record` data simulation
 
 Lenient mode currently no-ops record and query APIs. For migrations that
 seed or transform data, add an in-memory record store per collection:
@@ -70,7 +60,7 @@ seed or transform data, add an in-memory record store per collection:
 it matters for validating hand-written data migrations before they run in
 production.
 
-## 7. Goja-compatibility linter
+## 6. Goja-compatibility linter
 
 The engine runs Node's JS, a superset of goja's. A migration can pass the
 engine yet fail in PocketBase (Node-only APIs, unsupported syntax). Add a
@@ -82,7 +72,7 @@ lint pass that flags:
 - Syntax beyond goja's supported set (parse with an ES2017-ish target).
 - `async`/`await`/`Promise` usage (goja migrations are synchronous).
 
-## 8. Deprecate, then remove, the static parser
+## 7. Deprecate, then remove, the static parser
 
 `migration-parser.ts` (~870 lines) remains for `engine: "static"`. Plan:
 
@@ -94,9 +84,9 @@ lint pass that flags:
   replayer).
 
 Blockers to removal: parity tests must cover every fixture class, and the
-e2e regex parsers (item 4) must be gone first.
+e2e regex parsers (item 3) must be gone first.
 
-## 9. quickjs-emscripten isolation upgrade
+## 8. quickjs-emscripten isolation upgrade
 
 `node:vm` is not a hardened sandbox. If untrusted migration sources ever
 become a real scenario (e.g. running the tool against third-party project
@@ -105,7 +95,7 @@ deterministic, truly isolated). The runner's interface (`executeMigrationSource`
 already isolates evaluation from state application, so this is a contained
 change. Not worth the marshalling complexity for first-party use.
 
-## 10. Replay caching
+## 9. Replay caching
 
 Replaying a large pb_migrations directory on every `generate`/`status` is
 O(files). Cache the reconstructed snapshot keyed by a hash of the file list

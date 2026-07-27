@@ -36,6 +36,15 @@ export interface MigrationComparison {
   stateEquivalenceScore?: number;
   /** State-level differences found by the engine comparison */
   stateDifferences?: string[];
+  /**
+   * Agreement between real PocketBase and the engine's simulation after
+   * applying the library migration with the real binary (see
+   * real-apply-verifier). 100 = the simulated state matches what PocketBase
+   * actually stored.
+   */
+  realApplyScore?: number;
+  /** State differences between real PocketBase and the engine */
+  realApplyDifferences?: string[];
 }
 
 export interface FilenameComparison {
