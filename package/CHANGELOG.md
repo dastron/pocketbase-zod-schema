@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.7.1...pocketbase-zod-schema-v0.7.2) (2026-07-26)
+
+
+### Bug Fixes
+
+* add defineView for view collections ([a239a96](https://github.com/dastron/pocketbase-zod-schema/commit/a239a96b9d9e69019be3625db50dbb27919baaee))
+
 ## [0.7.1](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.7.0...pocketbase-zod-schema-v0.7.1) (2026-05-06)
 
 
