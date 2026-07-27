@@ -557,6 +557,12 @@ npx pocketbase-migrate generate
 # Show what would be generated without writing files
 npx pocketbase-migrate status
 
+# Compare the files on disk against PocketBase's _migrations table
+npx pocketbase-migrate status --verify
+
+# Check migrations against PocketBase's goja runtime (Node-only globals, async, ...)
+npx pocketbase-migrate lint
+
 # Generate TypeScript definitions from schemas
 npx pocketbase-migrate generate-types
 

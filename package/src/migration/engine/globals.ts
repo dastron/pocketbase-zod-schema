@@ -10,7 +10,9 @@
 
 import { Collection } from "./collection";
 import { createInertStub, type SimulatedApp, type WarningSink } from "./app";
+import { createDbx } from "./dbx";
 import { FIELD_CONSTRUCTORS } from "./fields";
+import { RecordModel } from "./records";
 import { unmarshal } from "./unmarshal";
 import type { EngineOptions } from "./types";
 
@@ -57,8 +59,21 @@ export function buildSandbox(options: EngineOptions, warn: WarningSink): Sandbox
     },
   };
 
+  // Record and $dbx become real when record simulation is on; they hold no
+  // state of their own, so the sandbox can own them for the whole file while
+  // the store-bound half lives on the per-run app (see data-api.ts)
+  const simulatesRecords = options.records === "simulate";
+
   for (const name of STUBBED_GLOBALS) {
+    if (simulatesRecords && (name === "Record" || name === "$dbx")) {
+      continue;
+    }
     sandbox[name] = createInertStub(name, options, warn);
+  }
+
+  if (simulatesRecords) {
+    sandbox.Record = RecordModel;
+    sandbox.$dbx = createDbx();
   }
 
   // Some migrations use the global $app instead of the up() callback

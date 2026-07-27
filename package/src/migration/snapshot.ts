@@ -11,6 +11,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { MigrationExecutionError, FileSystemError, SnapshotError } from "./errors";
+import type { AppliedMigrationsSource } from "./engine/applied-migrations";
 import { replayMigrations, replayMigrationsDirectory } from "./engine/replayer";
 import type { EngineOptions } from "./engine/types";
 import {
@@ -71,6 +72,16 @@ export interface SnapshotConfig {
    * Options forwarded to the execution engine when engine is "runtime"
    */
   engineOptions?: EngineOptions;
+
+  /**
+   * Migrations PocketBase has actually applied, read from its `_migrations`
+   * table (see `readAppliedMigrations`). When supplied, replay starts from
+   * the newest applied snapshot and stops at the applied set, so a migration
+   * written but not yet run does not leak into the reconstructed state.
+   *
+   * Runtime engine only; the static parser ignores it.
+   */
+  appliedMigrations?: AppliedMigrationsSource | string[] | null;
 }
 
 /**
@@ -98,8 +109,11 @@ const SNAPSHOT_MIGRATIONS: SnapshotMigration[] = [
 /**
  * Default configuration values
  */
-const DEFAULT_CONFIG: Omit<Required<SnapshotConfig>, "migrationsPath" | "engine" | "engineOptions"> &
-  Pick<SnapshotConfig, "migrationsPath" | "engine" | "engineOptions"> = {
+const DEFAULT_CONFIG: Omit<
+  Required<SnapshotConfig>,
+  "migrationsPath" | "engine" | "engineOptions" | "appliedMigrations"
+> &
+  Pick<SnapshotConfig, "migrationsPath" | "engine" | "engineOptions" | "appliedMigrations"> = {
   snapshotPath: DEFAULT_SNAPSHOT_FILENAME,
   workspaceRoot: process.cwd(),
   autoMigrate: true,
@@ -665,7 +679,7 @@ export function loadSnapshotWithMigrations(config: SnapshotConfig = {}): SchemaS
   }
 
   if (engine === "runtime") {
-    return loadSnapshotWithMigrationsRuntime(migrationsPath, config.engineOptions);
+    return loadSnapshotWithMigrationsRuntime(migrationsPath, config.engineOptions, config.appliedMigrations);
   }
 
   // Check if migrationsPath is actually a file (for backward compatibility with tests)
@@ -730,7 +744,8 @@ export function loadSnapshotWithMigrations(config: SnapshotConfig = {}): SchemaS
  */
 function loadSnapshotWithMigrationsRuntime(
   migrationsPath: string,
-  engineOptions?: EngineOptions
+  engineOptions?: EngineOptions,
+  appliedMigrations?: AppliedMigrationsSource | string[] | null
 ): SchemaSnapshot | null {
   try {
     // File path instead of a directory (backward compatibility with tests):
@@ -739,7 +754,7 @@ function loadSnapshotWithMigrationsRuntime(
       return replayMigrations([migrationsPath], engineOptions).snapshot;
     }
 
-    const result = replayMigrationsDirectory(migrationsPath, engineOptions);
+    const result = replayMigrationsDirectory(migrationsPath, { ...engineOptions, applied: appliedMigrations });
     return result ? result.snapshot : null;
   } catch (error) {
     if (error instanceof MigrationExecutionError) {

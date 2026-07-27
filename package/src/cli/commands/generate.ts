@@ -19,6 +19,8 @@ import {
   detectDestructiveChangesValidation as detectDestructiveChanges,
   filterDiff,
   formatDestructiveChanges,
+  formatGojaLintFinding,
+  lintMigrationSource,
   parseSchemaFiles,
   planMigrations,
   replayMigrationsDirectory,
@@ -26,6 +28,7 @@ import {
   summarizeDestructiveChanges,
   verifyMigrationSources,
   writePlannedMigrations,
+  type GojaLintResult,
   type MigrationRoundTripResult,
   type PlannedMigration,
 } from "../../migration/index.js";
@@ -124,7 +127,9 @@ type VerificationOutcome =
   | { status: "verified"; count: number }
   /** The existing migrations could not be executed, so there is no baseline */
   | { status: "baseline-unexecutable"; error: MigrationExecutionError }
-  | { status: "failed"; failures: MigrationRoundTripResult[] };
+  | { status: "failed"; failures: MigrationRoundTripResult[] }
+  /** The migration would not run in PocketBase's goja runtime */
+  | { status: "incompatible"; results: GojaLintResult[] };
 
 /**
  * Executes each planned migration's up() and down() in the simulated
@@ -136,6 +141,14 @@ type VerificationOutcome =
  * @returns What the verification found (rendered by reportVerification)
  */
 function verifyPlannedMigrations(planned: PlannedMigration[], migrationsDir: string): VerificationOutcome {
+  // Executing in the engine proves nothing about goja, which is what will
+  // actually run the file — so check compatibility before round-tripping
+  const lintResults = planned.map((migration) => lintMigrationSource(migration.content, { file: migration.filename }));
+  const incompatible = lintResults.filter((result) => !result.ok);
+  if (incompatible.length > 0) {
+    return { status: "incompatible", results: incompatible };
+  }
+
   let baseline: CollectionStore;
   try {
     baseline = replayMigrationsDirectory(migrationsDir)?.store ?? new CollectionStore();
@@ -165,6 +178,19 @@ function reportVerification(outcome: VerificationOutcome): boolean {
   if (outcome.status === "verified") {
     logSuccess(`Verified ${outcome.count} migration(s): up and down both apply and the state round-trips`);
     return true;
+  }
+
+  if (outcome.status === "incompatible") {
+    logError("Generated migration uses JavaScript PocketBase cannot run - no files were written.");
+    console.log();
+    for (const result of outcome.results) {
+      for (const finding of result.findings.filter((entry) => entry.severity === "error")) {
+        console.log(`  ${formatGojaLintFinding(finding)}`);
+      }
+    }
+    console.log();
+    logInfo("This is a bug in the generator - please report it with the schema that produced it.");
+    return false;
   }
 
   if (outcome.status === "baseline-unexecutable") {

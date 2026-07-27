@@ -5,11 +5,20 @@
 
 import chalk from "chalk";
 import { Command } from "commander";
-import { categorizeChangesBySeverity, compare, parseSchemaFiles } from "../../migration/index.js";
+import {
+  AppliedMigrationsError,
+  categorizeChangesBySeverity,
+  compare,
+  parseSchemaFiles,
+  planMigrationReplay,
+  readAppliedMigrationsIfPresent,
+  type AppliedMigrationsSource,
+  type MigrationPlan,
+} from "../../migration/index.js";
 import { ConfigurationError, SchemaParsingError, SnapshotError } from "../../migration/errors.js";
 import { loadSnapshotWithMigrations } from "../../migration/snapshot.js";
 import type { SchemaDefinition, SchemaDiff } from "../../migration/types.js";
-import { getMigrationsDirectory, getSchemaDirectory, loadConfig } from "../utils/config.js";
+import { getDataDirectory, getMigrationsDirectory, getSchemaDirectory, loadConfig } from "../utils/config.js";
 import {
   formatChangeSummary,
   formatStatusJson,
@@ -61,7 +70,8 @@ function createStatusOutput(
   status: StatusOutput["status"],
   currentCount: number,
   snapshotCount: number,
-  diff?: SchemaDiff
+  diff?: SchemaDiff,
+  plan?: MigrationPlan | null
 ): StatusOutput {
   return {
     status,
@@ -75,7 +85,96 @@ function createStatusOutput(
       modify: diff?.collectionsToModify.length ?? 0,
     },
     destructive: diff ? hasDestructiveChanges(diff) : false,
+    ...(plan?.appliedKnown
+      ? {
+          migrations: {
+            source: plan.appliedOrigin ?? "",
+            applied: plan.appliedCount,
+            pending: plan.pending,
+            missing: plan.missing,
+            outOfOrder: plan.outOfOrder,
+            inSync: plan.inSync,
+          },
+        }
+      : {}),
   };
+}
+
+/**
+ * What the applied-migrations lookup produced. `unavailable` is not an error
+ * by itself — most checkouts have never run PocketBase — but it does mean
+ * `--verify` has nothing to compare against.
+ */
+type AppliedLookup =
+  | { status: "found"; applied: AppliedMigrationsSource; plan: MigrationPlan }
+  | { status: "unavailable"; dataPath: string }
+  | { status: "failed"; dataPath: string; message: string };
+
+/**
+ * Reads PocketBase's `_migrations` table and plans the replay against it.
+ *
+ * @param migrationsDir - Directory holding the migration files
+ * @param dataPath - pb_data directory or data.db file
+ */
+function lookupAppliedMigrations(migrationsDir: string, dataPath: string): AppliedLookup {
+  try {
+    const applied = readAppliedMigrationsIfPresent(dataPath);
+    if (!applied) {
+      return { status: "unavailable", dataPath };
+    }
+    return { status: "found", applied, plan: planMigrationReplay(migrationsDir, { applied }) };
+  } catch (error) {
+    if (error instanceof AppliedMigrationsError) {
+      return { status: "failed", dataPath, message: error.message };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Prints the disk vs. `_migrations` comparison.
+ *
+ * @returns True when disk and database agree
+ */
+function reportAppliedMigrations(plan: MigrationPlan): boolean {
+  logSection("🧾 Applied Migrations");
+  console.log();
+  logKeyValue("Database", plan.appliedOrigin ?? "unknown");
+  logKeyValue("Applied", String(plan.appliedCount));
+  logKeyValue("Replaying", String(plan.filesToReplay.length));
+  console.log();
+
+  if (plan.inSync) {
+    logSuccess("✓ Every migration file on disk is applied");
+    return true;
+  }
+
+  if (plan.pending.length > 0) {
+    console.log(chalk.yellow(`  ${plan.pending.length} migration(s) on disk not applied to the database:`));
+    for (const file of plan.pending) {
+      console.log(chalk.yellow(`    + ${file}`));
+    }
+    console.log();
+  }
+
+  if (plan.missing.length > 0) {
+    console.log(chalk.red(`  ${plan.missing.length} applied migration(s) missing from disk:`));
+    for (const file of plan.missing) {
+      console.log(chalk.red(`    - ${file}`));
+    }
+    console.log();
+  }
+
+  if (plan.outOfOrder.length > 0) {
+    console.log(chalk.yellow("  Pending migrations authored before an already-applied one:"));
+    for (const file of plan.outOfOrder) {
+      console.log(chalk.yellow(`    ! ${file}`));
+    }
+    console.log(chalk.gray("    They will be applied after migrations with later timestamps."));
+    console.log();
+  }
+
+  return false;
 }
 
 /**
@@ -190,18 +289,58 @@ export async function executeStatus(options: any): Promise<void> {
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s) in schema`);
 
+    // Reconstruct state from what PocketBase has actually applied, rather
+    // than from every file on disk, when a database is available to ask
+    const useAppliedMigrations = options.verify === true || typeof options.pbData === "string";
+    const applied: AppliedLookup | null = useAppliedMigrations
+      ? lookupAppliedMigrations(migrationsDir, getDataDirectory(config))
+      : null;
+
+    if (applied?.status === "failed") {
+      logError(`Could not read applied migrations: ${applied.message}`);
+      process.exit(1);
+    }
+
+    if (applied?.status === "unavailable") {
+      logError(`No PocketBase database found at ${applied.dataPath}`);
+      console.error();
+      logInfo("Suggestions:");
+      console.log("  • Start PocketBase once so it creates pb_data/data.db");
+      console.log("  • Point at another location with --pb-data <path>");
+      process.exit(1);
+    }
+
+    // Drift is reported before the schema comparison, and fails the command
+    // when it was explicitly asked for — but the rest of the status still
+    // prints, because knowing what else changed is the point of running it
+    if (applied?.status === "found" && !isJsonMode) {
+      const inSync = reportAppliedMigrations(applied.plan);
+      if (!inSync && options.verify === true) {
+        process.exitCode = 1;
+      }
+    } else if (applied?.status === "found" && !applied.plan.inSync && options.verify === true) {
+      process.exitCode = 1;
+    }
+
     // Load previous snapshot from migrations directory and apply subsequent migrations
     logInfo("Loading previous snapshot...");
     const previousSnapshot = loadSnapshotWithMigrations({
       migrationsPath: migrationsDir,
       workspaceRoot: process.cwd(),
       engine: config.migrations.engine,
+      appliedMigrations: applied?.status === "found" ? applied.applied : undefined,
     });
 
     // Handle first-time setup
     if (!previousSnapshot) {
       if (isJsonMode) {
-        const output = createStatusOutput("first-time-setup", currentSchema.collections.size, 0);
+        const output = createStatusOutput(
+          "first-time-setup",
+          currentSchema.collections.size,
+          0,
+          undefined,
+          applied?.status === "found" ? applied.plan : null
+        );
         console.log(formatStatusJson(output));
         return;
       }
@@ -229,7 +368,8 @@ export async function executeStatus(options: any): Promise<void> {
           "up-to-date",
           currentSchema.collections.size,
           previousSnapshot.collections.size,
-          diff
+          diff,
+          applied?.status === "found" ? applied.plan : null
         );
         console.log(formatStatusJson(output));
         return;
@@ -249,7 +389,8 @@ export async function executeStatus(options: any): Promise<void> {
         "changes-pending",
         currentSchema.collections.size,
         previousSnapshot.collections.size,
-        diff
+        diff,
+        applied?.status === "found" ? applied.plan : null
       );
       console.log(formatStatusJson(output));
       return;
@@ -326,6 +467,11 @@ export function createStatusCommand(): Command {
     .option("--schema-dir <directory>", "Directory containing Zod schema files")
     .option("--json", "Output status as JSON for programmatic use", false)
     .option("--engine <mode>", 'How existing migrations are read: "runtime" (execute) or "static" (legacy parser)')
+    .option(
+      "--verify",
+      "Compare the migration files on disk against PocketBase's _migrations table and fail on any drift"
+    )
+    .option("--pb-data <path>", "PocketBase data directory or data.db file (defaults to pb_data next to migrations)")
     .addHelpText(
       "after",
       `
@@ -333,6 +479,7 @@ Examples:
   $ pocketbase-migrate status              Check for pending schema changes
   $ pocketbase-migrate status --json       Output status as JSON
   $ pocketbase-migrate status --verbose    Show detailed status information
+  $ pocketbase-migrate status --verify     Fail if disk and the database disagree on applied migrations
 `
     )
     .action(executeStatus);
