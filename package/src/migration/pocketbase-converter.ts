@@ -7,7 +7,6 @@
  */
 
 import { dedentSql } from "../schema/view";
-import { SnapshotError } from "./errors";
 import type { CollectionSchema, FieldDefinition, SchemaSnapshot } from "./types";
 
 const SNAPSHOT_VERSION = "1.0.0";
@@ -255,49 +254,4 @@ export function rawCollectionsToSnapshot(rawCollections: any[]): SchemaSnapshot 
     timestamp: new Date().toISOString(),
     collections,
   };
-}
-
-/**
- * Converts PocketBase migration format to SchemaSnapshot
- * Extracts the snapshot array from the migration file content
- *
- * @param migrationContent - Raw migration file content
- * @returns SchemaSnapshot with collections map
- */
-export function convertPocketBaseMigration(migrationContent: string): SchemaSnapshot {
-  try {
-    // Extract the snapshot array from the migration file
-    // The format is: migrate((app) => { const snapshot = [...]; ... })
-    const snapshotMatch = migrationContent.match(/const\s+snapshot\s*=\s*(\[[\s\S]*?\]);/);
-
-    if (!snapshotMatch) {
-      throw new Error("Could not find snapshot array in migration file");
-    }
-
-    // Parse the snapshot array as JSON
-    // We need to evaluate it as JavaScript since it's not pure JSON
-    const snapshotArrayStr = snapshotMatch[1];
-    let snapshotArray: any[];
-
-    try {
-      // Use Function constructor to safely evaluate the array
-      // This is safer than eval() and works for our use case
-      snapshotArray = new Function(`return ${snapshotArrayStr}`)();
-    } catch (parseError) {
-      throw new Error(`Failed to parse snapshot array: ${parseError}`);
-    }
-
-    if (!Array.isArray(snapshotArray)) {
-      throw new Error("Snapshot is not an array");
-    }
-
-    return rawCollectionsToSnapshot(snapshotArray);
-  } catch (error) {
-    throw new SnapshotError(
-      `Failed to convert PocketBase migration: ${error instanceof Error ? error.message : String(error)}`,
-      undefined,
-      "parse",
-      error instanceof Error ? error : undefined
-    );
-  }
 }

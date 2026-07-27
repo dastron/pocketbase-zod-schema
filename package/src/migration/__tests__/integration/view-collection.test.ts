@@ -7,7 +7,7 @@
  * - omit fields and indexes (PocketBase derives fields from the query)
  * - lock every write rule
  * - update the query in place when the SQL changes
- * - round-trip through the migration parser, so no follow-up migration is
+ * - round-trip through the execution engine, so no follow-up migration is
  *   generated for an unchanged schema
  */
 
@@ -22,9 +22,11 @@ import { convertZodSchemaToCollectionSchema } from "../../analyzer";
 import { compare } from "../../diff";
 import { filterDiff } from "../../diff/filter";
 import { generate } from "../../generator";
-import { parseMigrationOperations } from "../../migration-parser";
+// Reconstructs state by replaying migration files, the same way
+// loadSnapshotWithMigrations() does at generate time
+import { snapshotFromMigrationFiles as snapshotFromMigrations } from "../helpers/migration-executor";
 import { detectDestructiveChanges } from "../../validation";
-import type { CollectionSchema, SchemaDefinition, SchemaSnapshot } from "../../types";
+import type { SchemaDefinition } from "../../types";
 
 const ProjectStatsSchema = z
   .object({
@@ -69,34 +71,6 @@ function viewSchemaDefinition(viewQuery: string): SchemaDefinition {
   };
 }
 
-/**
- * Reconstructs the database state by replaying generated migration files,
- * the same way loadSnapshotWithMigrations() does at generate time
- */
-function snapshotFromMigrations(migrationPaths: string[]): SchemaSnapshot {
-  const collections = new Map<string, CollectionSchema>();
-
-  for (const migrationPath of migrationPaths) {
-    const operations = parseMigrationOperations(fs.readFileSync(migrationPath, "utf-8"));
-
-    for (const collection of operations.collectionsToCreate) {
-      collections.set(collection.name, collection);
-    }
-
-    for (const name of operations.collectionsToDelete) {
-      collections.delete(name);
-    }
-
-    for (const update of operations.collectionsToUpdate) {
-      const collection = collections.get(update.collectionName);
-      if (collection && update.viewQuery !== undefined) {
-        collection.viewQuery = update.viewQuery;
-      }
-    }
-  }
-
-  return { version: "1.0.0", timestamp: new Date().toISOString(), collections };
-}
 
 describe("View Collection Generation", () => {
   const tempDir = path.join(os.tmpdir(), "migration-test-view-" + Date.now());

@@ -1,18 +1,13 @@
 /**
  * Executes every captured native-PocketBase reference migration through the
- * engine and asserts the resulting state — including the constructs the
- * static parser cannot handle (fields.addAt position, fields.removeById in
- * down bodies, unmarshal({indexes})).
- *
- * For literal-only creation fixtures it additionally asserts parity: the
- * engine's reconstructed collection deep-equals what the static parser
- * extracts from the same file.
+ * engine and asserts the resulting state — including the constructs a text
+ * scanner cannot handle (fields.addAt position, fields.removeById in down
+ * bodies, unmarshal({indexes})).
  */
 
 import * as fs from "fs";
 import * as path from "path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { parseMigrationOperations } from "../../migration-parser";
 import { convertPocketBaseCollection } from "../../pocketbase-converter";
 import { CollectionStore } from "../store";
 import { executeMigrationFile } from "../runner";
@@ -107,35 +102,36 @@ describe("Reference fixture execution", () => {
     expect(String(view.viewQuery).toUpperCase()).toContain("SELECT");
   });
 
-  it("matches the static parser output for literal-only creation fixtures (parity)", () => {
+  it("creates exactly one collection per creation fixture, convertible for the diff engine", () => {
     for (const file of fixtureFiles()) {
       if (!path.basename(file).includes("_created_")) {
         continue;
       }
 
-      const content = fs.readFileSync(file, "utf-8");
-      const operations = parseMigrationOperations(content);
-      expect(operations.collectionsToCreate.length, path.basename(file)).toBe(1);
-      const staticSchema = operations.collectionsToCreate[0];
-
       const engineStore = new CollectionStore();
       executeMigrationFile(file, engineStore);
-      const engineCollection = engineStore.getByNameOrId(staticSchema.name);
-      expect(engineCollection, path.basename(file)).toBeDefined();
-      const engineSchema = convertPocketBaseCollection(engineCollection!.serialize());
 
-      // Both paths must agree on the parts the diff engine consumes
-      expect(engineSchema.name).toBe(staticSchema.name);
-      expect(engineSchema.type).toBe(staticSchema.type);
-      expect(engineSchema.fields.map((f) => f.name).sort()).toEqual(staticSchema.fields.map((f) => f.name).sort());
-      for (const engineField of engineSchema.fields) {
-        const staticField = staticSchema.fields.find((f) => f.name === engineField.name)!;
-        expect(engineField.type, `${staticSchema.name}.${engineField.name} type`).toBe(staticField.type);
-        expect(engineField.required ?? false, `${staticSchema.name}.${engineField.name} required`).toBe(
-          staticField.required ?? false
+      const created = engineStore.list();
+      expect(created.length, path.basename(file)).toBe(1);
+
+      // The reconstructed collection has to survive conversion into the model
+      // the diff engine consumes, with its identity and user fields intact.
+      // The converter drops PocketBase's own bookkeeping: a view's derived
+      // fields and the id/created/updated system fields.
+      const raw = created[0].serialize();
+      const schema = convertPocketBaseCollection(raw);
+      expect(schema.name, path.basename(file)).toBe(raw.name);
+      expect(schema.type, path.basename(file)).toBe(raw.type);
+      expect(schema.indexes ?? [], path.basename(file)).toEqual(raw.indexes ?? []);
+
+      if (raw.type !== "view") {
+        const userFields = (raw.fields ?? [])
+          .filter((f: any) => !f.system && !["id", "created", "updated"].includes(f.name))
+          .map((f: any) => f.name);
+        expect(schema.fields.map((f) => f.name), path.basename(file)).toEqual(
+          expect.arrayContaining(userFields)
         );
       }
-      expect(engineSchema.indexes ?? []).toEqual(staticSchema.indexes ?? []);
     }
   });
 });

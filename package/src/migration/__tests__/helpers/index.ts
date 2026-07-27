@@ -12,6 +12,17 @@ export {
   type ParsedMigration,
 } from "./migration-parser";
 
+export {
+  createBaselineStore,
+  executeMigrationFiles,
+  executeMigrationSources,
+  requireCollection,
+  snapshotFromMigrationFiles,
+  snapshotFromMigrationSources,
+  type ExecuteOptions,
+  type ExecutedMigrations,
+} from "./migration-executor";
+
 export { CollectionBuilder, SchemaBuilder } from "./schema-builder";
 
 export {

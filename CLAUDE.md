@@ -48,15 +48,16 @@ permissions, indexes}` into the description; field helpers (`schema/fields.ts`) 
 `__pocketbase_relation__`. The analyzer's `extractors.ts` parses it back out. Consequence:
 `defineCollection` *overwrites* the description, so it must wrap the schema, not the reverse.
 
-**There is no snapshot file.** The "current database state" is reconstructed by parsing the
-generated migration files themselves: `snapshot.ts:loadSnapshotWithMigrations()` finds the newest
-`*_collections_snapshot.js`, converts it via `pocketbase-converter.ts`, then replays every later
-migration through `migration-parser.ts` + `applyMigrationOperations()`. **Anything the generator
-writes, the parser must be able to read back** — otherwise `db:generate` emits the same migration
-forever. The parser works by brace-scanning and `new Function()`-evaluating object literals with a
-mocked `app`, so it is sensitive to what appears inside strings (it tracks `"`, `'` and backticks).
-When adding a new emitted construct, add a round-trip test alongside
-`__tests__/integration/idempotency.test.ts` and `generate-no-additional-migration.test.ts`.
+**There is no snapshot file.** The "current database state" is reconstructed by *executing* the
+generated migration files: `snapshot.ts:loadSnapshotWithMigrations()` delegates to the execution
+engine (`migration/engine/`), which plans the file list (newest snapshot plus everything after it —
+`migration-plan.ts`) and runs each `up()` in a `node:vm` sandbox emulating PocketBase's JSVM. There
+is no static/regex reader anymore; a migration the engine cannot execute is a hard error, not a
+warning. **Anything the generator writes, the engine must be able to read back** — otherwise
+`db:generate` emits the same migration forever. When adding a new emitted construct, add a
+round-trip test alongside `__tests__/integration/generated-migration-replay.test.ts` and
+`generate-no-additional-migration.test.ts`. Tests that need to inspect a migration use
+`__tests__/helpers/migration-executor.ts` (execute, then read the state and a before/after diff).
 
 **Collection ids are random** (`pb_` + 15 chars, `utils/collection-id-generator.ts`), assigned in
 the *diff* (`diff/index.ts`), not the generator; `users` is special-cased to `_pb_users_auth_`.

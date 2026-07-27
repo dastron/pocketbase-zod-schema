@@ -20,9 +20,23 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { extractTimestampFromFilename } from "../migration-parser";
 import type { AppliedMigrationsSource } from "./applied-migrations";
 import { appliedMigrationsFromList } from "./applied-migrations";
+
+/**
+ * Extracts the timestamp prefix from a migration filename.
+ * Migration files are named `[timestamp]_[description].js`.
+ *
+ * @param filename - Migration filename (basename, not a path)
+ * @returns Timestamp as a number, or null when the name is not prefixed
+ */
+export function extractTimestampFromFilename(filename: string): number | null {
+  const match = filename.match(/^(\d+)_/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  return null;
+}
 
 /** A migration file discovered on disk */
 export interface DiscoveredMigration {

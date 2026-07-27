@@ -453,6 +453,8 @@ describe("loadSnapshotIfExists with migrations directory", () => {
             ]
           }
         ];
+
+        return app.importCollections(snapshot, false);
       });
     `;
     fs.writeFileSync(path.join(testMigrationsDir, "1234567890_collections_snapshot.js"), snapshotContent);
@@ -620,6 +622,8 @@ describe("Snapshot Loading with Multiple Snapshots", () => {
             ]
           }
         ];
+
+        return app.importCollections(snapshot, false);
       });
     `;
 
@@ -643,6 +647,8 @@ describe("Snapshot Loading with Multiple Snapshots", () => {
             ]
           }
         ];
+
+        return app.importCollections(snapshot, false);
       });
     `;
 

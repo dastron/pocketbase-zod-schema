@@ -16,7 +16,7 @@ import * as path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compare } from "../../diff";
 import { generate } from "../../generator";
-import { parseMigrationOperations } from "../../migration-parser";
+import { executeMigrationFiles } from "../helpers/migration-executor";
 import type { CollectionSchema, SchemaDefinition, SchemaSnapshot } from "../../types";
 import {
   CreateCollectionBlankSchema,
@@ -213,21 +213,18 @@ describe("Generate Migration - No Additional Migration Needed", () => {
       const generatedPath = generatedPaths[0];
       expect(fs.existsSync(generatedPath)).toBe(true);
 
-      // Step 3: Load the generated migration as a snapshot
-      // Parse the migration to extract collections, then create a snapshot
-      const migrationContent = fs.readFileSync(generatedPath, "utf-8");
-      const operations = parseMigrationOperations(migrationContent);
+      // Step 3: Execute the generated migration to reconstruct the state it
+      // produces against an empty database
+      const created = executeMigrationFiles([generatedPath]).created;
 
-      // Create a snapshot from the parsed operations (simulating empty database + migration)
       const snapshotFromMigration: SchemaSnapshot = {
         version: "1.0.0",
         timestamp: new Date().toISOString(),
         collections: new Map<string, CollectionSchema>(),
       };
 
-      // Apply the migration operations to create the snapshot
-      // Also normalize collection names in relations to match fixture format
-      for (const collection of operations.collectionsToCreate) {
+      // Normalize relation collection names to match fixture format
+      for (const collection of created) {
         // Normalize relation collection names to lowercase to match fixture format
         const normalizedCollection = {
           ...collection,
@@ -347,18 +344,7 @@ describe("Generate Migration - No Additional Migration Needed", () => {
       expect(generatedPaths).toHaveLength(1);
       const generatedPath = generatedPaths[0];
 
-      const migrationContent = fs.readFileSync(generatedPath, "utf-8");
-      const operations = parseMigrationOperations(migrationContent);
-
-      const snapshot: SchemaSnapshot = {
-        version: "1.0.0",
-        timestamp: new Date().toISOString(),
-        collections: new Map<string, CollectionSchema>(),
-      };
-
-      for (const collection of operations.collectionsToCreate) {
-        snapshot.collections.set(collection.name, collection);
-      }
+      const snapshot = executeMigrationFiles([generatedPath]).snapshot;
 
       const snapshotCollection = snapshot.collections.get("test_select_collection");
       expect(snapshotCollection).toBeDefined();
@@ -413,18 +399,7 @@ describe("Generate Migration - No Additional Migration Needed", () => {
       expect(generatedPaths).toHaveLength(1);
       const generatedPath = generatedPaths[0];
 
-      const migrationContent = fs.readFileSync(generatedPath, "utf-8");
-      const operations = parseMigrationOperations(migrationContent);
-
-      const snapshot: SchemaSnapshot = {
-        version: "1.0.0",
-        timestamp: new Date().toISOString(),
-        collections: new Map<string, CollectionSchema>(),
-      };
-
-      for (const collection of operations.collectionsToCreate) {
-        snapshot.collections.set(collection.name, collection);
-      }
+      const snapshot = executeMigrationFiles([generatedPath]).snapshot;
 
       const snapshotCollection = snapshot.collections.get("test_relations_collection");
       expect(snapshotCollection).toBeDefined();
@@ -477,21 +452,9 @@ describe("Generate Migration - No Additional Migration Needed", () => {
       expect(generatedPaths).toHaveLength(1);
       const generatedPath = generatedPaths[0];
 
-      // Load using loadSnapshotWithMigrations (simulating real usage)
-      // Note: loadSnapshotWithMigrations looks for snapshot files, not regular migrations
-      // So we'll parse the migration directly instead
-      const migrationContent = fs.readFileSync(generatedPath, "utf-8");
-      const operations = parseMigrationOperations(migrationContent);
-
-      const snapshot: SchemaSnapshot = {
-        version: "1.0.0",
-        timestamp: new Date().toISOString(),
-        collections: new Map<string, CollectionSchema>(),
-      };
-
-      for (const collection of operations.collectionsToCreate) {
-        snapshot.collections.set(collection.name, collection);
-      }
+      // Reconstruct the state the migration produces, the same way
+      // loadSnapshotWithMigrations() does at generate time
+      const snapshot = executeMigrationFiles([generatedPath]).snapshot;
 
       expect(snapshot.collections.has("test_roundtrip_collection")).toBe(true);
 

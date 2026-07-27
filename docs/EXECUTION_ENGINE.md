@@ -1,20 +1,20 @@
 # Migration Execution Engine
 
 The execution engine reconstructs the current database schema by **executing**
-PocketBase JS migration files in a simulated PocketBase JSVM, instead of
-statically parsing them with regexes. Migrations that use loops, helper
-functions, conditionals, variable indirection, or computed values are
-reconstructed correctly — constructs the legacy static parser silently
-drops.
+PocketBase JS migration files in a simulated PocketBase JSVM. It is the only
+way migrations are read. Migrations that use loops, helper functions,
+conditionals, variable indirection, or computed values are reconstructed
+correctly.
 
 ## Why
 
 PocketBase runs migrations with [goja](https://github.com/dop251/goja), a Go
 implementation of JavaScript (ES5.1 + most of ES6). Migration files are real
 programs: they can loop over field definitions, build names dynamically, and
-call helper functions. A static parser can only recognize an enumerated list
-of literal statement shapes; everything else is invisible, which silently
-reconstructs the wrong state and produces incorrect diffs.
+call helper functions. Reading the file text can only recognize an enumerated
+list of literal statement shapes; everything else is invisible, which silently
+reconstructs the wrong state and produces incorrect diffs. Executing the file
+is the only way to know what it does.
 
 The engine mirrors what PocketBase itself does on `migrate up`:
 
@@ -105,17 +105,16 @@ Stubbed (strictness-controlled): `$os`, `$dbx`, `$security`, `$filesystem`,
 
 ## Configuration
 
-The engine is the **default**. The legacy static parser remains available as
-an explicit escape hatch, but it is **deprecated**: selecting it logs a
-warning, and the `engine` option is removed entirely in the next major
-release (see `EXECUTION_ENGINE_ROADMAP.md` §1).
+The engine is the only reader; there is nothing to select. What remains
+configurable is verification, the data directory, and the engine's own
+options.
 
 | Source | Setting |
 | --- | --- |
-| Config file | `migrations.engine: "runtime" \| "static"`, `migrations.verify: boolean`, `migrations.dataDirectory: string` |
-| Environment | `MIGRATION_ENGINE=runtime\|static`, `MIGRATION_VERIFY=true\|false`, `MIGRATION_DATA_DIR=<path>` |
-| CLI | `pocketbase-migrate generate --engine static`, `pocketbase-migrate generate --verify`, `pocketbase-migrate status --engine static`, `pocketbase-migrate status --verify [--pb-data <path>]`, `pocketbase-migrate lint` |
-| Programmatic | `loadSnapshotWithMigrations({ migrationsPath, engine, engineOptions, appliedMigrations })` |
+| Config file | `migrations.verify: boolean`, `migrations.dataDirectory: string` |
+| Environment | `MIGRATION_VERIFY=true\|false`, `MIGRATION_DATA_DIR=<path>` |
+| CLI | `pocketbase-migrate generate --verify`, `pocketbase-migrate status --verify [--pb-data <path>]`, `pocketbase-migrate lint` |
+| Programmatic | `loadSnapshotWithMigrations({ migrationsPath, engineOptions, appliedMigrations })` |
 
 Programmatic API (also exported from `pocketbase-zod-schema/migration/engine`):
 
@@ -343,21 +342,19 @@ the baseline, which costs a full replay, and a rollback you never intend to
 run is not a reason to block generating one that works forward. `--no-verify`
 overrides the config file for a single run.
 
-## Behavior change vs. the static parser
+## Failures are hard failures
 
-The static parser swallowed every failure with a `console.warn` and kept
-going, which silently reconstructed the wrong state. In runtime mode a
-migration that cannot be executed **fails hard** with a
-`MigrationExecutionError` (wrapped in `SnapshotError`) naming the file and
-phase (`evaluate`, `up` or `down`). This is intentional: a state
-reconstruction you cannot trust is worse than an error.
+The reader this replaced swallowed every failure with a `console.warn` and
+kept going, which silently reconstructed the wrong state. A migration that
+cannot be executed now **fails hard** with a `MigrationExecutionError`
+(wrapped in `SnapshotError`) naming the file and phase (`evaluate`, `up` or
+`down`). This is intentional: a state reconstruction you cannot trust is
+worse than an error.
 
-If you hit a failing migration you cannot fix immediately, `--engine static`
-(or `migrations.engine: "static"`) restores the legacy lenient behavior.
-This escape hatch is deprecated — it warns when selected and goes away in
-the next major release, so treat it as a way to unblock a single run while
-you fix the migration, and please open an issue describing the file that
-would not execute.
+If you hit a migration the engine will not run, `pocketbase-migrate lint`
+reports what in the file is out of reach, and there is no lenient fallback to
+fall back to — please open an issue describing the file that would not
+execute.
 
 ## Caveats
 
@@ -408,22 +405,21 @@ would not execute.
   that matter (locals, destructuring, property names shadowing Node globals),
   and a pass over every captured fixture migration.
 - `engine/__tests__/reference-fixtures.test.ts` — executes every captured
-  native-PocketBase migration and asserts the resulting state, plus parity
-  with the static parser on literal-only fixtures.
+  native-PocketBase migration and asserts the resulting state, including that
+  each creation fixture converts cleanly into the diff engine's model.
 - `engine/__tests__/dynamic-migrations.test.ts` +
   `__tests__/fixtures/dynamic-migrations/` — loops, helper functions,
-  conditionals, indirection, `removeById`, computed `unmarshal`; includes a
-  test documenting that the static parser misses these.
+  conditionals, indirection, `removeById`, computed `unmarshal` — none of
+  which exist until the code has run.
 - `__tests__/integration/engine-loop-detection.test.ts` — the round-trip
   idempotency contract via execution: schema → generate → execute → compare
   → zero diff.
-- `__tests__/integration/engine-parity.test.ts` — the static-parser removal
-  gate: every construct the generator emits (create base/auth/view, field
-  add/remove/update, index add/remove, rule updates, view-query updates,
-  deletes) is read back through `loadSnapshotWithMigrations` with both
-  engines and must reconstruct the same diff-relevant state with a zero
-  follow-up diff. Also pins the known static-parser losses on id-addressed
-  native update migrations.
+- `__tests__/integration/generated-migration-replay.test.ts` — anything the
+  generator writes, the engine must read back: every construct the generator
+  emits (create base/auth/view, field add/remove/update, index add/remove,
+  rule updates, view-query updates, deletes) is replayed through
+  `loadSnapshotWithMigrations` and must reconstruct the state it was
+  generated for, with a zero follow-up diff.
 - `engine/__tests__/down-verification.test.ts` — every captured native
   fixture must undo itself, verified in sequence. The two dynamic fixtures
   whose `down()` is deliberately a no-op are the ground truth that

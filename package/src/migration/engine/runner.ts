@@ -8,9 +8,8 @@
  * The closure is invoked from inside the context (not host code) so the vm
  * timeout also bounds infinite loops within migration bodies.
  *
- * State reconstruction only ever runs `up`, which structurally rules out the
- * static parser's failure mode of replaying rollback statements as forward
- * operations. `down` is executed on request (`executeMigrationDownSource`),
+ * State reconstruction only ever runs `up`, which structurally rules out
+ * replaying rollback statements as forward operations. `down` is executed on request (`executeMigrationDownSource`),
  * for rollback verification — see `verify.ts`. Downs run in reverse
  * registration order, mirroring how PocketBase rolls back.
  */
