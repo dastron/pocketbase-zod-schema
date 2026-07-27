@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git tag or ref to publish (defaults to main)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -32,9 +38,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: release-please
     # In manifest mode we publish when the `package/` path was released.
+    # workflow_dispatch allows manually re-running a publish that failed.
     if: >-
       ${{
-        needs.release-please.outputs.release_created == 'true'
+        github.event_name == 'workflow_dispatch'
+        || needs.release-please.outputs.release_created == 'true'
         || (
           needs.release-please.outputs.paths_released != ''
           && contains(fromJSON(needs.release-please.outputs.paths_released), 'package')
@@ -43,11 +51,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # npm 12+ (needed for OIDC trusted publishing) requires Node >=22.22.2
+          node-version: '22'
+          check-latest: true
           registry-url: 'https://registry.npmjs.org'
 
       - name: Enable Corepack
