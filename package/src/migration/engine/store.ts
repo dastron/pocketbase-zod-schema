@@ -11,6 +11,7 @@
 import { rawCollectionsToSnapshot } from "../pocketbase-converter";
 import type { SchemaSnapshot } from "../types";
 import { Collection } from "./collection";
+import { RecordStore } from "./records";
 import type { RawCollection } from "./types";
 
 /** PocketBase's fixed id for the default users auth collection */
@@ -18,6 +19,13 @@ const USERS_AUTH_ID = "_pb_users_auth_";
 
 export class CollectionStore {
   private byId = new Map<string, Collection>();
+
+  /**
+   * Rows, when record simulation is enabled. Always present so clone/commit
+   * carry data through the same transaction as the schema; empty and
+   * effectively free when only schema is being replayed.
+   */
+  readonly records = new RecordStore();
 
   list(): Collection[] {
     return [...this.byId.values()];
@@ -50,6 +58,8 @@ export class CollectionStore {
   }
 
   removeById(id: string): boolean {
+    // Dropping a collection drops its table with it
+    this.records.dropCollection(id);
     return this.byId.delete(id);
   }
 
@@ -59,12 +69,16 @@ export class CollectionStore {
     for (const collection of this.byId.values()) {
       copy.upsert(new Collection(structuredClone(collection.serialize())));
     }
+    // Rows are rebound to the copied collections, so a record's collection()
+    // sees the schema of the transaction it is running in
+    copy.records.replaceWith(this.records.clone((id) => copy.getById(id)));
     return copy;
   }
 
   /** Commit: adopt another store's state */
   replaceWith(other: CollectionStore): void {
     this.byId = new Map(other.byId);
+    this.records.replaceWith(other.records);
   }
 
   serialize(): RawCollection[] {

@@ -7,6 +7,7 @@
  */
 
 import type { SchemaSnapshot } from "../types";
+import type { MigrationPlan } from "./migration-plan";
 import type { CollectionStore } from "./store";
 
 /**
@@ -23,6 +24,16 @@ export type RawCollection = Record<string, any>;
  */
 export type EngineStrictness = "strict" | "lenient";
 
+/**
+ * Whether record CRUD and `$dbx`/`app.db()` queries execute against an
+ * in-memory row store:
+ * - "stub" (default): `Record` and the data-layer `app.*` methods stay inert,
+ *   which is all schema reconstruction needs
+ * - "simulate": rows are tracked per collection, so a hand-written data
+ *   migration can be executed and inspected before it runs for real
+ */
+export type EngineRecordMode = "stub" | "simulate";
+
 export interface EngineWarning {
   /** Migration file the warning originated from, when known */
   file?: string;
@@ -35,6 +46,8 @@ export interface EngineWarning {
 export interface EngineOptions {
   /** Defaults to "lenient" */
   strictness?: EngineStrictness;
+  /** Defaults to "stub" */
+  records?: EngineRecordMode;
   /** Invoked for every warning as it happens (warnings are also collected) */
   onWarning?: (warning: EngineWarning) => void;
   /** Per-file evaluation/execution timeout in milliseconds. Defaults to 5000. */
@@ -63,4 +76,10 @@ export interface ReplayResult {
   store: CollectionStore;
   warnings: EngineWarning[];
   filesExecuted: string[];
+  /**
+   * How the file list was chosen — including anything on disk that is not
+   * applied, and anything applied that is no longer on disk. Null when the
+   * caller supplied the file list directly.
+   */
+  plan: MigrationPlan | null;
 }

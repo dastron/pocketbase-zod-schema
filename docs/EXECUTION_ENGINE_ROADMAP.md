@@ -40,53 +40,48 @@ PocketBase.
 > which removed two ~110-line brace scanners and the duplicated baseline-store
 > seeding in `engine-state-comparator.ts`.
 
-## 1. `_migrations` table awareness / partial replay
+> **Done:** `_migrations` table awareness and partial replay
+> (`engine/applied-migrations.ts`, `engine/migration-plan.ts`).
+> `readAppliedMigrations(pbData)` reads PocketBase's table read-only through
+> `node:sqlite`; `planMigrationReplay` starts the replay at the newest
+> *applied* snapshot, executes only the applied set, and names what is
+> pending, missing, or authored out of order. Wired into
+> `replayMigrationsDirectory({ applied })`,
+> `loadSnapshotWithMigrations({ appliedMigrations })`, and a
+> `status --verify [--pb-data <path>]` that fails on drift. See
+> `EXECUTION_ENGINE.md`.
 
-PocketBase records applied migrations in its internal `_migrations` table.
-Today the engine replays snapshot + everything after it, assuming all files
-are applied. Add:
+> **Done:** `$dbx` / `Record` data simulation (`engine/records.ts`,
+> `engine/dbx.ts`, `engine/data-api.ts`, `engine/expression.ts`). Opt in with
+> `records: "simulate"` for an in-memory row store per collection: `Record`
+> with the typed getters, `app.save`/`delete`, the record finders, PocketBase
+> filter syntax with bindings, the `$dbx` builders, and a single-table
+> `SELECT`/`INSERT`/`UPDATE`/`DELETE` subset behind `app.db()`. Rows live on
+> `CollectionStore`, so they roll back with the schema. Anything outside the
+> subset is reported, not guessed at.
 
-- An optional applied-files list (read from a live database or `pb_data`)
-  so replay can start from an arbitrary checkpoint.
-- Detection of migrations present on disk but not applied (and vice versa)
-  for a `status --verify` command.
+> **Done:** the goja-compatibility linter (`engine/goja-lint.ts`). An
+> acorn-based pass flagging unknown globals (checked against the sandbox
+> surface itself, so it cannot drift), syntax goja's parser rejects,
+> `import`/`export`, and `async`/`await`/`Promise`; `unsupported-api`
+> execution warnings are folded in as warning-severity findings. Exposed as
+> `pocketbase-migrate lint` and run as part of `generate --verify`.
 
-## 2. `$dbx` / `Record` data simulation
-
-Lenient mode currently no-ops record and query APIs. For migrations that
-seed or transform data, add an in-memory record store per collection:
-`new Record(collection)`, `record.set/get`, `app.save(record)`,
-`app.findRecordById`, basic `$dbx` DML. Schema diffing does not need this;
-it matters for validating hand-written data migrations before they run in
-production.
-
-## 3. Goja-compatibility linter
-
-The engine runs Node's JS, a superset of goja's. A migration can pass the
-engine yet fail in PocketBase (Node-only APIs, unsupported syntax). Add a
-lint pass that flags:
-
-- References to Node/browser globals absent from the sandbox surface
-  (anything that resolves to an inert stub is already recorded as an
-  `unsupported-api` warning — surface those prominently).
-- Syntax beyond goja's supported set (parse with an ES2017-ish target).
-- `async`/`await`/`Promise` usage (goja migrations are synchronous).
-
-## 4. Deprecate, then remove, the static parser
+## 1. Deprecate, then remove, the static parser
 
 `migration-parser.ts` (~870 lines) remains for `engine: "static"`. Plan:
 
 - Current release: runtime default, static available, documented.
 - Next minor: emit a deprecation warning when static mode is selected.
 - Next major: remove `migration-parser.ts` scanning passes and the
-  `engine` config option; keep `findMigrationsAfterSnapshot` and
-  `extractTimestampFromFilename` (file discovery, still used by the
-  replayer).
+  `engine` config option; keep `extractTimestampFromFilename`, which
+  `migration-plan.ts` uses for file discovery. `findMigrationsAfterSnapshot`
+  goes with the static path — the replayer now plans its own file list.
 
 Blockers to removal: parity tests must cover every fixture class, and the
 e2e regex parsers must be gone first (done).
 
-## 5. quickjs-emscripten isolation upgrade
+## 2. quickjs-emscripten isolation upgrade
 
 `node:vm` is not a hardened sandbox. If untrusted migration sources ever
 become a real scenario (e.g. running the tool against third-party project
@@ -95,7 +90,7 @@ deterministic, truly isolated). The runner's interface (`executeMigrationSource`
 already isolates evaluation from state application, so this is a contained
 change. Not worth the marshalling complexity for first-party use.
 
-## 6. Replay caching
+## 3. Replay caching
 
 Replaying a large pb_migrations directory on every `generate`/`status` is
 O(files). Cache the reconstructed snapshot keyed by a hash of the file list
@@ -113,3 +108,12 @@ projects report slow reconstruction (hundreds of migrations).
   match.
 - `collection.fields[0]` numeric indexing would need a Proxy wrapper around
   `FieldsList` — add only if a real-world migration is found using it.
+- The `app.db()` SQL subset is single-table. Joins, CTEs, aggregates and
+  subqueries are reported as unsupported rather than approximated; widen it
+  only when a real data migration needs one.
+- The goja lint is static, so an API reached through a computed name
+  (`globalThis[name]`) is invisible to it. The execution-warning fold-in
+  covers the cases that actually run.
+- Record simulation starts from an empty store. Seeding it from a real
+  database would let a data migration be rehearsed against production-shaped
+  data; `readAppliedMigrations` already proves the pb_data read path works.

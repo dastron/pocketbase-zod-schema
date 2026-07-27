@@ -438,6 +438,21 @@ export interface StatusOutput {
     modify: number;
   };
   destructive: boolean;
+  /**
+   * Disk vs. PocketBase's `_migrations` table. Present only when an applied
+   * migrations list was read (`--verify` / `--pb-data`).
+   */
+  migrations?: {
+    source: string;
+    applied: number;
+    /** On disk, not yet applied */
+    pending: string[];
+    /** Applied, no longer on disk */
+    missing: string[];
+    /** Pending files that sit behind an already-applied migration */
+    outOfOrder: string[];
+    inSync: boolean;
+  };
 }
 
 /**

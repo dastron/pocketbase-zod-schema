@@ -4,20 +4,23 @@
  * Mirrors what PocketBase does on `migrate up`: execute each unapplied file
  * in timestamp order. State reconstruction starts from an empty store; a
  * native snapshot migration (app.importCollections) is just the first file.
+ *
+ * Which files that is comes from `planMigrationReplay`: by default the newest
+ * snapshot plus everything after it, or — when an applied-migrations list is
+ * supplied — only the files PocketBase has actually run, starting from the
+ * newest applied snapshot.
  */
 
-import { findMigrationsAfterSnapshot, extractTimestampFromFilename } from "../migration-parser";
-import { findLatestSnapshot } from "../snapshot";
-import * as path from "path";
 import { executeMigrationFile } from "./runner";
+import { planMigrationReplay, type MigrationPlan, type PlanOptions } from "./migration-plan";
 import { CollectionStore } from "./store";
 import type { EngineOptions, EngineWarning, ReplayResult } from "./types";
 
 export function replayMigrations(
   files: string[],
-  options: EngineOptions & { initialStore?: CollectionStore } = {}
+  options: EngineOptions & { initialStore?: CollectionStore; plan?: MigrationPlan } = {}
 ): ReplayResult {
-  const { initialStore, ...engineOptions } = options;
+  const { initialStore, plan, ...engineOptions } = options;
   const store = initialStore ?? new CollectionStore();
   const warnings: EngineWarning[] = [];
   const filesExecuted: string[] = [];
@@ -33,27 +36,29 @@ export function replayMigrations(
     store,
     warnings,
     filesExecuted,
+    plan: plan ?? null,
   };
 }
 
 /**
- * Replays a pb_migrations directory: latest snapshot file first, then every
- * migration after it, using the same file selection and ordering as the
- * static path (findLatestSnapshot + findMigrationsAfterSnapshot).
+ * Replays a pb_migrations directory: the snapshot the state starts from,
+ * then every migration after it, in timestamp order.
  *
- * Returns null when the directory has no snapshot file (empty database).
+ * Pass `applied` (from `readAppliedMigrations`) to replay only what PocketBase
+ * has actually run — otherwise every file on disk is assumed applied.
+ *
+ * Returns null when there is nothing to replay (an empty database).
  */
-export function replayMigrationsDirectory(migrationsPath: string, options: EngineOptions = {}): ReplayResult | null {
-  const latestSnapshotPath = findLatestSnapshot(migrationsPath);
-  if (!latestSnapshotPath) {
+export function replayMigrationsDirectory(
+  migrationsPath: string,
+  options: EngineOptions & PlanOptions = {}
+): ReplayResult | null {
+  const { applied, ...engineOptions } = options;
+  const plan = planMigrationReplay(migrationsPath, { applied });
+
+  if (plan.filesToReplay.length === 0) {
     return null;
   }
 
-  const files = [latestSnapshotPath];
-  const snapshotTimestamp = extractTimestampFromFilename(path.basename(latestSnapshotPath));
-  if (snapshotTimestamp) {
-    files.push(...findMigrationsAfterSnapshot(migrationsPath, snapshotTimestamp));
-  }
-
-  return replayMigrations(files, options);
+  return replayMigrations(plan.filesToReplay, { ...engineOptions, plan });
 }

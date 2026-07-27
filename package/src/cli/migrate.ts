@@ -17,6 +17,7 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { createGenerateCommand } from "./commands/generate.js";
 import { createGenerateTypesCommand } from "./commands/generate-types.js";
+import { createLintCommand } from "./commands/lint.js";
 import { createStatusCommand } from "./commands/status.js";
 
 // Get package version from package.json
@@ -86,6 +87,7 @@ program
 program.addCommand(createGenerateCommand());
 program.addCommand(createGenerateTypesCommand());
 program.addCommand(createStatusCommand());
+program.addCommand(createLintCommand());
 
 // Add examples to help output
 program.addHelpText(
@@ -96,6 +98,7 @@ ${chalk.bold("Examples:")}
   $ pocketbase-migrate generate            Generate migration from schema changes
   $ pocketbase-migrate generate-types      Generate TypeScript definitions
   $ pocketbase-migrate generate --force    Generate migration with destructive changes
+  $ pocketbase-migrate lint                Check migrations against PocketBase's goja runtime
   $ pocketbase-migrate --help              Show this help message
 
 ${chalk.bold("Configuration:")}

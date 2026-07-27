@@ -5,6 +5,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { defaultDataDirectory } from "../../migration/engine/applied-migrations.js";
 import { ConfigurationError } from "../../migration/errors.js";
 
 /**
@@ -30,6 +31,13 @@ export interface MigrationConfig {
      * roll back cleanly. Off by default.
      */
     verify: boolean;
+    /**
+     * PocketBase's data directory (or a data.db file), used to read the
+     * `_migrations` table so replay can stop at what has actually been
+     * applied. Empty means "the pb_data directory next to the migrations
+     * directory".
+     */
+    dataDirectory: string;
   };
   diff: {
     warnOnDelete: boolean;
@@ -75,6 +83,7 @@ const DEFAULT_CONFIG: MigrationConfig = {
     format: "timestamp_description",
     engine: "runtime",
     verify: false,
+    dataDirectory: "",
   },
   diff: {
     warnOnDelete: true,
@@ -202,6 +211,13 @@ function loadConfigFromEnv(): PartialMigrationConfig {
     };
   }
 
+  if (process.env.MIGRATION_DATA_DIR) {
+    config.migrations = {
+      ...config.migrations,
+      dataDirectory: process.env.MIGRATION_DATA_DIR,
+    };
+  }
+
   if (process.env.MIGRATION_REQUIRE_FORCE !== undefined) {
     config.diff = { requireForceForDestructive: process.env.MIGRATION_REQUIRE_FORCE === "true" };
   }
@@ -225,6 +241,10 @@ export function loadConfigFromArgs(options: any): PartialMigrationConfig {
 
   if (options.engine) {
     config.migrations = { ...config.migrations, engine: options.engine };
+  }
+
+  if (options.pbData) {
+    config.migrations = { ...config.migrations, dataDirectory: options.pbData };
   }
 
   // Commander sets verify to false for --no-verify, so only an explicit
@@ -260,6 +280,10 @@ function validateConfig(config: MigrationConfig, configPath?: string): void {
 
   if (typeof config.migrations.verify !== "boolean") {
     invalidFields.push("migrations.verify (must be a boolean)");
+  }
+
+  if (typeof config.migrations.dataDirectory !== "string") {
+    invalidFields.push("migrations.dataDirectory (must be a string)");
   }
 
   if (typeof config.diff.warnOnDelete !== "boolean") {
@@ -379,6 +403,20 @@ export function getMigrationsDirectory(config: MigrationConfig): string {
 }
 
 /**
+ * Gets the absolute path to PocketBase's data directory (or data.db file).
+ *
+ * Falls back to the pb_data directory next to the migrations directory, which
+ * is where PocketBase puts it by default.
+ */
+export function getDataDirectory(config: MigrationConfig): string {
+  const configured = config.migrations.dataDirectory.trim();
+  if (configured !== "") {
+    return path.resolve(process.cwd(), configured);
+  }
+  return defaultDataDirectory(getMigrationsDirectory(config));
+}
+
+/**
  * Gets the default configuration
  */
 export function getDefaultConfig(): MigrationConfig {
@@ -407,6 +445,7 @@ export default {
     format: "timestamp_description",
     engine: "runtime",
     verify: false,
+    dataDirectory: "",
   },
   diff: {
     warnOnDelete: true,

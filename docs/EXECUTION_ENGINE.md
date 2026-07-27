@@ -48,6 +48,13 @@ timestamp order.
 | `unmarshal.ts` | `unmarshal(data, dst)` with Go `json.Unmarshal` merge semantics (arrays replace wholesale) |
 | `verify.ts` | Round-trip verification: up, then down, then compare against the baseline |
 | `state-compare.ts` | Structural comparison of two states, naming each divergence |
+| `applied-migrations.ts` | Reads PocketBase's `_migrations` table out of `pb_data/data.db` |
+| `migration-plan.ts` | Chooses the files to replay; names pending / missing / out-of-order ones |
+| `records.ts` | `Record` + the in-memory row store (opt-in record simulation) |
+| `expression.ts` | One condition grammar for PocketBase filters and SQL `WHERE` |
+| `dbx.ts` | `$dbx` builders and the `app.db()` SQL subset |
+| `data-api.ts` | The record finders installed on `app` when records are simulated |
+| `goja-lint.ts` | Static check for JavaScript that runs here but not in goja |
 
 The final store converts to the existing internal model
 (`rawCollectionsToSnapshot` → `CollectionSchema`), so the diff and generator
@@ -93,6 +100,9 @@ Stubbed (strictness-controlled): `$os`, `$dbx`, `$security`, `$filesystem`,
   migrations still succeeds.
 - `strictness: "strict"`: the call throws.
 
+`Record`, `$dbx` and the data-layer `app.*` methods stop being stubs when
+[record simulation](#record-and-dbx-simulation) is turned on.
+
 ## Configuration
 
 The engine is the **default**. The legacy static parser remains available as
@@ -100,10 +110,10 @@ an explicit escape hatch.
 
 | Source | Setting |
 | --- | --- |
-| Config file | `migrations.engine: "runtime" \| "static"`, `migrations.verify: boolean` |
-| Environment | `MIGRATION_ENGINE=runtime\|static`, `MIGRATION_VERIFY=true\|false` |
-| CLI | `pocketbase-migrate generate --engine static`, `pocketbase-migrate generate --verify`, `pocketbase-migrate status --engine static` |
-| Programmatic | `loadSnapshotWithMigrations({ migrationsPath, engine, engineOptions })` |
+| Config file | `migrations.engine: "runtime" \| "static"`, `migrations.verify: boolean`, `migrations.dataDirectory: string` |
+| Environment | `MIGRATION_ENGINE=runtime\|static`, `MIGRATION_VERIFY=true\|false`, `MIGRATION_DATA_DIR=<path>` |
+| CLI | `pocketbase-migrate generate --engine static`, `pocketbase-migrate generate --verify`, `pocketbase-migrate status --engine static`, `pocketbase-migrate status --verify [--pb-data <path>]`, `pocketbase-migrate lint` |
+| Programmatic | `loadSnapshotWithMigrations({ migrationsPath, engine, engineOptions, appliedMigrations })` |
 
 Programmatic API (also exported from `pocketbase-zod-schema/migration/engine`):
 
@@ -124,6 +134,147 @@ const result = replayMigrationsDirectory("pocketbase/pb_migrations", {
 // result.store     -> CollectionStore for further execution
 // result.warnings  -> stubbed API calls, console output, etc.
 ```
+
+## Applied migrations and partial replay
+
+By default replay assumes every file on disk has been applied. That is right
+most of the time and wrong in exactly the cases that matter: a migration
+written but not yet run, or a file deleted from disk after it ran. Both
+reconstruct a state the database was never in, and therefore a wrong diff.
+
+PocketBase records what it has run in an internal `_migrations` table. The
+engine can read it — from `pb_data/data.db`, read-only, with Node's built-in
+`node:sqlite` (Node >= 22.5) — and replay only the applied prefix, starting
+from the newest snapshot that was itself applied:
+
+```ts
+import {
+  readAppliedMigrations,
+  planMigrationReplay,
+  replayMigrationsDirectory,
+} from "pocketbase-zod-schema/migration/engine";
+
+const applied = readAppliedMigrations("pocketbase/pb_data");
+const plan = planMigrationReplay("pocketbase/pb_migrations", { applied });
+// plan.filesToReplay -> applied files, in order, from the applied snapshot on
+// plan.pending       -> on disk, never applied
+// plan.missing       -> applied, no longer on disk
+// plan.outOfOrder    -> pending files authored before an already-applied one
+// plan.inSync        -> disk and the database agree exactly
+
+const result = replayMigrationsDirectory("pocketbase/pb_migrations", { applied });
+```
+
+`readAppliedMigrations` accepts a pb_data directory or a `data.db` path, and
+separates PocketBase's own Go core migrations (`*.go`) from JS ones, so a file
+that never existed on disk is not reported as missing.
+`appliedMigrationsFromList(["1712345678_created_Posts.js"])` builds the same
+structure from an explicit list when there is no database to read.
+
+`loadSnapshotWithMigrations({ appliedMigrations })` threads it through the
+normal state reconstruction, and `readAppliedMigrationsIfPresent` returns null
+instead of throwing when there simply is no database yet.
+
+### `status --verify`
+
+The CLI side. `--verify` reads the table, reconstructs state from the applied
+set rather than from disk, prints the drift, and exits non-zero if there is
+any:
+
+```
+🧾 Applied Migrations
+─────────────────────
+
+  Database: pocketbase/pb_data/data.db
+  Applied: 12
+  Replaying: 12
+
+  1 migration(s) on disk not applied to the database:
+    + 1712345999_created_Comments.js
+```
+
+`--pb-data <path>` points at another location (or `migrations.dataDirectory` /
+`MIGRATION_DATA_DIR`); without it, the pb_data directory next to the
+migrations directory is used. Passing `--pb-data` without `--verify` still
+reconstructs from the applied set, it just does not fail on drift.
+
+## Record and `$dbx` simulation
+
+Schema reconstruction does not need rows: a migration that seeds or rewrites
+data does not change the shape of a collection. What rows are for is the other
+job — running a hand-written data migration and seeing what it actually does,
+before it touches production.
+
+`records: "simulate"` replaces the `Record`/`$dbx`/data-layer stubs with an
+in-memory row store per collection:
+
+```ts
+executeMigrationFile("pb_migrations/1712345678_backfill_slugs.js", store, {
+  records: "simulate",
+});
+
+store.records.list(collectionId); // the rows the migration left behind
+```
+
+Implemented with real semantics:
+
+- `new Record(collection)`, `record.get/set`, `getString`/`getBool`/`getInt`/
+  `getFloat`/`getDateTime`/`getStringSlice`, `load`, `publicExport`,
+  `originalCopy`, `setPassword`/`validatePassword`
+- `app.save(record)` (assigns a 15-character id), `app.delete(record)`
+- `app.findRecordById`, `findRecordsByIds`, `findAllRecords`,
+  `findFirstRecordByData`, `findAuthRecordByEmail`, `findRecordsByFilter`,
+  `findFirstRecordByFilter`, `countRecords`, `runInTransaction`
+- PocketBase filter syntax with `{:param}` bindings, `sort`/`limit`/`offset`
+- `$dbx.exp`, `hashExp`, `and`, `or`, `not`, `in`, `notIn`, `like`, `notLike`,
+  `orLike`, `between`, `notBetween`
+- `app.db().newQuery(sql).bind(params).execute()/all()/one()/row()` over a
+  single-table `SELECT` / `INSERT` / `UPDATE` / `DELETE` subset
+
+Rows live on `CollectionStore`, so they inherit the runner's transaction
+semantics: a migration that throws halfway through a data rewrite leaves
+neither schema nor records behind. Deleting a collection drops its rows.
+
+Anything outside the SQL subset — joins, CTEs, aggregates — is reported rather
+than guessed at: a warning in lenient mode, a throw in strict mode. The same
+holds for a filter expression the grammar does not cover.
+
+Record simulation is **off by default**. Turning it on changes behavior for
+data migrations that currently no-op: `app.findRecordById` starts throwing
+`sql: no rows in result set` against an empty store, exactly as it would
+against an empty database.
+
+## goja-compatibility lint
+
+The engine runs Node's JavaScript, a superset of goja's. A migration can
+replay here, pass round-trip verification, and still fail when PocketBase
+reaches it. `lintMigrationSource`/`File`/`Files` parse the file with acorn and
+report what would not survive the trip:
+
+| Rule | What it catches |
+| --- | --- |
+| `unknown-global` | A free identifier that is neither declared in the file nor part of the PocketBase JSVM surface or the ECMAScript library goja implements — `require`, `process`, `Buffer`, `fetch`, `setTimeout`, `window` |
+| `unsupported-syntax` | Class fields, private members, static blocks, BigInt literals, `import.meta`, and anything acorn only parses past ES2022 |
+| `module-syntax` | `import`/`export` and dynamic `import()` — migrations run as scripts |
+| `async` | `async`, `await`, `for await`, `Promise` — goja runs migrations synchronously and nothing drains the job queue |
+| `unsupported-api` | Folded in from execution warnings: a call that resolved to an inert stub did nothing here and will do something in production. Reported as a warning, not an error |
+
+The accepted global list is derived from the sandbox itself, so it cannot
+drift from what the engine actually provides; `allowedGlobals` extends it for
+a PocketBase build with its own bindings.
+
+```bash
+pocketbase-migrate lint                              # every file in the migrations directory
+pocketbase-migrate lint pb_migrations/1712_seed.js   # one file
+pocketbase-migrate lint --no-execute                 # static checks only, no stub warnings
+```
+
+`lint` exits non-zero when any file has an error-severity finding. Because
+stubbed-API warnings only exist once a file has run, `lint` executes each
+migration first (failures there are ignored — that is generate/status's job).
+
+`generate --verify` runs the same lint over the migrations it is about to
+write and refuses to write one that would not run in goja.
 
 ## Down-migration verification
 
@@ -206,16 +357,22 @@ If you hit a failing migration you cannot fix immediately, `--engine static`
 
 - **The engine is not goja.** It executes migrations with Node's JavaScript
   engine, a superset of goja's. A migration that uses Node-only APIs or
-  post-goja syntax will execute in the engine but fail in real PocketBase.
-  (A goja-compatibility lint is on the roadmap.)
+  post-goja syntax will execute in the engine but fail in real PocketBase —
+  which is what the [goja lint](#goja-compatibility-lint) exists to catch. The
+  lint is static, so it cannot see an API reached only through a computed
+  name.
 - **Not a security boundary.** The vm context has no Node globals, but
   `node:vm` is not a hardened sandbox. Migration files are executed as
   trusted first-party code — the same trust the previous
   `new Function`-based parser (and PocketBase itself) already placed
   in them.
-- **Data operations are not simulated.** Record CRUD and raw SQL through
-  `$dbx`/`app.db()` are inert no-ops in lenient mode; only schema state is
-  tracked.
+- **Data operations are opt-in and partial.** Without `records: "simulate"`,
+  record CRUD and raw SQL are inert no-ops and only schema state is tracked.
+  With it, rows are real but the SQL is a single-table subset and the store
+  starts empty — it models what a migration *does*, not the production data
+  it will do it to.
+- **Applied-migration reading needs Node >= 22.5** for `node:sqlite`. On older
+  runtimes, pass the applied list explicitly with `appliedMigrationsFromList`.
 - **Field id generation differs.** PocketBase derives field ids from
   crc32(name); the engine uses a random suffix when a migration saves a
   field without an id. Diffing matches fields by name, so this is benign.
@@ -234,6 +391,16 @@ If you hit a failing migration you cannot fix immediately, `--engine static`
   the runner in both directions (transactions, timeouts, strictness, `$app`
   binding, reverse-order rollback), the state comparison, and the
   verification API.
+- `engine/__tests__/applied-migrations.test.ts` — reading a real SQLite
+  `_migrations` table, the replay plan in every drift shape (pending, missing,
+  out-of-order, an unapplied snapshot on disk), and partial replay producing
+  a smaller state than a full one.
+- `engine/__tests__/record-simulation.test.ts` — Record semantics, the
+  finders, the filter grammar, `$dbx` builders, the `app.db()` subset,
+  rollback of record changes, and the proof that stub mode still no-ops.
+- `engine/__tests__/goja-lint.test.ts` — every rule, the false-positive cases
+  that matter (locals, destructuring, property names shadowing Node globals),
+  and a pass over every captured fixture migration.
 - `engine/__tests__/reference-fixtures.test.ts` — executes every captured
   native-PocketBase migration and asserts the resulting state, plus parity
   with the static parser on literal-only fixtures.

@@ -7,15 +7,30 @@
  * by a strictness-controlled Proxy: lenient mode records a warning and
  * returns an inert no-op value so schema-only replay of hand-written data
  * migrations still succeeds; strict mode throws.
+ *
+ * With `records: "simulate"` those data-layer methods are real instead
+ * (see `data-api.ts`), backed by the in-memory record store.
  */
 
 import { Collection } from "./collection";
+import { createDataApi } from "./data-api";
 import { generateRuntimeFieldId } from "./fields";
+import { RecordModel } from "./records";
 import type { CollectionStore } from "./store";
 import type { EngineOptions, EngineWarning, RawCollection } from "./types";
 
 export interface WarningSink {
   (warning: EngineWarning): void;
+}
+
+/** Identifies the values `createInertStub` returns, which pretend to be anything */
+const INERT_STUB = Symbol.for("pocketbase-zod-schema.inertStub");
+
+export function isInertStub(value: unknown): boolean {
+  if (value === null || (typeof value !== "object" && typeof value !== "function")) {
+    return false;
+  }
+  return (value as Record<symbol, unknown>)[INERT_STUB] === true;
 }
 
 /**
@@ -32,6 +47,9 @@ export function createInertStub(name: string, options: EngineOptions, warn: Warn
   };
   const stub: any = new Proxy(target, {
     get(_target, prop) {
+      if (prop === INERT_STUB) {
+        return true;
+      }
       if (prop === Symbol.toPrimitive) {
         return () => "";
       }
@@ -77,7 +95,11 @@ export function createInertStub(name: string, options: EngineOptions, warn: Warn
 }
 
 class SimulatedAppImpl {
-  constructor(private store: CollectionStore) {}
+  constructor(
+    private store: CollectionStore,
+    private options: EngineOptions,
+    private warn: WarningSink
+  ) {}
 
   findCollectionByNameOrId(nameOrId: string): Collection {
     const collection = this.store.getByNameOrId(nameOrId);
@@ -89,6 +111,16 @@ class SimulatedAppImpl {
   }
 
   save(model: any): void {
+    // A record only reaches here with record simulation on; without it
+    // `new Record()` produced an inert stub, handled below
+    if (model instanceof RecordModel) {
+      this.store.records.save(model);
+      return;
+    }
+    if (this.skipInertModel(model, "save")) {
+      return;
+    }
+
     const collection = this.toCollection(model);
     if (!collection.name) {
       throw new Error("[engine] cannot save a collection without a name");
@@ -102,6 +134,13 @@ class SimulatedAppImpl {
   }
 
   delete(model: any): void {
+    if (model instanceof RecordModel) {
+      this.store.records.delete(model);
+      return;
+    }
+    if (this.skipInertModel(model, "delete")) {
+      return;
+    }
     if (model instanceof Collection) {
       this.store.removeById(model.id);
       return;
@@ -116,6 +155,30 @@ class SimulatedAppImpl {
     if (model && typeof model.id === "string") {
       this.store.removeById(model.id);
     }
+  }
+
+  /**
+   * `app.save(record)` in a data migration hands us whatever `new Record()`
+   * produced. Without record simulation that is an inert stub, and treating
+   * it as a collection would fail the whole replay over rows nobody is
+   * tracking — so the call is reported and skipped, like every other
+   * unsimulated data operation.
+   */
+  private skipInertModel(model: unknown, operation: string): boolean {
+    if (!isInertStub(model)) {
+      return false;
+    }
+    if (this.options.strictness === "strict") {
+      throw new Error(`[engine] app.${operation}() received an unsimulated model (strict mode)`);
+    }
+    this.warn({
+      kind: "unsupported-api",
+      api: `app.${operation}`,
+      message:
+        `app.${operation}() was called with an unsimulated model; the call was a no-op. ` +
+        `Set records: "simulate" to execute record operations.`,
+    });
+    return true;
   }
 
   /**
@@ -154,14 +217,43 @@ class SimulatedAppImpl {
 
 export type SimulatedApp = SimulatedAppImpl;
 
-export function createSimulatedApp(store: CollectionStore, options: EngineOptions, warn: WarningSink): SimulatedApp {
-  const impl = new SimulatedAppImpl(store);
-  return new Proxy(impl, {
+/**
+ * The data-layer surface installed alongside the app when record simulation
+ * is on, so the sandbox can expose the same `Record` and `$dbx` objects the
+ * app's finders return.
+ */
+export interface SimulatedAppBundle {
+  app: SimulatedApp;
+  /** Null when records are not simulated */
+  data: ReturnType<typeof createDataApi> | null;
+}
+
+export function createSimulatedAppBundle(
+  store: CollectionStore,
+  options: EngineOptions,
+  warn: WarningSink
+): SimulatedAppBundle {
+  const impl = new SimulatedAppImpl(store, options, warn);
+  const data = options.records === "simulate" ? createDataApi(store, options, warn) : null;
+
+  const app = new Proxy(impl, {
     get(target, prop, receiver) {
       if (prop in target || typeof prop === "symbol") {
         return Reflect.get(target, prop, receiver);
       }
-      return createInertStub(`app.${String(prop)}`, options, warn);
+      const name = String(prop);
+      if (data && name in data.methods) {
+        return data.methods[name];
+      }
+      return createInertStub(`app.${name}`, options, warn);
     },
   }) as SimulatedApp;
+
+  data?.bindApp(app);
+
+  return { app, data };
+}
+
+export function createSimulatedApp(store: CollectionStore, options: EngineOptions, warn: WarningSink): SimulatedApp {
+  return createSimulatedAppBundle(store, options, warn).app;
 }
