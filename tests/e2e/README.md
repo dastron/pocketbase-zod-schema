@@ -62,28 +62,29 @@ is real divergence.
 
 #### Known divergences
 
-Every scenario scores 100 on both gates except the ones below, which pin a
-lower baseline in `fixtures/test-scenarios.ts` next to a comment naming the
-gap. Two are generator-side (PocketBase corrects them on apply), the rest are
-limits of the harness's Zod-schema generator rather than of the library:
+There are none: every scenario scores 100 on all three stages, and no
+scenario pins a baseline below the default 100. A scenario that has to pin a
+lower one carries a comment naming the gap, so `minimumStateEquivalenceScore`
+or `minimumRealApplyScore` appearing in `fixtures/test-scenarios.ts` is itself
+the signal that something is outstanding.
 
-- **`pattern` on `email`/`date`/`autodate` fields** (`all-field-types` 70/85,
-  `unique-indexes` 95/95): the generator carries the Zod
-  `.email()`/`.datetime()` regex into the migration, but those PocketBase
-  field types have no `pattern` option, so the stored field has none.
-- **`password`/`tokenKey` on auth collections** (`auth-collection` 90/95,
-  `auth-with-manage-rule` 65/95): the injected system fields come out
-  under-specified — `password` as `type: "text", min: 0` where PocketBase
-  uses `type: "password", min: 8`, and `tokenKey` without its min/max.
-- **Field metadata the harness cannot express** (`all-field-types`,
-  `select-field-variations` 95/100): `library-cli.ts` builds each scenario's
-  Zod schema from a plain field definition, so `editor` and `autodate` come
-  out as `text`/`date` and a select loses its `maxSelect`. These say nothing
-  about the library — closing them means teaching the harness to emit the
-  matching field metadata.
-- **Auto-generated auth indexes** (`auth-with-manage-rule`): PocketBase names
-  the tokenKey/email unique indexes after the collection id, which is random
-  on each side, so the two sets never compare equal by name.
+Getting here closed four generator defects — `pattern` carried onto
+`email`/`date` fields from the Zod validator, `password` emitted as
+`type: "text"` rather than PocketBase's `password` type, `tokenKey` without
+its min 30 / max 60, and a fixed collection id baked into the auth index
+names — and three harness gaps, where `library-cli.ts` built Zod schemas that
+under-described the scenario (`editor` and `autodate` as plain strings, a
+select without its `maxSelect`) and `native-migration-generator.ts` created
+collections over the REST API without the `created`/`updated` autodate fields
+PocketBase's own collection form adds.
+
+One difference is normalized rather than fixed. PocketBase names an auth
+collection's generated indexes after the collection id
+(`idx_tokenKey_pbc_2283551112`); the two sides assign ids independently — the
+library generates a random `pb_` one by design — so those names can never
+match. Both comparators substitute the id each side used before diffing (see
+`normalizeIndexNames` in `state-diff.ts`), which keeps the uniqueness,
+columns and `WHERE` clause under comparison while ignoring the id.
 
 ## Directory Structure
 

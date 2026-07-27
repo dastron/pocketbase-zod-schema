@@ -309,7 +309,9 @@ export default {
         break;
 
       case 'editor':
-        zodType = 'z.string()';
+        // A bare z.string() is indistinguishable from a text field, so the
+        // library emitted `text` for every editor field in the fixtures
+        zodType = `z.string().describe(${this.fieldMetadata('editor')})`;
         break;
 
       case 'number':
@@ -344,7 +346,12 @@ export default {
       case 'select':
         if (field.options?.values && Array.isArray(field.options.values)) {
           const values = field.options.values.map((v: string) => `'${v}'`).join(', ');
-          zodType = `z.enum([${values}])`;
+          // z.enum carries the values but not maxSelect, which is what makes
+          // a select multi-valued - the metadata carries both
+          zodType = `z.enum([${values}]).describe(${this.fieldMetadata('select', {
+            maxSelect: field.options.maxSelect ?? 1,
+            values: field.options.values,
+          })})`;
         } else {
           zodType = 'z.string()';
         }
@@ -396,11 +403,18 @@ export default {
       }
 
       case 'json':
-        zodType = 'z.record(z.any())';
+        zodType = field.options?.maxSize
+          ? `z.record(z.any()).describe(${this.fieldMetadata('json', { maxSize: field.options.maxSize })})`
+          : 'z.record(z.any())';
         break;
 
       case 'autodate':
-        zodType = 'z.string().datetime()';
+        // z.string().datetime() reads as a plain date field; only the
+        // metadata says the server should stamp it
+        zodType = `z.string().describe(${this.fieldMetadata('autodate', {
+          onCreate: field.options?.onCreate ?? true,
+          onUpdate: field.options?.onUpdate ?? false,
+        })})`;
         break;
 
       default:
@@ -498,6 +512,26 @@ export default {
     }
 
     throw new Error(`Migration file was not generated within timeout (${maxAttempts * 500}ms)`);
+  }
+
+  /**
+   * Build the `.describe()` argument the analyzer reads a field's PocketBase
+   * type and options back out of.
+   *
+   * Zod alone cannot express most of them — an editor and a text field are
+   * both `z.string()`, a multi-select and a single select are both `z.enum`
+   * — so without this the generated schema silently under-specifies the
+   * collection and the library is blamed for the difference.
+   *
+   * Double-encoded on purpose: the value is a JSON string embedded in
+   * generated source, so it needs both the JSON and the JS-literal quoting.
+   */
+  private fieldMetadata(type: string, options?: Record<string, any>): string {
+    const metadata = {
+      __pocketbase_field__: options ? { type, options } : { type },
+    };
+
+    return JSON.stringify(JSON.stringify(metadata));
   }
 
   /**

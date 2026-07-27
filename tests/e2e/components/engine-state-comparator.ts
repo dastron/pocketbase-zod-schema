@@ -15,7 +15,7 @@ import { executeMigrationFile } from '../../../package/src/migration/engine/inde
 import type { SchemaDiff } from '../../../package/src/migration/types.js';
 import { logger } from '../utils/test-helpers.js';
 import { createBaselineStore } from './migration-inspector.js';
-import { alignOptionDefaults, describeDiff, diffStates, scoreDiff } from './state-diff.js';
+import { alignForComparison, describeDiff, diffStates, scoreDiff } from './state-diff.js';
 
 export interface StateComparisonResult {
   /** True when both migrations executed and produced identical states */
@@ -79,7 +79,7 @@ class EngineStateComparatorImpl implements EngineStateComparator {
     // diff means the two migrations are state-equivalent. PocketBase's own
     // migrations spell out every option including zero values, so those are
     // aligned first - otherwise every scenario diverges on `pattern: ""`.
-    const [native, library] = alignOptionDefaults(nativeStore.toSnapshot(), libraryStore.toSnapshot());
+    const [native, library] = alignForComparison(nativeStore.toSnapshot(), libraryStore.toSnapshot());
     const diff = diffStates(native, library);
     const stateDifferences = describeDiff(diff, { current: 'native state', previous: 'library state' });
 

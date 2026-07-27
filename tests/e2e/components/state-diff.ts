@@ -101,18 +101,43 @@ function alignRecords(left?: Record<string, any>, right?: Record<string, any>): 
   }
 }
 
+/** Stands in for a collection's own id inside its index names */
+const COLLECTION_ID_TOKEN = '{collectionId}';
+
 /**
- * Reconcile the option defaults PocketBase materializes.
+ * Neutralize a collection's own id where it appears in its index names.
+ *
+ * PocketBase names the indexes it generates for an auth collection after the
+ * collection itself — `idx_tokenKey_pbc_2283551112`. The two sides of every
+ * comparison here assign collection ids independently (PocketBase derives its
+ * own, the library generates a random `pb_` one), so those names can never
+ * match, however identical the constraints they declare are. Substituting the
+ * id each side actually used keeps the rest of the statement — uniqueness,
+ * columns, WHERE clause — under comparison, and still flags an index that is
+ * genuinely named differently.
+ */
+export function normalizeIndexNames(indexes: string[] | undefined, collectionId?: string): string[] {
+  if (!indexes || !collectionId) {
+    return indexes ?? [];
+  }
+
+  return indexes.map((index) => index.split(collectionId).join(COLLECTION_ID_TOKEN));
+}
+
+/**
+ * Reconcile the representational differences between two states so the diff
+ * reports schema divergences rather than bookkeeping ones.
  *
  * PocketBase serializes every field option, Go zero values included
  * (`"pattern": ""`, `"min": 0`, `"maxSize": 0`), while a migration file only
  * declares the options it actually sets. An absent option and a zero-valued
  * one express the same constraint, so comparing them verbatim buries real
- * divergences under normalization noise.
+ * divergences under normalization noise. Index names that embed the
+ * collection id get the same treatment — see `normalizeIndexNames`.
  *
  * Returns copies — the inputs are left untouched.
  */
-export function alignOptionDefaults(
+export function alignForComparison(
   current: SchemaSnapshot,
   previous: SchemaSnapshot
 ): [SchemaSnapshot, SchemaSnapshot] {
@@ -133,6 +158,9 @@ export function alignOptionDefaults(
       alignRecords(leftField.options, rightField.options);
       alignRecords(leftField.relation, rightField.relation);
     }
+
+    leftCollection.indexes = normalizeIndexNames(leftCollection.indexes, leftCollection.id);
+    rightCollection.indexes = normalizeIndexNames(rightCollection.indexes, rightCollection.id);
   }
 
   return [left, right];

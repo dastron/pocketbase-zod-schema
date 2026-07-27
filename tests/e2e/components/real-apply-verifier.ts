@@ -33,7 +33,7 @@ import {
 import { rawCollectionsToSnapshot } from '../../../package/src/migration/pocketbase-converter.js';
 import { logger } from '../utils/test-helpers.js';
 import { adminUrlForPort, authenticateSuperuser, fetchCollections } from './pb-admin-api.js';
-import { alignOptionDefaults, describeDiff, diffStates, scopeSnapshot, scoreDiff } from './state-diff.js';
+import { alignForComparison, describeDiff, diffStates, scopeSnapshot, scoreDiff } from './state-diff.js';
 import {
   createWorkspaceManager,
   type TestWorkspace,
@@ -210,7 +210,7 @@ export function simulateApply(
  */
 export function compareRealState(realCollections: RawCollection[], simulated: SimulatedApply): StateComparison {
   const scope = simulated.touched;
-  const [real, simulation] = alignOptionDefaults(
+  const [real, simulation] = alignForComparison(
     scopeSnapshot(rawCollectionsToSnapshot(realCollections), scope),
     scopeSnapshot(simulated.store.toSnapshot(), scope)
   );

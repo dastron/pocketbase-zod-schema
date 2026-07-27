@@ -5,7 +5,13 @@ import type { PermissionSchema } from "../../utils/permissions";
 import { PermissionAnalyzer } from "../permission-analyzer";
 import type { CollectionSchema, FieldDefinition } from "../types";
 import { getMaxSelect, getMinSelect, isRelationField, resolveTargetCollection } from "../utils/relation-detector";
-import { extractFieldOptions, isFieldRequired, mapZodTypeToPocketBase, unwrapZodType } from "../utils/type-mapper";
+import {
+  extractFieldOptions,
+  filterSupportedFieldOptions,
+  isFieldRequired,
+  mapZodTypeToPocketBase,
+  unwrapZodType,
+} from "../utils/type-mapper";
 import { validateViewQuery } from "../../schema/view";
 import {
   extractCollectionTypeFromSchema,
@@ -72,7 +78,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
       id: generateFieldId(fieldMetadata.type, fieldName),
       type: fieldMetadata.type,
       required,
-      options: Object.keys(options).length > 0 ? options : undefined,
+      options: filterSupportedFieldOptions(fieldMetadata.type, Object.keys(options).length > 0 ? options : undefined),
       zodType: zodType,
     };
 
@@ -163,6 +169,11 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     delete fieldDef.options.min;
     delete fieldDef.options.max;
   }
+
+  // Zod validators are richer than PocketBase's option set, and the type is
+  // only settled here (relation detection above can still change it), so the
+  // unsupported leftovers are dropped last
+  fieldDef.options = filterSupportedFieldOptions(fieldDef.type, fieldDef.options);
 
   return fieldDef;
 }

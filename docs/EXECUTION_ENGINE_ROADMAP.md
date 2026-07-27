@@ -34,6 +34,17 @@ PocketBase.
 > text-similarity score is informational — logged and reported, never
 > asserted.
 
+> **Done:** every e2e scenario now scores 100 on all three stages, and no
+> scenario pins a baseline below the default. Four generator defects closed:
+> `pattern` carried onto `email`/`date` fields from the Zod validator (field
+> options are now filtered to the ones each PocketBase type stores),
+> `password` emitted as `type: "text"` instead of PocketBase's `password`
+> type, `tokenKey` missing its min 30 / max 60, and a fixed collection id in
+> the auth index names, which made a second auth collection collide. The rest
+> were harness gaps — Zod schemas that under-described the scenario, and a
+> native collection built without the `created`/`updated` autodate fields
+> PocketBase's own collection form adds. See `tests/e2e/README.md`.
+
 > **Done:** the e2e regex parsers are gone. `migration-inspector.ts` executes
 > a migration file through the engine and reports the collections it touched;
 > `native-migration-generator.ts` and `library-cli.ts` both delegate to it,

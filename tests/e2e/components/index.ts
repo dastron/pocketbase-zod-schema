@@ -60,7 +60,7 @@ export {
 // State diff helpers
 export {
   type StateLabels,
-  alignOptionDefaults,
+  alignForComparison,
   describeDiff,
   diffStates,
   scopeSnapshot,

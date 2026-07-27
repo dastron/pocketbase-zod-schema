@@ -212,6 +212,49 @@ describe("Auth Collection Type Generation", () => {
     expect(collection.rules.manageRule).toBe("id = @request.auth.id");
   });
 
+  it("should emit the auth system fields the way PocketBase stores them", () => {
+    const currentSchema = createSchemaDefinitionFromZod(TestAuthUserCollection);
+    const diff = compare(currentSchema, null);
+    const generatedPath = generate(diff, tempDir)[0];
+
+    const fields = parseMigrationFile(generatedPath).upFunction.collections[0].fields;
+    const field = (name: string) => {
+      const match = fields.find((f: any) => f.name === name);
+      expect(match, `field "${name}" missing from the generated migration`).toBeDefined();
+      return match as Record<string, any>;
+    };
+
+    // PocketBase keeps the password in its own field type with an 8 character
+    // minimum. Emitting it as `text` made PocketBase rewrite the field on
+    // apply, so the migration described a collection the server never had.
+    expect(field("password").type).toBe("password");
+    expect(field("password").min).toBe(8);
+    expect(field("password").cost).toBe(0);
+
+    expect(field("tokenKey").type).toBe("text");
+    expect(field("tokenKey").min).toBe(30);
+    expect(field("tokenKey").max).toBe(60);
+  });
+
+  it("should name the auth system indexes after the collection they belong to", () => {
+    const currentSchema = createSchemaDefinitionFromZod(TestAuthUserCollection);
+    const diff = compare(currentSchema, null);
+    const collectionId = diff.collectionsToCreate[0].id;
+    const generatedPath = generate(diff, tempDir)[0];
+
+    const indexes = parseMigrationFile(generatedPath).upFunction.collections[0].indexes;
+
+    // SQLite index names are database-wide, so a fixed suffix would make a
+    // second auth collection fail to apply with "index ... already exists"
+    expect(collectionId).toBeTruthy();
+    expect(indexes).toContain(
+      `CREATE UNIQUE INDEX \`idx_tokenKey_${collectionId}\` ON \`test_auth_users\` (\`tokenKey\`)`
+    );
+    expect(indexes).toContain(
+      `CREATE UNIQUE INDEX \`idx_email_${collectionId}\` ON \`test_auth_users\` (\`email\`) WHERE \`email\` != ''`
+    );
+  });
+
   it("should work with explicit type specification even when email/password fields are in schema", () => {
     // This tests that explicit type: "auth" takes precedence over field-based detection
     // Even if email and password are in the schema (for validation), they should be excluded

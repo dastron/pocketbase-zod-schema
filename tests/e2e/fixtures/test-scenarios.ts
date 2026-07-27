@@ -155,15 +155,6 @@ export const fieldTypeScenarios: TestScenario[] = [
       'json_field', 'autodate_field'
     ],
     minimumScore: 85,
-    // The harness maps `editor` and `autodate` onto plain `z.string()` /
-    // `z.string().datetime()`, so the library emits them as `text` and
-    // `date`, and drops `onlyInt`'s noDecimal and the json maxSize. Closing
-    // this needs field metadata for those types in the generated schema.
-    minimumStateEquivalenceScore: 70,
-    // The generator carries the Zod `.email()`/`.datetime()` regex through as
-    // `pattern` on the email, date and autodate fields; PocketBase has no
-    // pattern option on those types and stores none.
-    minimumRealApplyScore: 85,
     enabled: true,
     tags: ['comprehensive', 'field-types']
   },
@@ -263,9 +254,6 @@ export const fieldTypeScenarios: TestScenario[] = [
     },
     expectedFeatures: ['single_select', 'multi_select', 'select_validation'],
     minimumScore: 85,
-    // The harness maps a select onto `z.enum([...])`, which carries the
-    // values but not maxSelect, so the multi-select comes out single-select.
-    minimumStateEquivalenceScore: 95,
     enabled: true,
     tags: ['select-fields', 'field-types']
   }
@@ -290,11 +278,6 @@ export const indexRuleScenarios: TestScenario[] = [
     },
     expectedFeatures: ['unique_constraints', 'custom_indexes'],
     minimumScore: 80,
-    // Both gaps are the same one: the generator carries the Zod `.email()`
-    // regex through as `pattern` on the email field, which PocketBase's
-    // email type has no room for and drops on apply.
-    minimumStateEquivalenceScore: 95,
-    minimumRealApplyScore: 95,
     enabled: true,
     tags: ['indexes', 'unique-constraints']
   },
@@ -404,12 +387,6 @@ export const authScenarios: TestScenario[] = [
     },
     expectedFeatures: ['auth_fields', 'system_fields', 'file_upload', 'auth_rules'],
     minimumScore: 70,
-    // The injected auth system fields come out under-specified: `password`
-    // as `type: "text", min: 0` where PocketBase uses `type: "password",
-    // min: 8`, and `tokenKey` without its min 30 / max 60.
-    minimumStateEquivalenceScore: 90,
-    // Same `password` field — PocketBase rewrites it on apply.
-    minimumRealApplyScore: 95,
     enabled: true,
     tags: ['auth', 'system-fields']
   },
@@ -435,15 +412,11 @@ export const authScenarios: TestScenario[] = [
       }
     },
     expectedFeatures: ['auth_fields', 'manage_rule', 'role_based_access', 'admin_permissions'],
-    minimumScore: 65,
-    // Three gaps stack here: the same under-specified `password`/`tokenKey`
-    // system fields as `auth-collection`, the select maxSelect the harness
-    // drops (see `select-field-variations`), and the auto-generated auth
-    // indexes, whose names embed the collection id — random on each side, so
-    // the two sets never match by name even when they mean the same thing.
-    minimumStateEquivalenceScore: 65,
-    // The `password` system field again — PocketBase rewrites it on apply.
-    minimumRealApplyScore: 95,
+    // Kept at or above the runner's floor on purpose: `getFilteredScenarios`
+    // drops any scenario whose own minimumScore is below the configured one,
+    // so a lower number here silently removes this scenario from the run
+    // rather than holding it to a laxer bar.
+    minimumScore: 70,
     enabled: true,
     tags: ['auth', 'admin', 'manage-rule']
   }

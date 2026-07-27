@@ -26,6 +26,22 @@ export interface CollectionChanges {
 // re-exported here because both e2e components and the analyzer consume it
 export type { ParsedCollection, ParsedField, ParsedMigration } from './migration-inspector.js';
 
+/**
+ * The timestamp fields PocketBase's own collection form creates.
+ *
+ * Creating a collection over the REST API produces exactly the fields the
+ * payload lists — nothing more — while the Admin UI, and every migration
+ * PocketBase writes for a collection made through it, carries these two
+ * autodate fields (see package/.../reference-migrations). The library adds
+ * them too, so a native payload without them compares a collection that has
+ * timestamps against one that does not, and every scenario loses points to a
+ * difference neither side actually disagrees about.
+ */
+const AUTODATE_TIMESTAMP_FIELDS = [
+  { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
+  { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
+] as const;
+
 export interface NativeMigrationGenerator {
   createCollection(workspace: TestWorkspace, definition: CollectionDefinition): Promise<string>;
   updateCollection(workspace: TestWorkspace, collectionName: string, changes: CollectionChanges): Promise<string>;
@@ -239,7 +255,10 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
     const collectionData: any = {
       name: definition.name,
       type: definition.type,
-      fields: await Promise.all(definition.fields.map(field => this.buildFieldData(field, adminUrl, authToken))),
+      fields: [
+        ...(await Promise.all(definition.fields.map(field => this.buildFieldData(field, adminUrl, authToken)))),
+        ...AUTODATE_TIMESTAMP_FIELDS,
+      ],
     };
 
     // Add rules if specified
