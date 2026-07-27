@@ -231,7 +231,8 @@ describe("appliedMigrationsFromList", () => {
 
 describe("defaultDataDirectory", () => {
   it("resolves pb_data as a sibling of the migrations directory", () => {
-    expect(defaultDataDirectory("/project/pocketbase/pb_migrations")).toBe("/project/pocketbase/pb_data");
+    const migrationsDir = path.resolve("project", "pocketbase", "pb_migrations");
+    expect(defaultDataDirectory(migrationsDir)).toBe(path.resolve("project", "pocketbase", "pb_data"));
   });
 });
 
