@@ -100,10 +100,10 @@ export class SnapshotError extends MigrationError {
  */
 export class MigrationExecutionError extends MigrationError {
   public readonly filePath?: string;
-  public readonly phase?: "evaluate" | "up";
+  public readonly phase?: "evaluate" | "up" | "down";
   public readonly originalError?: Error;
 
-  constructor(message: string, filePath?: string, phase?: "evaluate" | "up", originalError?: Error) {
+  constructor(message: string, filePath?: string, phase?: "evaluate" | "up" | "down", originalError?: Error) {
     super(message);
     this.name = "MigrationExecutionError";
     this.filePath = filePath;

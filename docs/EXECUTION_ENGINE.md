@@ -23,7 +23,8 @@ The engine mirrors what PocketBase itself does on `migrate up`:
 2. Run `up(app)` against the current state **transactionally**: state is
    cloned, the migration is applied to the clone, and the clone is committed
    only if `up()` completes without throwing.
-3. `down()` closures are captured but never executed.
+3. `down()` closures are captured. State reconstruction never runs them —
+   only [verification](#down-migration-verification) does, on request.
 
 State reconstruction = execute the latest `*_collections_snapshot.js`
 (native snapshot files call `app.importCollections(snapshot, ...)`, which
@@ -37,7 +38,7 @@ timestamp order.
 | Module | Responsibility |
 | --- | --- |
 | `globals.ts` | Builds the sandbox global surface a migration sees |
-| `runner.ts` | Evaluates one file in a `node:vm` context, runs `up()` transactionally |
+| `runner.ts` | Evaluates one file in a `node:vm` context, runs `up()` (or `down()`) transactionally |
 | `replayer.ts` | Folds an ordered file list (or a pb_migrations directory) into a final state |
 | `store.ts` | `CollectionStore` — in-memory state keyed by collection id, with clone/commit transaction support |
 | `app.ts` | `SimulatedApp` — the `app` handed to `up()` |
@@ -45,6 +46,8 @@ timestamp order.
 | `fields-list.ts` | `FieldsList` — add/addAt/removeById/removeByName/getById/getByName with PocketBase semantics |
 | `fields.ts` | `Field` + the 14 typed field constructors |
 | `unmarshal.ts` | `unmarshal(data, dst)` with Go `json.Unmarshal` merge semantics (arrays replace wholesale) |
+| `verify.ts` | Round-trip verification: up, then down, then compare against the baseline |
+| `state-compare.ts` | Structural comparison of two states, naming each divergence |
 
 The final store converts to the existing internal model
 (`rawCollectionsToSnapshot` → `CollectionSchema`), so the diff and generator
@@ -59,7 +62,7 @@ executes identically for schema-shaped code.
 
 Implemented with real semantics:
 
-- `migrate(up, down)` (down is captured, never executed)
+- `migrate(up, down)` (down is captured; executed only by verification)
 - `new Collection({...})`, property assignment (`collection.listRule = ...`),
   `collection.indexes` as a real array (`push`, `findIndex`, `splice`)
 - `new Field({...})` and typed constructors: `TextField`, `EmailField`,
@@ -97,9 +100,9 @@ an explicit escape hatch.
 
 | Source | Setting |
 | --- | --- |
-| Config file | `migrations.engine: "runtime" \| "static"` |
-| Environment | `MIGRATION_ENGINE=runtime\|static` |
-| CLI | `pocketbase-migrate generate --engine static`, `pocketbase-migrate status --engine static` |
+| Config file | `migrations.engine: "runtime" \| "static"`, `migrations.verify: boolean` |
+| Environment | `MIGRATION_ENGINE=runtime\|static`, `MIGRATION_VERIFY=true\|false` |
+| CLI | `pocketbase-migrate generate --engine static`, `pocketbase-migrate generate --verify`, `pocketbase-migrate status --engine static` |
 | Programmatic | `loadSnapshotWithMigrations({ migrationsPath, engine, engineOptions })` |
 
 Programmatic API (also exported from `pocketbase-zod-schema/migration/engine`):
@@ -122,14 +125,79 @@ const result = replayMigrationsDirectory("pocketbase/pb_migrations", {
 // result.warnings  -> stubbed API calls, console output, etc.
 ```
 
+## Down-migration verification
+
+A `down()` that does not actually roll back is invisible until someone runs
+`pocketbase migrate down` on a real database — state reconstruction only ever
+runs `up()`. Verification closes that gap by executing both directions:
+
+1. `up()` runs against a baseline state.
+2. `down()` runs against the result, from a **fresh evaluation of the file** —
+   the way PocketBase runs it, as a separate invocation that cannot observe
+   anything `up()` left in the file's module scope.
+3. The resulting state is compared against the baseline. Anything left behind
+   (a field not restored, an index still present, a rule not reverted) is
+   reported per difference.
+
+```ts
+import { verifyMigrationFiles, verifyMigrationRoundTrip } from "pocketbase-zod-schema/migration/engine";
+
+const report = verifyMigrationFiles(["pb_migrations/1712345678_created_Posts.js"]);
+// report.ok        -> every migration applied and reversed cleanly
+// report.failures  -> the results that did not
+// report.store     -> state after every up(), as replay would build it
+
+for (const failure of report.failures) {
+  console.log(failure.file, failure.differences.map((d) => d.message));
+}
+```
+
+A sequence is verified the way it will be applied: each file is round-tripped
+against the state its predecessors leave behind, then its `up()` is committed
+before moving on. Failures are returned rather than thrown — the caller
+decides whether an unreversible migration is fatal.
+
+Two states are compared structurally, not semantically, because a rollback
+that leaves the schema *semantically* equal but structurally different is
+exactly what verification exists to catch. Normalization is limited to
+differences PocketBase itself does not make:
+
+- An undeclared option and one set to its Go zero value (`""`, `0`, `false`,
+  `[]`) express the same constraint. Two *declared* values are always compared.
+- API rules are exempt: `null` (superuser only) and `""` (public) are
+  different permissions, so only absent ≡ `null` holds.
+- Index order is not meaningful; index lists are compared as sets.
+- Field order is compared only under `strictFieldOrder`.
+
+### Verifying at generate time
+
+`generate --verify` (or `migrations.verify: true`) runs the pass over the
+migrations it is about to write, starting from the state the existing
+migrations reconstruct. Nothing is written if a migration fails to apply or
+fails to roll back:
+
+```
+🔁 Verifying Migration
+──────────────────────
+✗ Migration verification failed - no files were written.
+
+  1712345678_updated_Posts.js: down() did not restore the previous state
+    [Posts] index missing from state after down(): CREATE INDEX `idx_posts_title` ...
+```
+
+It is off by default: verification executes every existing migration to build
+the baseline, which costs a full replay, and a rollback you never intend to
+run is not a reason to block generating one that works forward. `--no-verify`
+overrides the config file for a single run.
+
 ## Behavior change vs. the static parser
 
 The static parser swallowed every failure with a `console.warn` and kept
 going, which silently reconstructed the wrong state. In runtime mode a
 migration that cannot be executed **fails hard** with a
 `MigrationExecutionError` (wrapped in `SnapshotError`) naming the file and
-phase (`evaluate` or `up`). This is intentional: a state reconstruction you
-cannot trust is worse than an error.
+phase (`evaluate`, `up` or `down`). This is intentional: a state
+reconstruction you cannot trust is worse than an error.
 
 If you hit a failing migration you cannot fix immediately, `--engine static`
 (or `migrations.engine: "static"`) restores the legacy lenient behavior.
@@ -163,7 +231,9 @@ If you hit a failing migration you cannot fix immediately, `--engine static`
 ## Testing
 
 - `engine/__tests__/` — unit suites for FieldsList, unmarshal, the store,
-  and the runner (transactions, timeouts, strictness, `$app` binding).
+  the runner in both directions (transactions, timeouts, strictness, `$app`
+  binding, reverse-order rollback), the state comparison, and the
+  verification API.
 - `engine/__tests__/reference-fixtures.test.ts` — executes every captured
   native-PocketBase migration and asserts the resulting state, plus parity
   with the static parser on literal-only fixtures.
@@ -174,6 +244,13 @@ If you hit a failing migration you cannot fix immediately, `--engine static`
 - `__tests__/integration/engine-loop-detection.test.ts` — the round-trip
   idempotency contract via execution: schema → generate → execute → compare
   → zero diff.
+- `engine/__tests__/down-verification.test.ts` — every captured native
+  fixture must undo itself, verified in sequence. The two dynamic fixtures
+  whose `down()` is deliberately a no-op are the ground truth that
+  verification detects a rollback that does not roll back.
+- `__tests__/integration/down-migration-round-trip.test.ts` — the reverse
+  contract for generated migrations: creation, every kind of modification,
+  and deletion must each return to the state they were generated against.
 - `tests/e2e/components/engine-state-comparator.ts` — the e2e harness
   executes the native-captured and library-generated migrations and diffs
   the resulting states (semantic equivalence instead of text similarity).

@@ -14,15 +14,17 @@ PocketBase.
 > the same files. Applying cleanly is a hard gate; the state agreement is
 > reported as `realApplyScore`.
 
-## 1. Down-migration verification
+> **Done:** down-migration verification (`engine/verify.ts`,
+> `engine/state-compare.ts`). The runner executes `down()` on request
+> (`executeMigrationDownSource`/`File`, reverse registration order, same
+> transactional semantics as `up`), and `verifyMigrationSources`/`Files` runs
+> up → down → compare-against-baseline over a sequence. Wired into the
+> reference and dynamic fixture suites and into a generated-migration
+> round-trip suite; `generate --verify` (`migrations.verify`,
+> `MIGRATION_VERIFY`) runs the pass before writing and refuses to write a
+> migration that does not roll back. See `EXECUTION_ENGINE.md`.
 
-The engine captures `down()` closures but never runs them. Add
-`executeDown()` to the runner and a verification mode: execute `up`, then
-`down`, and assert the state returns to the baseline. Wire it into the
-round-trip integration tests per fixture, then have `generate` optionally
-self-verify new migrations before writing them.
-
-## 2. Promote the e2e equivalence scores to gates
+## 1. Promote the e2e equivalence scores to gates
 
 `e2e-workflow.test.ts` hard-asserts only that both migrations execute and
 that the library migration applies to real PocketBase; the two agreement
@@ -32,7 +34,7 @@ runs establish the baseline (expected: 100 for most scenarios), assert both
 per scenario and let regressions fail CI. The legacy text-similarity score
 can then become informational only.
 
-## 3. Replace the e2e regex parsers with the engine
+## 2. Replace the e2e regex parsers with the engine
 
 `native-migration-generator.ts` (`parseCollectionsFromMigration`) and
 `library-cli.ts` contain duplicate regex-based migration parsers feeding the
@@ -40,7 +42,7 @@ text comparison. Both should execute the file through the engine and read
 collections from the store, removing ~200 lines of fragile scanning and a
 third parallel parser implementation.
 
-## 4. `_migrations` table awareness / partial replay
+## 3. `_migrations` table awareness / partial replay
 
 PocketBase records applied migrations in its internal `_migrations` table.
 Today the engine replays snapshot + everything after it, assuming all files
@@ -51,7 +53,7 @@ are applied. Add:
 - Detection of migrations present on disk but not applied (and vice versa)
   for a `status --verify` command.
 
-## 5. `$dbx` / `Record` data simulation
+## 4. `$dbx` / `Record` data simulation
 
 Lenient mode currently no-ops record and query APIs. For migrations that
 seed or transform data, add an in-memory record store per collection:
@@ -60,7 +62,7 @@ seed or transform data, add an in-memory record store per collection:
 it matters for validating hand-written data migrations before they run in
 production.
 
-## 6. Goja-compatibility linter
+## 5. Goja-compatibility linter
 
 The engine runs Node's JS, a superset of goja's. A migration can pass the
 engine yet fail in PocketBase (Node-only APIs, unsupported syntax). Add a
@@ -72,7 +74,7 @@ lint pass that flags:
 - Syntax beyond goja's supported set (parse with an ES2017-ish target).
 - `async`/`await`/`Promise` usage (goja migrations are synchronous).
 
-## 7. Deprecate, then remove, the static parser
+## 6. Deprecate, then remove, the static parser
 
 `migration-parser.ts` (~870 lines) remains for `engine: "static"`. Plan:
 
@@ -84,9 +86,9 @@ lint pass that flags:
   replayer).
 
 Blockers to removal: parity tests must cover every fixture class, and the
-e2e regex parsers (item 3) must be gone first.
+e2e regex parsers (item 2) must be gone first.
 
-## 8. quickjs-emscripten isolation upgrade
+## 7. quickjs-emscripten isolation upgrade
 
 `node:vm` is not a hardened sandbox. If untrusted migration sources ever
 become a real scenario (e.g. running the tool against third-party project
@@ -95,7 +97,7 @@ deterministic, truly isolated). The runner's interface (`executeMigrationSource`
 already isolates evaluation from state application, so this is a contained
 change. Not worth the marshalling complexity for first-party use.
 
-## 9. Replay caching
+## 8. Replay caching
 
 Replaying a large pb_migrations directory on every `generate`/`status` is
 O(files). Cache the reconstructed snapshot keyed by a hash of the file list

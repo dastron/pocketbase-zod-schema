@@ -49,6 +49,7 @@ export {
   compareRelationConfigurations,
   detectDestructiveChanges,
   detectFieldChanges,
+  filterDiff,
   filterSystemCollections,
   findNewCollections,
   findNewFields,
@@ -60,7 +61,6 @@ export {
   matchCollectionsByName,
   matchFieldsByName,
   requiresForceFlag,
-  filterDiff,
 } from "./diff/index.js";
 export type { ChangeSummary, DestructiveChange, DiffEngineConfig } from "./diff/index.js";
 
@@ -84,24 +84,40 @@ export {
   generatePermissionUpdate,
   generateTimestamp,
   generateUpMigration,
+  planMigrations,
   writeMigrationFile,
+  writePlannedMigrations,
 } from "./generator/index.js";
-export type { MigrationGeneratorConfig } from "./generator/index.js";
+export type { MigrationGeneratorConfig, PlannedMigration } from "./generator/index.js";
 
 // Execution engine module
 export {
   CollectionStore,
+  compareStores,
+  describeStateDifferences,
+  executeMigrationDownFile,
+  executeMigrationDownSource,
   executeMigrationFile,
   executeMigrationSource,
   replayMigrations,
   replayMigrationsDirectory,
+  verifyMigrationFileRoundTrip,
+  verifyMigrationFiles,
+  verifyMigrationRoundTrip,
+  verifyMigrationSources,
 } from "./engine/index.js";
 export type {
   EngineOptions,
   EngineStrictness,
   EngineWarning,
+  MigrationDirection,
   MigrationExecutionResult,
+  MigrationRoundTripResult,
+  MigrationSourceRef,
+  MigrationVerificationReport,
   ReplayResult,
+  StateCompareOptions,
+  StateDifference,
 } from "./engine/index.js";
 
 // Types
@@ -118,7 +134,7 @@ export {
   requiresForceFlag as requiresForceFlagValidation,
   summarizeDestructiveChanges,
 } from "./validation.js";
-export type { DestructiveChange as ValidationDestructiveChange, DestructiveChangeType } from "./validation.js";
+export type { DestructiveChangeType, DestructiveChange as ValidationDestructiveChange } from "./validation.js";
 
 // Migration utilities
 export * from "./utils/pluralize.js";
