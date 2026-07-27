@@ -8,9 +8,9 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SnapshotError } from "../errors";
-import { loadSnapshotWithMigrations } from "../snapshot";
+import { __resetStaticEngineDeprecationWarning, loadSnapshotWithMigrations } from "../snapshot";
 
 const SNAPSHOT_FIXTURE = path.resolve(__dirname, "fixtures/native-snapshot-trimmed.js");
 
@@ -115,6 +115,33 @@ describe("loadSnapshotWithMigrations engine modes", () => {
 
     expect(snapshot).not.toBeNull();
     expect(snapshot!.collections.get("articles")).toBeDefined();
+  });
+
+  it("warns about the static engine deprecation once per process", () => {
+    __resetStaticEngineDeprecationWarning();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      loadSnapshotWithMigrations({ migrationsPath: migrationsDir, engine: "static" });
+      loadSnapshotWithMigrations({ migrationsPath: migrationsDir, engine: "static" });
+
+      const deprecations = warn.mock.calls.filter(([message]) => String(message).includes("deprecated"));
+      expect(deprecations).toHaveLength(1);
+      expect(String(deprecations[0]![0])).toContain('engine: "static"');
+      expect(String(deprecations[0]![0])).toContain("next major release");
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("does not emit the deprecation warning for the runtime engine", () => {
+    __resetStaticEngineDeprecationWarning();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      loadSnapshotWithMigrations({ migrationsPath: migrationsDir, engine: "runtime" });
+      expect(warn.mock.calls.filter(([message]) => String(message).includes("deprecated"))).toHaveLength(0);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("returns null when the directory has no snapshot", () => {

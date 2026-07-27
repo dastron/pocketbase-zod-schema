@@ -72,8 +72,9 @@ Configuration for migration file generation.
 **Default:** `'runtime'`  
 **Description:** How existing migration files are read to reconstruct the current
 database state. `'runtime'` executes them in a simulated PocketBase JSVM;
-`'static'` uses the legacy regex-based parser. See
-[EXECUTION_ENGINE.md](EXECUTION_ENGINE.md).
+`'static'` uses the legacy regex-based parser. **`'static'` is deprecated** —
+selecting it logs a warning, and the option is removed in the next major
+release. See [EXECUTION_ENGINE.md](EXECUTION_ENGINE.md).
 
 #### migrations.verify
 
@@ -155,7 +156,8 @@ pocketbase-migrate generate --schema-dir ./src/models
 #### --engine
 
 **Type:** `'runtime' | 'static'`  
-**Description:** Override how existing migrations are read
+**Description:** Override how existing migrations are read. `static` is
+deprecated and warns when selected.
 
 ```bash
 pocketbase-migrate generate --engine static
@@ -187,7 +189,7 @@ MIGRATION_OUTPUT_DIR=database/migrations
 # Skip force requirement
 MIGRATION_REQUIRE_FORCE=false
 
-# Read existing migrations with the legacy static parser
+# Read existing migrations with the legacy static parser (deprecated)
 MIGRATION_ENGINE=static
 
 # Verify new migrations round-trip before writing them

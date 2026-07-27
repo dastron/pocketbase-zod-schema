@@ -106,7 +106,9 @@ Stubbed (strictness-controlled): `$os`, `$dbx`, `$security`, `$filesystem`,
 ## Configuration
 
 The engine is the **default**. The legacy static parser remains available as
-an explicit escape hatch.
+an explicit escape hatch, but it is **deprecated**: selecting it logs a
+warning, and the `engine` option is removed entirely in the next major
+release (see `EXECUTION_ENGINE_ROADMAP.md` §1).
 
 | Source | Setting |
 | --- | --- |
@@ -352,6 +354,10 @@ reconstruction you cannot trust is worse than an error.
 
 If you hit a failing migration you cannot fix immediately, `--engine static`
 (or `migrations.engine: "static"`) restores the legacy lenient behavior.
+This escape hatch is deprecated — it warns when selected and goes away in
+the next major release, so treat it as a way to unblock a single run while
+you fix the migration, and please open an issue describing the file that
+would not execute.
 
 ## Caveats
 
@@ -411,6 +417,13 @@ If you hit a failing migration you cannot fix immediately, `--engine static`
 - `__tests__/integration/engine-loop-detection.test.ts` — the round-trip
   idempotency contract via execution: schema → generate → execute → compare
   → zero diff.
+- `__tests__/integration/engine-parity.test.ts` — the static-parser removal
+  gate: every construct the generator emits (create base/auth/view, field
+  add/remove/update, index add/remove, rule updates, view-query updates,
+  deletes) is read back through `loadSnapshotWithMigrations` with both
+  engines and must reconstruct the same diff-relevant state with a zero
+  follow-up diff. Also pins the known static-parser losses on id-addressed
+  native update migrations.
 - `engine/__tests__/down-verification.test.ts` — every captured native
   fixture must undo itself, verified in sequence. The two dynamic fixtures
   whose `down()` is deliberately a no-op are the ground truth that

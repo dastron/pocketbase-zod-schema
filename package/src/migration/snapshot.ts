@@ -64,7 +64,8 @@ export interface SnapshotConfig {
    *   which handles loops, helper functions, and computed values. Fails
    *   hard on the first migration that cannot be executed.
    * - "static": legacy regex-based parsing; unrecognized statements are
-   *   skipped with a console warning.
+   *   skipped with a console warning. Deprecated — warns when selected
+   *   and will be removed in the next major release.
    */
   engine?: "runtime" | "static";
 
@@ -82,6 +83,35 @@ export interface SnapshotConfig {
    * Runtime engine only; the static parser ignores it.
    */
   appliedMigrations?: AppliedMigrationsSource | string[] | null;
+}
+
+let warnedStaticEngineDeprecation = false;
+
+/**
+ * Test hook: lets the deprecation warning be asserted more than once per
+ * process.
+ * @internal
+ */
+export function __resetStaticEngineDeprecationWarning(): void {
+  warnedStaticEngineDeprecation = false;
+}
+
+/**
+ * The static parser is on its way out (see docs/EXECUTION_ENGINE_ROADMAP.md):
+ * warn once per process whenever it is explicitly selected.
+ */
+function warnStaticEngineDeprecated(): void {
+  if (warnedStaticEngineDeprecation) {
+    return;
+  }
+  warnedStaticEngineDeprecation = true;
+  console.warn(
+    '[pocketbase-zod-schema] engine: "static" is deprecated and will be removed in the next major release. ' +
+      "The runtime engine (the default) executes migrations in a simulated PocketBase JSVM and supersedes " +
+      "the static parser. Remove the engine option (config migrations.engine, MIGRATION_ENGINE, or --engine) " +
+      "to switch. If a migration only reconstructs correctly with the static parser, please open an issue " +
+      "before the option is removed."
+  );
 }
 
 /**
@@ -682,6 +712,8 @@ export function loadSnapshotWithMigrations(config: SnapshotConfig = {}): SchemaS
     return loadSnapshotWithMigrationsRuntime(migrationsPath, config.engineOptions, config.appliedMigrations);
   }
 
+  warnStaticEngineDeprecated();
+
   // Check if migrationsPath is actually a file (for backward compatibility with tests)
   if (fs.existsSync(migrationsPath) && fs.statSync(migrationsPath).isFile()) {
     try {
@@ -761,7 +793,7 @@ function loadSnapshotWithMigrationsRuntime(
       throw new SnapshotError(
         `Failed to execute migration ${error.filePath ?? "<unknown>"}: ${error.message}\n` +
           `Fix the migration file, or set migrations.engine to "static" (or pass --engine static) ` +
-          `to fall back to the legacy parser.`,
+          `to fall back to the legacy parser (deprecated, removed in the next major release).`,
         error.filePath,
         "parse",
         error

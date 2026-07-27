@@ -466,7 +466,10 @@ export function createStatusCommand(): Command {
     .description("Show current migration status without generating files")
     .option("--schema-dir <directory>", "Directory containing Zod schema files")
     .option("--json", "Output status as JSON for programmatic use", false)
-    .option("--engine <mode>", 'How existing migrations are read: "runtime" (execute) or "static" (legacy parser)')
+    .option(
+      "--engine <mode>",
+      'How existing migrations are read: "runtime" (execute, default) or "static" (legacy parser, deprecated)'
+    )
     .option(
       "--verify",
       "Compare the migration files on disk against PocketBase's _migrations table and fail on any drift"
