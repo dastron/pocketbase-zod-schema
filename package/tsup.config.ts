@@ -18,6 +18,7 @@ export default defineConfig({
     'migration/index': 'src/migration/index.ts',
     'migration/analyzer': 'src/migration/analyzer/index.ts',
     'migration/diff': 'src/migration/diff/index.ts',
+    'migration/engine': 'src/migration/engine/index.ts',
     'migration/generator': 'src/migration/generator/index.ts',
     'migration/snapshot': 'src/migration/snapshot.ts',
     'migration/utils/index': 'src/migration/utils/index.ts',

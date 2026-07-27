@@ -67,6 +67,11 @@
       "import": "./dist/migration/diff.js",
       "require": "./dist/migration/diff.cjs"
     },
+    "./migration/engine": {
+      "types": "./dist/migration/engine.d.ts",
+      "import": "./dist/migration/engine.js",
+      "require": "./dist/migration/engine.cjs"
+    },
     "./migration/generator": {
       "types": "./dist/migration/generator.d.ts",
       "import": "./dist/migration/generator.js",

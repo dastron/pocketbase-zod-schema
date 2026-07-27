@@ -10,7 +10,9 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { FileSystemError, SnapshotError } from "./errors";
+import { MigrationExecutionError, FileSystemError, SnapshotError } from "./errors";
+import { replayMigrations, replayMigrationsDirectory } from "./engine/replayer";
+import type { EngineOptions } from "./engine/types";
 import {
   extractTimestampFromFilename,
   findMigrationsAfterSnapshot,
@@ -54,6 +56,21 @@ export interface SnapshotConfig {
    * Custom snapshot version for testing
    */
   version?: string;
+
+  /**
+   * How migration files are read to reconstruct the current state:
+   * - "runtime" (default): execute them in a simulated PocketBase JSVM,
+   *   which handles loops, helper functions, and computed values. Fails
+   *   hard on the first migration that cannot be executed.
+   * - "static": legacy regex-based parsing; unrecognized statements are
+   *   skipped with a console warning.
+   */
+  engine?: "runtime" | "static";
+
+  /**
+   * Options forwarded to the execution engine when engine is "runtime"
+   */
+  engineOptions?: EngineOptions;
 }
 
 /**
@@ -81,7 +98,8 @@ const SNAPSHOT_MIGRATIONS: SnapshotMigration[] = [
 /**
  * Default configuration values
  */
-const DEFAULT_CONFIG: Omit<Required<SnapshotConfig>, "migrationsPath"> & { migrationsPath?: string } = {
+const DEFAULT_CONFIG: Omit<Required<SnapshotConfig>, "migrationsPath" | "engine" | "engineOptions"> &
+  Pick<SnapshotConfig, "migrationsPath" | "engine" | "engineOptions"> = {
   snapshotPath: DEFAULT_SNAPSHOT_FILENAME,
   workspaceRoot: process.cwd(),
   autoMigrate: true,
@@ -640,9 +658,14 @@ export function applyMigrationOperations(
  */
 export function loadSnapshotWithMigrations(config: SnapshotConfig = {}): SchemaSnapshot | null {
   const migrationsPath = config.migrationsPath;
+  const engine = config.engine ?? "runtime";
 
   if (!migrationsPath) {
     return null;
+  }
+
+  if (engine === "runtime") {
+    return loadSnapshotWithMigrationsRuntime(migrationsPath, config.engineOptions);
   }
 
   // Check if migrationsPath is actually a file (for backward compatibility with tests)
@@ -694,6 +717,42 @@ export function loadSnapshotWithMigrations(config: SnapshotConfig = {}): SchemaS
   } catch (error) {
     console.warn(`Failed to load snapshot from ${latestSnapshotPath}: ${error}`);
     return null;
+  }
+}
+
+/**
+ * Runtime-engine state reconstruction: executes the snapshot migration and
+ * every migration after it in a simulated PocketBase JSVM.
+ *
+ * Unlike the static path, a migration that cannot be executed fails hard —
+ * continuing past it would silently reconstruct the wrong state and cause
+ * the generator to emit incorrect diffs.
+ */
+function loadSnapshotWithMigrationsRuntime(
+  migrationsPath: string,
+  engineOptions?: EngineOptions
+): SchemaSnapshot | null {
+  try {
+    // File path instead of a directory (backward compatibility with tests):
+    // execute just that one file
+    if (fs.existsSync(migrationsPath) && fs.statSync(migrationsPath).isFile()) {
+      return replayMigrations([migrationsPath], engineOptions).snapshot;
+    }
+
+    const result = replayMigrationsDirectory(migrationsPath, engineOptions);
+    return result ? result.snapshot : null;
+  } catch (error) {
+    if (error instanceof MigrationExecutionError) {
+      throw new SnapshotError(
+        `Failed to execute migration ${error.filePath ?? "<unknown>"}: ${error.message}\n` +
+          `Fix the migration file, or set migrations.engine to "static" (or pass --engine static) ` +
+          `to fall back to the legacy parser.`,
+        error.filePath,
+        "parse",
+        error
+      );
+    }
+    throw error;
   }
 }
 

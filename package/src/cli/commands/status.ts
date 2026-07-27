@@ -195,6 +195,7 @@ export async function executeStatus(options: any): Promise<void> {
     const previousSnapshot = loadSnapshotWithMigrations({
       migrationsPath: migrationsDir,
       workspaceRoot: process.cwd(),
+      engine: config.migrations.engine,
     });
 
     // Handle first-time setup
@@ -324,6 +325,7 @@ export function createStatusCommand(): Command {
     .description("Show current migration status without generating files")
     .option("--schema-dir <directory>", "Directory containing Zod schema files")
     .option("--json", "Output status as JSON for programmatic use", false)
+    .option("--engine <mode>", 'How existing migrations are read: "runtime" (execute) or "static" (legacy parser)')
     .addHelpText(
       "after",
       `

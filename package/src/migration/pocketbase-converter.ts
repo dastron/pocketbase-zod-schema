@@ -231,6 +231,33 @@ export function convertPocketBaseCollection(pbCollection: any): CollectionSchema
 }
 
 /**
+ * Converts an array of raw PocketBase-shaped collection objects (as found
+ * in snapshot arrays or produced by the execution engine) to a SchemaSnapshot
+ *
+ * @param rawCollections - Raw PocketBase collection objects
+ * @returns SchemaSnapshot with collections map
+ */
+export function rawCollectionsToSnapshot(rawCollections: any[]): SchemaSnapshot {
+  const collections = new Map<string, CollectionSchema>();
+
+  for (const pbCollection of rawCollections) {
+    if (!pbCollection?.name) {
+      console.warn("Skipping collection without name");
+      continue;
+    }
+
+    const schema = convertPocketBaseCollection(pbCollection);
+    collections.set(pbCollection.name, schema);
+  }
+
+  return {
+    version: SNAPSHOT_VERSION,
+    timestamp: new Date().toISOString(),
+    collections,
+  };
+}
+
+/**
  * Converts PocketBase migration format to SchemaSnapshot
  * Extracts the snapshot array from the migration file content
  *
@@ -264,24 +291,7 @@ export function convertPocketBaseMigration(migrationContent: string): SchemaSnap
       throw new Error("Snapshot is not an array");
     }
 
-    // Convert each collection to our format
-    const collections = new Map<string, CollectionSchema>();
-
-    for (const pbCollection of snapshotArray) {
-      if (!pbCollection.name) {
-        console.warn("Skipping collection without name");
-        continue;
-      }
-
-      const schema = convertPocketBaseCollection(pbCollection);
-      collections.set(pbCollection.name, schema);
-    }
-
-    return {
-      version: SNAPSHOT_VERSION,
-      timestamp: new Date().toISOString(),
-      collections,
-    };
+    return rawCollectionsToSnapshot(snapshotArray);
   } catch (error) {
     throw new SnapshotError(
       `Failed to convert PocketBase migration: ${error instanceof Error ? error.message : String(error)}`,

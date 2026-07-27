@@ -156,6 +156,7 @@ export async function executeGenerate(filters: string[], options: any): Promise<
     const previousSnapshot = loadSnapshotWithMigrations({
       migrationsPath: migrationsDir,
       workspaceRoot: process.cwd(),
+      engine: config.migrations.engine,
     });
 
     if (!previousSnapshot) {
@@ -314,6 +315,7 @@ export function createGenerateCommand(): Command {
     .option("-f, --force", "Force generation even with destructive changes or duplicates", false)
     .option("--dry-run", "Show what would be generated without creating files", false)
     .option("--schema-dir <directory>", "Directory containing Zod schema files")
+    .option("--engine <mode>", 'How existing migrations are read: "runtime" (execute) or "static" (legacy parser)')
     .addHelpText(
       "after",
       `
