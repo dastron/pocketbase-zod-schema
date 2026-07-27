@@ -16,6 +16,12 @@ import { TestScenario } from '../fixtures/test-scenarios.js';
 // instances (native capture and the real-apply stage)
 const TEST_TIMEOUT = 120000; // 2 minutes per test
 
+/**
+ * Both engine-backed agreement scores are expected to be perfect. A scenario
+ * overrides this only where a known, documented gap keeps it lower.
+ */
+const DEFAULT_AGREEMENT_SCORE = 100;
+
 describe('E2E Migration Workflow', () => {
   let pbDownloader: PBDownloader;
   let workspaceManager: WorkspaceManager;
@@ -96,8 +102,6 @@ describe('E2E Migration Workflow', () => {
         scenario.collectionDefinition
       );
 
-      const nativeMigration = await nativeGen.parseMigrationFile(nativeMigrationFile);
-
       // 3. Library Migration Generation
       logger.debug(`Starting library generation for ${scenario.name}`);
       const libraryMigrationFile = await libraryCLI.generateFromSchema(
@@ -111,9 +115,7 @@ describe('E2E Migration Workflow', () => {
       await copyFile(libraryMigrationFile, targetPath);
       logger.debug(`Exported library migration to: ${targetPath}`);
 
-      const libraryMigration = await libraryCLI.parseMigrationFile(libraryMigrationFile);
-
-      // 3.5. Execute both migrations through the engine and compare states
+      // 4. Execute both migrations through the engine and compare states
       // (semantic equivalence, independent of the text comparison below)
       logger.debug(`Executing migrations through the engine for ${scenario.name}`);
       const stateComparison = stateComparator.compareByExecution(nativeMigrationFile, libraryMigrationFile);
@@ -126,7 +128,7 @@ describe('E2E Migration Workflow', () => {
         `migrations must execute cleanly: ${JSON.stringify(stateComparison.executionErrors)}`
       ).toEqual([]);
 
-      // 3.6. Apply the library migration with a real PocketBase binary and
+      // 5. Apply the library migration with a real PocketBase binary and
       // diff the resulting database against the engine's simulation — the
       // oracle for both the generated migration and the engine itself
       logger.debug(`Applying the library migration to real PocketBase for ${scenario.name}`);
@@ -139,8 +141,51 @@ describe('E2E Migration Workflow', () => {
         `library migration must apply to real PocketBase: ${JSON.stringify(realApply.applyFailures)}`
       ).toEqual([]);
 
-      // 4. Compare Migrations
+      // 6. Gates on the two agreement scores. Both default to 100 — full
+      // agreement — and a scenario pins a lower baseline only where a known
+      // gap is tracked in its definition. Either score dropping below its
+      // pinned baseline is a regression and fails here.
+      const stateStatus = stateComparison.equivalent ? 'EQUIVALENT' : 'DIVERGENT';
+      logger.info(
+        `Scenario ${scenario.name} state equivalence: ${stateComparison.stateEquivalenceScore}/100 (${stateStatus})`
+      );
+      if (stateComparison.stateDifferences.length > 0) {
+        logger.warn(`State differences in ${scenario.name}:`, stateComparison.stateDifferences);
+      }
+
+      const realApplyStatus = realApply.equivalent ? 'MATCHES_REAL' : 'DIVERGES_FROM_REAL';
+      logger.info(
+        `Scenario ${scenario.name} real apply: ${realApply.realApplyScore}/100 (${realApplyStatus}), ` +
+          `collections compared: ${realApply.comparedCollections.join(', ') || 'none'}`
+      );
+      if (realApply.differences.length > 0) {
+        logger.warn(`Real PocketBase vs engine differences in ${scenario.name}:`, realApply.differences);
+      }
+
+      const minimumStateScore = scenario.minimumStateEquivalenceScore ?? DEFAULT_AGREEMENT_SCORE;
+      expect(
+        stateComparison.stateEquivalenceScore,
+        `native/library state equivalence below the ${minimumStateScore} baseline:\n` +
+          stateComparison.stateDifferences.map(difference => `  - ${difference}`).join('\n')
+      ).toBeGreaterThanOrEqual(minimumStateScore);
+
+      const minimumRealApplyScore = scenario.minimumRealApplyScore ?? DEFAULT_AGREEMENT_SCORE;
+      expect(
+        realApply.realApplyScore,
+        `real PocketBase/engine agreement below the ${minimumRealApplyScore} baseline:\n` +
+          realApply.differences.map(difference => `  - ${difference}`).join('\n')
+      ).toBeGreaterThanOrEqual(minimumRealApplyScore);
+
+      // 7. Legacy text comparison — informational. Both files are read by
+      // executing them through the engine, so this scores the collections
+      // they produce, not the text; the semantic verdict is the two gates
+      // above. Recorded for the report, never asserted.
       logger.debug(`Comparing migrations for ${scenario.name}`);
+      const [nativeMigration, libraryMigration] = await Promise.all([
+        nativeGen.parseMigrationFile(nativeMigrationFile),
+        libraryCLI.parseMigrationFile(libraryMigrationFile),
+      ]);
+
       const comparison = await analyzer.compareMigrations(
         nativeMigration,
         libraryMigration,
@@ -151,38 +196,17 @@ describe('E2E Migration Workflow', () => {
       comparison.realApplyScore = realApply.realApplyScore;
       comparison.realApplyDifferences = realApply.differences;
 
-      // 5. Assertions & Benchmarking
-      // Note: Score thresholds are logged for benchmarking but don't cause test failures
-      // Tests only fail on runtime errors (e.g., authentication, file parsing, etc.)
-
-      // Log overall score for benchmarking (threshold will be enforced later)
       const scoreStatus = comparison.overallScore >= scenario.minimumScore ? 'PASS' : 'BELOW_THRESHOLD';
-      logger.info(`Scenario ${scenario.name} score: ${comparison.overallScore}/${scenario.minimumScore} (${scoreStatus})`);
-
-      // Log the engine-based state equivalence score alongside the text score
-      const stateStatus = stateComparison.equivalent ? 'EQUIVALENT' : 'DIVERGENT';
-      logger.info(`Scenario ${scenario.name} state equivalence: ${stateComparison.stateEquivalenceScore}/100 (${stateStatus})`);
-      if (stateComparison.stateDifferences.length > 0) {
-        logger.warn(`State differences in ${scenario.name}:`, stateComparison.stateDifferences);
-      }
-
-      // Log how faithfully the engine simulated what PocketBase really did
-      // (threshold to be enforced once a baseline is established)
-      const realApplyStatus = realApply.equivalent ? 'MATCHES_REAL' : 'DIVERGES_FROM_REAL';
       logger.info(
-        `Scenario ${scenario.name} real apply: ${realApply.realApplyScore}/100 (${realApplyStatus}), ` +
-          `collections compared: ${realApply.comparedCollections.join(', ') || 'none'}`
+        `Scenario ${scenario.name} text similarity (informational): ` +
+          `${comparison.overallScore}/${scenario.minimumScore} (${scoreStatus})`
       );
-      if (realApply.differences.length > 0) {
-        logger.warn(`Real PocketBase vs engine differences in ${scenario.name}:`, realApply.differences);
-      }
 
-      // Log critical differences for benchmarking (warnings only, not failures)
       if (comparison.criticalDifferences.length > 0) {
         logger.warn(`Critical differences in ${scenario.name}:`, comparison.criticalDifferences);
       }
 
-      // Check that all expected collections exist (structural check - should still pass)
+      // Both sides must actually describe the scenario's collection
       const collectionNames = nativeMigration.collections.map(c => c.name);
       expect(collectionNames).toContain(scenario.collectionDefinition.name);
 

@@ -5,12 +5,12 @@
  * executes library's migration generation commands, and captures CLI responses.
  */
 
-import { mkdir, writeFile, readFile, readdir } from 'fs/promises';
+import { mkdir, writeFile, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { execSync, spawn } from 'child_process';
 import { CollectionDefinition, FieldDefinition } from '../fixtures/test-scenarios.js';
-import { ParsedMigration, ParsedCollection, ParsedField } from './native-migration-generator.js';
+import { inspectMigrationFile, type ParsedMigration } from './migration-inspector.js';
 import { logger, createTempDir, cleanupTempDir } from '../utils/test-helpers.js';
 
 export interface LibraryWorkspace {
@@ -206,29 +206,12 @@ export default {
   }
 
   /**
-   * Parse a migration file into structured data
+   * Read a migration file by executing it through the migration engine and
+   * reporting the collections it produced.
    */
   async parseMigrationFile(filePath: string): Promise<ParsedMigration> {
     try {
-      const content = await readFile(filePath, 'utf-8');
-      const filename = filePath.split('/').pop() || '';
-
-      // Extract up and down functions using regex
-      const upMatch = content.match(/migrate\s*\(\s*\((?:app|db)\)\s*=>\s*\{([\s\S]*?)\}\s*,/);
-      const downMatch = content.match(/,\s*\((?:app|db)\)\s*=>\s*\{([\s\S]*?)\}\s*\)/);
-
-      const upFunction = upMatch ? upMatch[0] : '';
-      const downFunction = downMatch ? downMatch[0] : '';
-
-      // Parse collections from the migration content
-      const collections = this.parseCollectionsFromMigration(content);
-
-      return {
-        filename,
-        upFunction,
-        downFunction,
-        collections,
-      };
+      return await inspectMigrationFile(filePath);
     } catch (error) {
       logger.error(`Failed to parse migration file ${filePath}:`, error);
       throw error;
@@ -282,8 +265,11 @@ export default {
       type: definition.type,
     };
 
+    // API rules ride in the description under `permissions` — the key
+    // `defineCollection` writes and the analyzer reads. Writing them under
+    // `rules` (which nothing reads) silently produced rule-less migrations
     if (definition.rules) {
-      metadata.rules = definition.rules;
+      metadata.permissions = definition.rules;
     }
 
     if (definition.indexes && definition.indexes.length > 0) {
@@ -512,123 +498,6 @@ export default {
     }
 
     throw new Error(`Migration file was not generated within timeout (${maxAttempts * 500}ms)`);
-  }
-
-  /**
-   * Parse collections from migration content
-   */
-  private parseCollectionsFromMigration(content: string): ParsedCollection[] {
-    const collections: ParsedCollection[] = [];
-
-    try {
-      // Find all occurrences of "new Collection({"
-      const collectionStartRegex = /new Collection\s*\(\s*\{/g;
-      let match;
-
-      while ((match = collectionStartRegex.exec(content)) !== null) {
-        const startIndex = match.index + match[0].length - 1; // pointing to {
-        let depth = 0;
-        let endIndex = -1;
-
-        // Find matching closing brace, ignoring strings
-        let inString = false;
-        let stringChar = '';
-
-        for (let i = startIndex; i < content.length; i++) {
-          const char = content[i];
-
-          if (inString) {
-            if (char === stringChar && content[i-1] !== '\\') {
-              inString = false;
-            }
-            continue;
-          }
-
-          if (char === '"' || char === "'" || char === '`') {
-             inString = true;
-             stringChar = char;
-             continue;
-          }
-
-          if (char === '{') {
-            depth++;
-          } else if (char === '}') {
-            depth--;
-            if (depth === 0) {
-              endIndex = i;
-              break;
-            }
-          }
-        }
-
-        if (endIndex !== -1) {
-          const collectionData = content.substring(startIndex, endIndex + 1);
-
-          try {
-            // Use new Function to parse the collection data object safely
-            // valid JS object syntax from the migration file
-            const parseConfig = new Function(`return ${collectionData}`);
-            const config = parseConfig();
-
-            if (!config.name || !config.type) {
-              continue;
-            }
-
-            // Map fields from schema/fields property
-            const rawFields = config.schema || config.fields || [];
-            const fields: ParsedField[] = rawFields.map((f: any) => {
-              const parsedField: any = {
-                id: f.id || `field_${f.name}`,
-                name: f.name,
-                type: f.type,
-                required: !!f.required,
-                unique: !!f.unique,
-                options: f.options || {}
-              };
-
-              // Extract relation config if present (for accurate comparison)
-              if (f.type === 'relation') {
-                parsedField.relation = {
-                  collectionId: f.collectionId,
-                  cascadeDelete: f.cascadeDelete ?? false,
-                  maxSelect: f.maxSelect ?? 1,
-                  minSelect: f.minSelect ?? null,
-                  displayFields: f.displayFields ?? null
-                };
-              }
-
-              return parsedField;
-            });
-
-            // Map rules
-            const rules: any = {
-              listRule: config.listRule,
-              viewRule: config.viewRule,
-              createRule: config.createRule,
-              updateRule: config.updateRule,
-              deleteRule: config.deleteRule,
-              manageRule: config.manageRule,
-            };
-
-            collections.push({
-              id: config.id || `collection_${config.name}`,
-              name: config.name,
-              type: config.type,
-              system: !!config.system,
-              fields,
-              indexes: config.indexes || [],
-              rules,
-            });
-          } catch (e) {
-            logger.warn(`Failed to parse collection data: ${e}`);
-          }
-        }
-      }
-    } catch (error) {
-      logger.warn(`Error parsing collections from migration content:`, error);
-    }
-
-    return collections;
   }
 
   /**

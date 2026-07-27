@@ -16,11 +16,35 @@ The E2E test system:
 
 Each scenario is checked three ways, from weakest to strongest signal:
 
-| Stage | Component | What it proves |
-| --- | --- | --- |
-| Text comparison | `cli-response-analyzer.ts` | How closely the generated file resembles PocketBase's own (`overallScore`) |
-| State equivalence | `engine-state-comparator.ts` | Both migrations, executed in the engine, produce the same schema (`stateEquivalenceScore`) |
-| Real apply | `real-apply-verifier.ts` | PocketBase itself applies the migration, and the engine simulated exactly what it stored (`realApplyScore`) |
+| Stage | Component | What it proves | Gated |
+| --- | --- | --- | --- |
+| Text comparison | `cli-response-analyzer.ts` | How closely the generated file resembles PocketBase's own (`overallScore`) | no — informational |
+| State equivalence | `engine-state-comparator.ts` | Both migrations, executed in the engine, produce the same schema (`stateEquivalenceScore`) | yes |
+| Real apply | `real-apply-verifier.ts` | PocketBase itself applies the migration, and the engine simulated exactly what it stored (`realApplyScore`) | yes |
+
+Both gated scores are asserted per scenario against
+`minimumStateEquivalenceScore` and `minimumRealApplyScore`
+(`fixtures/test-scenarios.ts`), each defaulting to 100 — the two states must
+be identical. A scenario pins a lower baseline only for a divergence that is
+understood and tracked; every such number carries a comment naming the gap.
+Dropping below a pinned baseline fails the test, so a regression cannot slip
+through as a logged warning. When a gap is closed, raise its baseline back to
+100 in the same change, otherwise the gate stops guarding it.
+
+The text-similarity score is reported but never asserted: two migrations can
+express the same schema in very different text (statement order, `addAt` vs
+`add`, `unmarshal` vs property assignment), so it measures resemblance rather
+than correctness.
+
+### Reading migration files
+
+`migration-inspector.ts` is the only thing that reads a migration file. It
+executes the file through the migration engine (starting from the `users`
+auth collection every real instance has) and reports the collections the file
+created, modified, or deleted. There is no text scanning: a migration that
+mutates a collection it looked up, loops over field definitions, or computes
+a name is read exactly as PocketBase would run it, and a file the engine
+cannot execute fails loudly instead of parsing as zero collections.
 
 The real-apply stage is the oracle: it copies the library-generated
 migration into a fresh workspace, runs `pocketbase migrate up`, reads the
@@ -38,16 +62,28 @@ is real divergence.
 
 #### Known divergences
 
-Currently reported by the stage, logged rather than gated (both are
-generator-side, and PocketBase corrects them on apply):
+Every scenario scores 100 on both gates except the ones below, which pin a
+lower baseline in `fixtures/test-scenarios.ts` next to a comment naming the
+gap. Two are generator-side (PocketBase corrects them on apply), the rest are
+limits of the harness's Zod-schema generator rather than of the library:
 
-- **`pattern` on `email`/`date`/`autodate` fields** (`all-field-types`,
-  `unique-indexes`): the generator carries the Zod `.email()`/`.datetime()`
-  regex into the migration, but those PocketBase field types have no
-  `pattern` option, so the stored field has none.
-- **`password` on auth collections** (`auth-collection`): the generator
-  emits the injected system field as `type: "text", min: 0`; PocketBase
-  stores it as `type: "password", min: 8`.
+- **`pattern` on `email`/`date`/`autodate` fields** (`all-field-types` 70/85,
+  `unique-indexes` 95/95): the generator carries the Zod
+  `.email()`/`.datetime()` regex into the migration, but those PocketBase
+  field types have no `pattern` option, so the stored field has none.
+- **`password`/`tokenKey` on auth collections** (`auth-collection` 90/95,
+  `auth-with-manage-rule` 65/95): the injected system fields come out
+  under-specified — `password` as `type: "text", min: 0` where PocketBase
+  uses `type: "password", min: 8`, and `tokenKey` without its min/max.
+- **Field metadata the harness cannot express** (`all-field-types`,
+  `select-field-variations` 95/100): `library-cli.ts` builds each scenario's
+  Zod schema from a plain field definition, so `editor` and `autodate` come
+  out as `text`/`date` and a select loses its `maxSelect`. These say nothing
+  about the library — closing them means teaching the harness to emit the
+  matching field metadata.
+- **Auto-generated auth indexes** (`auth-with-manage-rule`): PocketBase names
+  the tokenKey/email unique indexes after the collection id, which is random
+  on each side, so the two sets never compare equal by name.
 
 ## Directory Structure
 
