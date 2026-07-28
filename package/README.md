@@ -212,7 +212,7 @@ The library provides explicit field helper functions for all PocketBase field ty
 | `SelectField(values, options?)` | select | Single or multiple select field | `status: SelectField(["draft", "published"])` |
 | `FileField(options?)` | file | Single file upload field | `avatar: FileField({ mimeTypes: ["image/*"] })` |
 | `FilesField(options?)` | file | Multiple file upload field | `images: FilesField({ maxSelect: 5 })` |
-| `JSONField(schema?)` | json | JSON field with optional schema | `metadata: JSONField()` |
+| `JSONField(schema?, options?)` | json | JSON field with optional schema and size cap | `metadata: JSONField({ maxSize: "5M" })` |
 | `GeoPointField()` | geoPoint | Geographic coordinates field | `location: GeoPointField()` |
 | `RelationField(config)` | relation | Single relation field | `author: RelationField({ collection: "users" })` |
 | `RelationsField(config)` | relation | Multiple relation field | `tags: RelationsField({ collection: "tags" })` |
@@ -278,8 +278,11 @@ The library provides explicit field helper functions for all PocketBase field ty
 - `maxSelect?: number` - Maximum number of files allowed
 - Returns: `z.ZodType<string[], (File | string)[]>`
 
-**JSONField(schema?)**
+**JSONField(schema?, options?)**
 - `schema?: z.ZodTypeAny` - Optional Zod schema for JSON structure validation
+- `options?.maxSize?: number | "5M"` - Maximum serialized size, in bytes or with a `K`/`M`/`G`
+  suffix. PocketBase applies a 1MB default when unset, so larger payloads must set it. Either
+  argument may be passed alone: `JSONField({ maxSize: "5M" })`
 - Returns: `T | z.ZodRecord<z.ZodString, z.ZodAny>`
 
 **GeoPointField()**

@@ -65,16 +65,40 @@ export const FIELD_CONSTRUCTORS: Record<string, new (data?: Record<string, any>)
   PasswordField,
 };
 
-/**
- * Generates a field id in PocketBase's `<type><digits>` style when a
- * migration saves a field without one. PocketBase derives the digits from
- * crc32(name); a random suffix is sufficient here because diffing matches
- * fields by name, not id.
- */
-export function generateRuntimeFieldId(type: string): string {
-  let digits = "";
-  for (let i = 0; i < 10; i++) {
-    digits += Math.floor(Math.random() * 10).toString();
+/** crc32 (IEEE polynomial), lazily tabulated */
+let crcTable: Uint32Array | null = null;
+
+function crc32(input: string): number {
+  if (!crcTable) {
+    crcTable = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let bit = 0; bit < 8; bit++) {
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      }
+      crcTable[i] = c >>> 0;
+    }
   }
-  return `${type || "field"}${digits}`;
+
+  let crc = 0xffffffff;
+  for (const byte of new TextEncoder().encode(input)) {
+    crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/**
+ * The id PocketBase gives a field that is added without one: its type
+ * followed by crc32 of its name, as an unsigned decimal. Verified against the
+ * ids PocketBase writes for the auth system fields — `password901924565`,
+ * `text2504183744` (tokenKey), `email3885137012`, `bool1547992806`
+ * (emailVisibility), `bool256245529` (verified), `text3208210256` (id).
+ *
+ * The formula has to match exactly, not just look plausible: `FieldsList.add()`
+ * uses the derived id to decide whether an incoming field *replaces* an
+ * existing one, so a random suffix silently turns a field rewrite into a
+ * duplicate field.
+ */
+export function generateRuntimeFieldId(type: string, name: string): string {
+  return `${type || "field"}${crc32(name)}`;
 }

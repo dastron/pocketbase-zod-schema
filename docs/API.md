@@ -171,13 +171,20 @@ normally. Full option tables are in [TYPE_MAPPING.md](./TYPE_MAPPING.md).
 | `MultiSelectField(values, options?)` | `select` | array of enum |
 | `FileField(options?)` | `file` | `z.ZodType<string, File \| string>` |
 | `FilesField(options?)` | `file` | `z.ZodType<string[], (File \| string)[]>` |
-| `JSONField(schema?)` | `json` | the passed schema, or `z.ZodRecord<z.ZodString, z.ZodAny>` |
+| `JSONField(schema?, options?)` | `json` | the passed schema, or `z.ZodRecord<z.ZodString, z.ZodAny>` |
 | `GeoPointField()` | `geoPoint` | `z.ZodObject<{ lon, lat }>` |
 | `RelationField(config)` | `relation` | `z.ZodString` (`maxSelect: 1`) |
 | `RelationsField(config)` | `relation` | `z.ZodArray<z.ZodString>` |
 
 `RelationConfig`: `collection` (required), `cascadeDelete?`, `displayFields?`.
 `RelationsConfig` adds `minSelect?` (default `0`) and `maxSelect?` (default `999`).
+
+`JSONFieldOptions`: `maxSize?` — a `ByteSize` (bytes as a number, or `"200K"`/`"5M"`/`"1G"`),
+normalized to bytes in the emitted migration. PocketBase caps a `json` field at 1MB when this is
+unset, so a field holding more has to declare its own limit. Both arguments are optional and either
+may be given alone: `JSONField({ maxSize: "5M" })` is an untyped JSON field with a 5MB cap.
+`FileFieldOptions.maxSize` takes the same `ByteSize` (ceiling `8G`; a `json` field's ceiling is
+2^53-1 bytes).
 
 ### Metadata accessors
 

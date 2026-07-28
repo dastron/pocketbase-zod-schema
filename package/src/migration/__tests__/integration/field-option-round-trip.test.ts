@@ -17,7 +17,7 @@ import * as path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { defineCollection } from "../../../schema/base";
-import { TextField } from "../../../schema/fields";
+import { JSONField, TextField } from "../../../schema/fields";
 import { convertZodSchemaToCollectionSchema } from "../../analyzer";
 import { compare } from "../../diff";
 import { generate } from "../../generator";
@@ -93,6 +93,61 @@ describe("Generated field options replay back", () => {
     expect(followUp.collectionsToModify).toHaveLength(0);
   });
 
+  it("reads a JSONField's maxSize back, in bytes", () => {
+    // PocketBase caps a json field at 1MB unless the field says otherwise, so
+    // the limit is load-bearing — it has to survive the round trip rather than
+    // being re-emitted (or dropped) on the next run.
+    const collection = convertZodSchemaToCollectionSchema(
+      "timeline_renders",
+      defineCollection({
+        collectionName: "timeline_renders",
+        schema: z.object({
+          timelineData: JSONField({ maxSize: "5M" }),
+          outputSettings: JSONField(z.object({ fps: z.number() }), { maxSize: "200K" }),
+          notes: JSONField(),
+        }),
+      })
+    );
+
+    const { field, followUp } = roundTrip(collection, "timelineData");
+
+    expect(field?.type).toBe("json");
+    expect(field?.options?.maxSize).toBe(5 * 1024 * 1024);
+    expect(followUp.collectionsToCreate).toHaveLength(0);
+    expect(followUp.collectionsToModify).toHaveLength(0);
+  });
+
+  it("settles after a JSONField's maxSize changes", () => {
+    const before = convertZodSchemaToCollectionSchema(
+      "json_resized",
+      defineCollection({
+        collectionName: "json_resized",
+        schema: z.object({ payload: JSONField({ maxSize: "1M" }) }),
+      })
+    );
+
+    const after = convertZodSchemaToCollectionSchema(
+      "json_resized",
+      defineCollection({
+        collectionName: "json_resized",
+        schema: z.object({ payload: JSONField({ maxSize: "5M" }) }),
+      })
+    );
+
+    const createdPaths = generate(compare({ collections: new Map([[before.name, before]]) }, null), tempDir);
+    const afterCreate = executeMigrationFiles(createdPaths).snapshot;
+
+    const resized: SchemaDefinition = { collections: new Map([[after.name, after]]) };
+    const updatePaths = generate(compare(resized, afterCreate), tempDir);
+    expect(updatePaths).toHaveLength(1);
+
+    const afterUpdate = executeMigrationFiles([...createdPaths, ...updatePaths]).snapshot;
+    const field = afterUpdate.collections.get(after.name)!.fields.find((f) => f.name === "payload");
+    expect(field?.options?.maxSize).toBe(5 * 1024 * 1024);
+
+    expect(compare(resized, afterUpdate).collectionsToModify).toHaveLength(0);
+  });
+
   it("reads back the remaining whitelisted options the generator can write", () => {
     const collection: CollectionSchema = {
       name: "whitelisted_options",
@@ -136,6 +191,48 @@ describe("Generated field options replay back", () => {
     expect(optionsOf("label")).toMatchObject({ presentable: true });
 
     expect(compare(schema, snapshot).collectionsToModify).toHaveLength(0);
+  });
+
+  it("settles after a schema stops constraining a field", () => {
+    // A field whose max/pattern were generated once and have since been
+    // dropped from the schema. The removal has to be written as PocketBase's
+    // zero value (max 0, pattern ""), because a field struct has no way to
+    // hold "no value" — emitting null describes a state the server never has,
+    // and replay would read the removal back as still pending.
+    const constrained = convertZodSchemaToCollectionSchema(
+      "constrained_then_not",
+      defineCollection({
+        collectionName: "constrained_then_not",
+        schema: z.object({ name: TextField({ min: 1, max: 60, pattern: /^[A-Za-z0-9][A-Za-z0-9_-]*$/ }) }),
+        indexes: ["CREATE INDEX idx_constrained_name ON constrained_then_not (name)"],
+      })
+    );
+
+    const unconstrained = convertZodSchemaToCollectionSchema(
+      "constrained_then_not",
+      defineCollection({
+        collectionName: "constrained_then_not",
+        schema: z.object({ name: TextField() }),
+      })
+    );
+
+    const createdPaths = generate(
+      compare({ collections: new Map([[constrained.name, constrained]]) }, null),
+      tempDir
+    );
+    const afterCreate = executeMigrationFiles(createdPaths).snapshot;
+
+    const terse: SchemaDefinition = { collections: new Map([[unconstrained.name, unconstrained]]) };
+    const removalPaths = generate(compare(terse, afterCreate), tempDir);
+    expect(removalPaths).toHaveLength(1);
+
+    const afterRemoval = executeMigrationFiles([...createdPaths, ...removalPaths]).snapshot;
+    const field = afterRemoval.collections.get(unconstrained.name)!.fields.find((f) => f.name === "name");
+    expect(field?.options?.max).toBe(0);
+    expect(field?.options?.pattern).toBe("");
+
+    const followUp = compare(terse, afterRemoval);
+    expect(followUp.collectionsToModify).toHaveLength(0);
   });
 
   it("treats PocketBase's zero-value options as equivalent to omitting them", () => {

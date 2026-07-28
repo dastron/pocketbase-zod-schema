@@ -122,6 +122,41 @@ const CustomPostSchema = withPermissions(
 );
 ```
 
+### Relation Paths and Back-Relations
+
+Rules can traverse relations with dot notation, in both directions.
+
+**Forward** — follow a relation field on this collection:
+
+```typescript
+// Captions.WorkspaceRef -> Workspaces.OwnerRef
+listRule: "WorkspaceRef.OwnerRef = @request.auth.id";
+```
+
+**Backward** — PocketBase's `<collection>_via_<field>` syntax selects the rows of
+`<collection>` whose `<field>` relation points at the current record. The classic use is a
+membership join table:
+
+```typescript
+// Workspaces: "I am a member of this workspace".
+// WorkspaceMembers.WorkspaceRef points back at Workspaces; ?= is the
+// at-least-one-match operator, since the back-relation yields many rows.
+listRule: "WorkspaceMembers_via_WorkspaceRef.UserRef ?= @request.auth.id";
+
+// Captions: hop to the workspace first, then walk the same relation backwards
+listRule: "WorkspaceRef.WorkspaceMembers_via_WorkspaceRef.UserRef ?= @request.auth.id";
+```
+
+Note there is no `WorkspaceMembers_via_WorkspaceRef` field to declare in your Zod schema —
+the back-relation is derived from the *other* collection's relation field.
+
+**Validation reaches one hop only.** Rule validation runs per collection, so only the root
+of a path is checked against your schema. Everything past the first dot — and any
+`_via_` back-relation, whether at the root or mid-chain — is passed through unresolved, as
+are `@collection.*` references. A typo in the collection or field half of a back-relation
+therefore surfaces at PocketBase runtime (the rule silently matches nothing), not at
+`db:generate` time.
+
 ## Combining Templates with Custom Rules
 
 ```typescript

@@ -301,7 +301,7 @@ import {
 | `SelectField(values, options?)` | select | `status: SelectField(['draft', 'published'])` |
 | `FileField(options?)` | file | `avatar: FileField({ mimeTypes: ['image/*'] })` |
 | `FilesField(options?)` | file | `images: FilesField({ maxSelect: 5 })` |
-| `JSONField(schema?)` | json | `metadata: JSONField()` |
+| `JSONField(schema?, options?)` | json | `metadata: JSONField({ maxSize: '5M' })` |
 | `GeoPointField()` | geoPoint | `location: GeoPointField()` |
 | `RelationField(config)` | relation | `author: RelationField({ collection: 'users' })` |
 | `RelationsField(config)` | relation | `tags: RelationsField({ collection: 'tags' })` |

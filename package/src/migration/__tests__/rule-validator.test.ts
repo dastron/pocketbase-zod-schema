@@ -54,13 +54,14 @@ describe("RuleValidator", () => {
       expect(result.errors[0]).toContain("does not exist");
     });
 
-    it("should validate nested relation field references with warning", () => {
+    it("should accept nested relation field references without warning", () => {
       const validator = new RuleValidator("posts", mockFields);
       const result = validator.validate("listRule", 'User.email = "test@example.com"');
 
       expect(result.valid).toBe(true);
-      expect(result.warnings).toHaveLength(1);
-      expect(result.warnings[0]).toContain("Nested field reference");
+      expect(result.errors).toHaveLength(0);
+      expect(result.warnings).toHaveLength(0);
+      expect(result.fieldReferences).toContain("User.email");
     });
 
     it("should error on nested reference for non-relation field", () => {
@@ -70,6 +71,88 @@ describe("RuleValidator", () => {
       expect(result.valid).toBe(false);
       expect(result.errors).toHaveLength(1);
       expect(result.errors[0]).toContain("not a relation field");
+    });
+  });
+
+  // PocketBase's `<collection>_via_<field>` syntax walks a relation backwards.
+  // The referenced collection has no field by that name by design, so these
+  // segments must never be validated against a field list.
+  describe("validate - back-relation references", () => {
+    it("should accept a root back-relation that is not a declared field", () => {
+      const validator = new RuleValidator("Workspaces", mockFields);
+      const result = validator.validate("listRule", "WorkspaceMembers_via_WorkspaceRef.UserRef ?= @request.auth.id");
+
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it("should accept a back-relation hanging off a relation field", () => {
+      const validator = new RuleValidator("posts", mockFields);
+      const result = validator.validate(
+        "listRule",
+        "User.WorkspaceMembers_via_WorkspaceRef.UserRef ?= @request.auth.id"
+      );
+
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.warnings).toHaveLength(0);
+    });
+
+    it("should still error when a back-relation hangs off a non-relation field", () => {
+      const validator = new RuleValidator("posts", mockFields);
+      const result = validator.validate("listRule", 'title.Foo_via_Bar.id = "x"');
+
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain("not a relation field");
+    });
+
+    it("should treat a declared field named like a back-relation as a field", () => {
+      const fields: FieldDefinition[] = [
+        ...mockFields,
+        { name: "foo_via_bar", id: "foo_via_bar_id", type: "text", required: false },
+      ];
+      const validator = new RuleValidator("posts", fields);
+
+      expect(validator.validate("listRule", 'foo_via_bar = "x"').valid).toBe(true);
+
+      // Declared and text-typed, so traversing into it is still a real mistake
+      const nested = validator.validate("listRule", 'foo_via_bar.x = "y"');
+      expect(nested.valid).toBe(false);
+      expect(nested.errors[0]).toContain("not a relation field");
+    });
+
+    it("should report no errors or warnings for a workspace-scoped rule set", () => {
+      // Verbatim from the reported Artifacts.listRule
+      const fields: FieldDefinition[] = [
+        {
+          name: "WorkspaceRef",
+          id: "workspace_ref_id",
+          type: "relation",
+          required: false,
+          relation: { collection: "Workspaces" },
+        },
+      ];
+      const validator = new RuleValidator("Artifacts", fields);
+      const result = validator.validate(
+        "listRule",
+        '@request.auth.id != "" && (WorkspaceRef = "" || WorkspaceRef.WorkspaceMembers_via_WorkspaceRef.UserRef ?= @request.auth.id)'
+      );
+
+      expect(result.errors).toEqual([]);
+      expect(result.warnings).toEqual([]);
+      expect(result.valid).toBe(true);
+    });
+  });
+
+  describe("validate - @collection references", () => {
+    it("should not validate @collection paths as local fields", () => {
+      const validator = new RuleValidator("posts", mockFields);
+      const result = validator.validate("listRule", "@collection.Admins.user ?= @request.auth.id");
+
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.fieldReferences).not.toContain("Admins.user");
     });
   });
 

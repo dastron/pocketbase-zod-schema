@@ -222,6 +222,50 @@ The result is the same as the TypeORM example above: unique constraints move int
 
 ## Version upgrade notes
 
+### Unreleased — field constraints are read from chained validators, and removing one settles
+
+Three fixes to how a field's `min`/`max`/`pattern` travel from a Zod schema into a migration. Each
+can produce one migration on the next `generate`, after which the schema and the database agree.
+
+- **Validators chained onto a field helper are read.** `TextField().max(60).regex(/…/)` recorded only
+  what was passed to `TextField()`, so the chained constraints were silently dropped. They now map
+  the same way they do on bare Zod (see
+  [TYPE_MAPPING.md](./TYPE_MAPPING.md#validation-constraint-mappings)), for `text`, `password`,
+  `number`, `select`, and `file` fields. If you were relying on the constraints being ignored, move
+  them off the field or set the option explicitly.
+- **A RegExp `pattern` survives.** `TextField({ pattern: /^[a-z]+$/ })` stored the RegExp in the
+  field metadata, which is JSON — the pattern serialized to `{}` and never reached the migration. It
+  is now recorded as the pattern source, which is what PocketBase stores.
+- **Dropping a constraint no longer re-emits forever.** Removing `max`/`pattern` from a schema
+  emitted `field.max = null`, a state PocketBase cannot hold; replay read the removal back as still
+  pending, so every `generate` produced the same `updated_*` migration. Removals are now written as
+  PocketBase's zero value (`max = 0`, `pattern = ""`), and the diff treats a zero value — and a
+  `null` from an older migration — as equivalent to a schema that never set the option.
+
+### Unreleased — relation names ending in a reference suffix are refused
+
+The naming-convention fallback (a `z.string()`/`z.array(z.string())` field with an uppercase-first
+name and no `RelationField`) reads the last capitalized word as the target entity. For a name like
+`WorkspaceRef` that word is `Ref`, so the target resolved to a pluralized `Reves` — a collection
+nothing answers to, written into a migration without complaint.
+
+Names whose trailing word is `Ref`, `Refs`, `Id`, `Ids`, `Uid`, `Uids`, `Uuid`, `Uuids`, `Fk`,
+`Fks`, `Pk`, or `Pks` now raise a `SchemaParsingError` naming the field and the file:
+
+```
+Cannot infer the relation target for field "WorkspaceRef": the name ends in "Ref", which marks it
+as a reference without naming the collection it points at. Declare the target explicitly, e.g.
+WorkspaceRef: RelationField({ collection: "Workspaces" }).
+```
+
+**What to do:** declare the target with `RelationField({ collection: "..." })` /
+`RelationsField({ collection: "..." })`, which is the recommended form regardless. Only the whole
+trailing word is matched, so entity names that contain a suffix as a substring (`Referral`,
+`UserIdentity`) are unaffected, as is every explicit declaration.
+
+**Also in this release:** a select field's `values` is compared as a set, so reordering the options
+alone no longer produces a migration. See [TYPE_MAPPING.md](./TYPE_MAPPING.md#select-field).
+
 ### Unreleased — the static migration parser is gone
 
 The text-scanning migration reader has been removed. State reconstruction now has exactly one

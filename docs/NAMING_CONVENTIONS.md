@@ -129,6 +129,30 @@ multiple relation. The target collection is the *last* capitalized word in the n
 
 **Pattern:** `[Prefix]CollectionName: z.array(z.string())`
 
+#### Reference Suffixes Are Refused, Not Guessed
+
+Both rules read the *last* capitalized word as the entity name, so a name ending in a reference
+suffix — `Ref`, `Refs`, `Id`, `Ids`, `Uid`, `Uuid`, `Fk`, `Pk` and their plurals — identifies the
+field as a relation without naming its target. Rather than guess, the analyzer refuses and tells
+you which field to declare explicitly:
+
+```
+Cannot infer the relation target for field "WorkspaceRef": the name ends in "Ref", which marks it
+as a reference without naming the collection it points at. Declare the target explicitly, e.g.
+WorkspaceRef: RelationField({ collection: "Workspaces" }).
+```
+
+```typescript
+{
+  WorkspaceRef: z.string(),                              // ✗ error — "Ref" names no collection
+  WorkspaceRef: RelationField({ collection: "Workspaces" }),  // ✓ explicit target
+  Referral: z.string(),                                  // ✓ → Referrals (an entity, not a marker)
+}
+```
+
+Only the whole trailing word counts, so entity names that merely *contain* a suffix — `Referral`,
+`UserIdentity` — resolve as before.
+
 > **Watch out:** an all-lowercase `z.array(z.string())` such as `tags: z.array(z.string())` still
 > maps to the `relation` **type** — arrays of strings always do — but fails this naming check, so
 > it is emitted with no target collection and PocketBase rejects it. Use

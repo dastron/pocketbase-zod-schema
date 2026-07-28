@@ -280,6 +280,14 @@ const PostSchema = z.object({
 }
 ```
 
+**Ordering:** the diff compares `values` as a set, not as a sequence. Reordering the array on
+its own produces no migration — the order only fixes the option order in the PocketBase admin
+UI, and options added there land at the end of the stored list, which would otherwise diff
+against a schema that keeps them in a logical order. Adding or removing a value *is* a change,
+and the generated migration writes the whole array back in the schema's order, so the stored
+order re-syncs then. To apply a reorder on its own, change the set in the same commit or edit
+the option order in the admin UI.
+
 ### File Field
 
 **Helper:** `FileField(options?)`
@@ -364,12 +372,20 @@ const ProductSchema = z.object({
 
 ### JSON Field
 
-**Helper:** `JSONField(schema?)`
+**Helper:** `JSONField(schema?, options?)`
 
 **Maps to:** PocketBase `json` field
 
 **Parameters:**
 - `schema?: z.ZodTypeAny` - Optional Zod schema for JSON structure validation
+- `options?: JSONFieldOptions` - Optional PocketBase constraints:
+  - `maxSize?: ByteSize` - maximum size of the serialized value, as bytes (`5242880`) or a suffixed
+    string (`"200K"`, `"5M"`, `"1G"`). PocketBase applies a **1MB** default when this is unset, and
+    rejects a value over the limit at write time, so a field holding a larger payload must set it.
+    The ceiling PocketBase accepts is 2^53-1 bytes.
+
+Either argument may be given alone — `JSONField({ maxSize: "5M" })` is an untyped JSON field with a
+5MB cap.
 
 **Example:**
 ```typescript
@@ -378,12 +394,16 @@ import { JSONField } from "pocketbase-zod-schema/schema";
 const ProductSchema = z.object({
   // Any JSON
   metadata: JSONField(),
-  
+
   // Typed JSON
   settings: JSONField(z.object({
     theme: z.string(),
     notifications: z.boolean(),
   })),
+
+  // Past PocketBase's 1MB default
+  timelineData: JSONField({ maxSize: "5M" }),
+  outputSettings: JSONField(z.object({ fps: z.number() }), { maxSize: "200K" }),
 });
 ```
 
@@ -393,6 +413,14 @@ const ProductSchema = z.object({
   name: "metadata",
   type: "json",
   required: true
+}
+
+// timelineData — maxSize is emitted in bytes
+{
+  name: "timelineData",
+  type: "json",
+  required: true,
+  maxSize: 5242880
 }
 ```
 
@@ -496,7 +524,7 @@ const PostSchema = z.object({
 | `SelectField(values, options?)` | select | maxSelect | `status: SelectField(["draft", "published"])` |
 | `FileField(options?)` | file | mimeTypes, maxSize, thumbs | `avatar: FileField({ mimeTypes: ["image/*"] })` |
 | `FilesField(options?)` | file | minSelect, maxSelect, mimeTypes | `images: FilesField({ maxSelect: 5 })` |
-| `JSONField(schema?)` | json | schema | `metadata: JSONField()` |
+| `JSONField(schema?, options?)` | json | maxSize | `timelineData: JSONField({ maxSize: "5M" })` |
 | `GeoPointField()` | geoPoint | None | `location: GeoPointField()` |
 | `RelationField(config)` | relation | collection, cascadeDelete, displayFields | `author: RelationField({ collection: "users" })` |
 | `RelationsField(config)` | relation | collection, minSelect, maxSelect | `tags: RelationsField({ collection: "tags" })` |
@@ -595,6 +623,27 @@ relation. The target collection is the *last* capitalized word in the name, plur
 ## Validation Constraint Mappings
 
 Zod validation methods are mapped to PocketBase field options:
+
+These mappings also apply to validators chained onto a field helper, so a shared Zod rule can be
+reused as a field:
+
+```typescript
+const NameRule = z.string().min(1).max(60).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/);
+
+// Both produce min: 1, max: 60, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+name: TextField().min(1).max(60).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/),
+name: TextField({ min: 1, max: 60, pattern: /^[A-Za-z0-9][A-Za-z0-9_-]*$/ }),
+```
+
+The helper's own options win where the two overlap. Chained validators are read for `text`,
+`password`, `number`, `select`, and `file` fields — the types where a Zod constraint means the same
+thing as the PocketBase option. They are ignored elsewhere: `DateField()` is a Zod string, so
+`.min()` on it is a string *length*, not an earliest date. Use `DateField({ min })` for that.
+
+A constraint that disappears from the schema is reset rather than deleted, because PocketBase always
+stores every option its field type has: dropping `max` from a text field writes `max: 0`, dropping
+`pattern` writes `pattern: ""`. Both mean "unconstrained", and the diff treats them as equivalent to
+never setting the option, so the change settles in one migration.
 
 ### String Constraints
 

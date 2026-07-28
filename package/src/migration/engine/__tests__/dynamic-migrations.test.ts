@@ -55,7 +55,7 @@ describe("Dynamic migration execution", () => {
   it("conditional field inclusion (conditional_add)", () => {
     const collection = store.getByNameOrId("dynamic_conditional")!;
     expect(collection.fields.getByName("audit_note")).toBeDefined();
-    expect(collection.fields.getByName("legacy_field")).toBeUndefined();
+    expect(collection.fields.getByName("legacy_field")).toBeNull();
   });
 
   it("variable indirection with Object.assign (variable_indirection)", () => {
@@ -67,8 +67,8 @@ describe("Dynamic migration execution", () => {
 
   it("removeById in the up body (remove_by_id)", () => {
     const collection = store.getByNameOrId("dynamic_loop")!;
-    expect(collection.fields.getById("text_step_2")).toBeUndefined();
-    expect(collection.fields.getById("text_step_4")).toBeUndefined();
+    expect(collection.fields.getById("text_step_2")).toBeNull();
+    expect(collection.fields.getById("text_step_4")).toBeNull();
   });
 
   it("computed unmarshal payload (computed_unmarshal)", () => {

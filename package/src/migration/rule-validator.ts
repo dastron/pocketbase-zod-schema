@@ -10,6 +10,16 @@ import type { FieldDefinition } from "./types";
 import { generateFieldId } from "./utils/collection-id-generator.js";
 
 /**
+ * PocketBase's back-relation path segment: `<collection>_via_<field>`
+ *
+ * Means "the rows of `<collection>` whose `<field>` relation points at the
+ * current record". The referenced collection deliberately has no field by
+ * that name, so a back-relation segment can never be resolved against a
+ * field list — see `isBackRelationSegment`.
+ */
+const BACK_RELATION_SEGMENT = /^[a-zA-Z_][a-zA-Z0-9_]*_via_[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+/**
  * Validation result for rule expressions
  */
 export interface RuleValidationResult {
@@ -34,6 +44,12 @@ export interface RuleValidationResult {
  * - @request reference syntax
  * - Basic expression syntax (parentheses, operators)
  * - Auth collection specific rules (manageRule)
+ *
+ * Only the *root* of a field path is checked, because the validator sees one
+ * collection at a time. Everything past the first hop — relation chains like
+ * `User.email` and back-relations like `Members_via_WorkspaceRef.UserRef` —
+ * is accepted unresolved and reported neither as an error nor a warning.
+ * `@collection.*` references are likewise out of reach and are skipped.
  */
 export class RuleValidator {
   private fields: Map<string, FieldDefinition>;
@@ -135,7 +151,7 @@ export class RuleValidator {
   /**
    * Extract field references from expression
    *
-   * Matches field names that are not @request references.
+   * Matches field names that are not @request or @collection references.
    * Handles dot notation for relations: user.email, post.author.name
    *
    * @param expression - The rule expression
@@ -144,9 +160,12 @@ export class RuleValidator {
   private extractFieldReferences(expression: string): string[] {
     const refs: string[] = [];
 
-    // First, remove string literals and @request references to avoid matching them
+    // First, remove string literals and @-references to avoid matching them.
+    // @collection.<Name>.<path> addresses a *different* collection, so its
+    // segments are not fields of this one and must not be validated as such.
     let cleaned = expression.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
     cleaned = cleaned.replace(/@request\.[a-zA-Z_][a-zA-Z0-9_.]*/g, "");
+    cleaned = cleaned.replace(/@collection\.[a-zA-Z_][a-zA-Z0-9_.]*/g, "");
 
     // Match field names (not starting with @)
     // Handles dot notation for relations: user.email, post.author.name
@@ -176,11 +195,26 @@ export class RuleValidator {
   }
 
   /**
+   * Check whether a path segment is a back-relation rather than a field
+   *
+   * A declared field wins: a collection may legitimately contain a field
+   * literally named `foo_via_bar`, and it should be validated as one.
+   *
+   * @param segment - A single dot-separated path segment
+   * @returns True if the segment should be treated as a back-relation
+   */
+  private isBackRelationSegment(segment: string): boolean {
+    return !this.fields.has(segment) && BACK_RELATION_SEGMENT.test(segment);
+  }
+
+  /**
    * Validate a field reference exists in schema
    *
-   * Checks if the root field exists and validates relation chains.
-   * For nested references, warns about potential issues since we can't
-   * validate across collections without loading related schemas.
+   * Only the root of the path is checked — the validator holds a single
+   * collection's fields, so anything past the first hop belongs to another
+   * collection and is accepted as-is. A root back-relation
+   * (`Members_via_WorkspaceRef.UserRef`) has no local field to check against
+   * either, so it is accepted too; PocketBase resolves it at runtime.
    *
    * @param fieldRef - The field reference to validate (e.g., "user" or "user.email")
    * @param result - The validation result to update
@@ -189,24 +223,24 @@ export class RuleValidator {
     const parts = fieldRef.split(".");
     const rootField = parts[0];
 
+    if (this.isBackRelationSegment(rootField)) {
+      return;
+    }
+
     if (!this.fields.has(rootField)) {
       result.errors.push(`Field '${rootField}' does not exist in collection '${this.collectionName}'`);
       result.valid = false;
       return;
     }
 
-    // For nested references, validate relation chain
+    // Traversing into a non-relation field is a local mistake we can catch.
+    // A back-relation only ever hangs off a relation hop, so this holds for
+    // `title.Foo_via_Bar` just as much as for `title.something`.
     if (parts.length > 1) {
       const field = this.fields.get(rootField)!;
       if (field.type !== "relation") {
         result.errors.push(`Field '${rootField}' is not a relation field, cannot access nested property '${parts[1]}'`);
         result.valid = false;
-      } else {
-        // Note: We can't validate nested fields without loading related schemas
-        // This would require cross-schema validation
-        result.warnings.push(
-          `Nested field reference '${fieldRef}' - ensure target collection has field '${parts.slice(1).join(".")}'`
-        );
       }
     }
   }

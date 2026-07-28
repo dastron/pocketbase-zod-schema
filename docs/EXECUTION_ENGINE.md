@@ -85,9 +85,15 @@ Implemented with real semantics:
   `URLField`, `NumberField`, `BoolField`, `DateField`, `SelectField`,
   `RelationField`, `FileField`, `JSONField`, `EditorField`, `GeoPointField`,
   `AutodateField`, `PasswordField`
-- `collection.fields`: `add`, `addAt` (position preserved; an existing id is
-  moved), `removeById`, `removeByName`, `getById`, `getByName` (returns the
-  live object), iteration
+- `collection.fields`: `add`, `addAt`, `removeById`, `removeByName`,
+  `getById`, `getByName` (returns the live object, or `null` on a miss — goja
+  surfaces a nil Go `Field` as `null`), iteration
+- `add`/`addAt` match an incoming field the way PocketBase does: by id, **or
+  by name when the field carries no explicit id**, autogenerating the missing
+  id from the name. So the idiomatic
+  `fields.add(new TextField({name: "title", max: 500}))` rewrites `title` in
+  place rather than adding a second field called `title`. `add` preserves a
+  replaced field's position and id; `addAt` moves it to the given position.
 - `unmarshal(data, dst)` — objects merge key by key, arrays replace
   wholesale (`unmarshal({indexes: []}, collection)` clears indexes)
 - `app.findCollectionByNameOrId(nameOrId)` — matches by id, then name, with
@@ -106,7 +112,12 @@ Stubbed (strictness-controlled): `$os`, `$dbx`, `$security`, `$filesystem`,
 
 - `strictness: "lenient"` (default): the call records a warning and returns
   an inert chainable no-op, so schema-only replay of hand-written data
-  migrations still succeeds.
+  migrations still succeeds. The stub also behaves as an empty list — its
+  `length` is `0` and iterating it yields nothing — so the common
+  fetch-and-delete shape (`while (true) { const rows =
+  app.findRecordsByFilter(...); if (!rows.length) break; for (const r of rows)
+  app.delete(r) }`) terminates and does nothing instead of throwing
+  `rows is not iterable`.
 - `strictness: "strict"`: the call throws.
 
 `Record`, `$dbx` and the data-layer `app.*` methods stop being stubs when
@@ -394,9 +405,12 @@ execute.
   it will do it to.
 - **Applied-migration reading needs Node >= 22.5** for `node:sqlite`. On older
   runtimes, pass the applied list explicitly with `appliedMigrationsFromList`.
-- **Field id generation differs.** PocketBase derives field ids from
-  crc32(name); the engine uses a random suffix when a migration saves a
-  field without an id. Diffing matches fields by name, so this is benign.
+- **Field ids match PocketBase's derivation.** A field added without an id
+  gets `<type><crc32(name)>`, the same id PocketBase would assign (verified
+  against the ids it writes for the auth system fields — `password901924565`,
+  `text2504183744`, `email3885137012`, `bool1547992806`, `bool256245529`).
+  The formula has to be exact, not merely plausible: `add()` uses the derived
+  id to decide whether an incoming field replaces an existing one.
 - **Auth defaults are bounded.** Auth collections get the five system
   fields the converter tracks (`email`, `emailVisibility`, `verified`,
   `password`, `tokenKey`) when a migration omits them; other server-side
@@ -433,6 +447,13 @@ execute.
   `__tests__/fixtures/dynamic-migrations/` — loops, helper functions,
   conditionals, indirection, `removeById`, computed `unmarshal` — none of
   which exist until the code has run.
+- `engine/__tests__/hand-written-migration-edge-cases.test.ts` — the
+  edit-in-place style hand-written and LLM-written migrations use, which the
+  generator never emits: appending to a live select field's `values`,
+  rebuilding `collection.indexes` with filter/concat, re-`add()`ing a field
+  without an id to change one option, and branching on a `getByName` miss.
+  Each case is pinned to the behaviour documented in
+  `pocketbase/pb_data/types.d.ts`.
 - `__tests__/integration/engine-loop-detection.test.ts` — the round-trip
   idempotency contract via execution: schema → generate → execute → compare
   → zero diff.

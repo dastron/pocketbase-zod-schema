@@ -48,6 +48,31 @@ describe("Field Metadata Integration", () => {
       expect(definition.options).toEqual({ min: 1, max: 200 });
     });
 
+    it("should record a RegExp pattern as its source", () => {
+      // The metadata travels as JSON, where a RegExp stringifies to `{}`
+      const field = TextField({ max: 60, pattern: /^[A-Za-z0-9][A-Za-z0-9_-]*$/ });
+      const definition = buildFieldDefinition("name", field);
+
+      expect(definition.options).toEqual({ max: 60, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$" });
+    });
+
+    it("should read validators chained onto a field helper", () => {
+      // Chaining is how a shared Zod rule gets reused; the constraints are
+      // only visible on the Zod schema, not in the helper's metadata
+      const field = TextField().min(1).max(60).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/);
+      const definition = buildFieldDefinition("name", field);
+
+      expect(definition.type).toBe("text");
+      expect(definition.options).toEqual({ min: 1, max: 60, pattern: "^[A-Za-z0-9][A-Za-z0-9_-]*$" });
+    });
+
+    it("should prefer the field helper's own options over chained validators", () => {
+      const field = TextField({ max: 60 }).max(200);
+      const definition = buildFieldDefinition("name", field);
+
+      expect(definition.options).toEqual({ max: 60 });
+    });
+
     it("should use EmailField metadata", () => {
       const field = EmailField();
       const definition = buildFieldDefinition("email", field);

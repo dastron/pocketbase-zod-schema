@@ -1,4 +1,5 @@
 import type { FieldDefinition, FieldModification } from "../types";
+import { getFieldOptionUnsetValue } from "../utils/type-mapper";
 import { formatValue, generateFindCollectionCode, getFieldConstructorName } from "./utils";
 
 /**
@@ -263,6 +264,7 @@ export function generateFieldModification(
   const lines: string[] = [];
   const collectionVar = varName || `collection_${collectionName}_${modification.fieldName}`;
   const fieldVar = `${collectionVar}_field`;
+  const fieldType = modification.newDefinition?.type ?? modification.currentDefinition?.type;
 
   lines.push(`  const ${collectionVar} = ${generateFindCollectionCode(collectionName, collectionIdMap)};`);
   lines.push(`  const ${fieldVar} = ${collectionVar}.fields.getByName("${modification.fieldName}");`);
@@ -273,8 +275,17 @@ export function generateFieldModification(
     if (change.property.startsWith("options.")) {
       // Handle nested options properties
       const optionKey = change.property.replace("options.", "");
+      // A schema that stops setting an option leaves no value to assign, but
+      // the option still exists on PocketBase's field struct, so it has to be
+      // written back to its zero value (`max = 0`, `pattern = ""`). Assigning
+      // `null` describes a state the server cannot hold, and replay reads it
+      // back as a removal still pending — the same migration, every run.
+      const newValue =
+        change.newValue === undefined ? getFieldOptionUnsetValue(fieldType, optionKey) : change.newValue;
       // In PocketBase, field properties are set directly on the field, not in an options object
-      lines.push(`  ${fieldVar}.${optionKey} = ${formatValue(change.newValue)};`);
+      // (`noDecimal` is this project's name for what PocketBase stores as `onlyInt`)
+      const pbKey = fieldType === "number" && optionKey === "noDecimal" ? "onlyInt" : optionKey;
+      lines.push(`  ${fieldVar}.${pbKey} = ${formatValue(newValue)};`);
     } else if (change.property.startsWith("relation.")) {
       // Handle nested relation properties
       const relationKey = change.property.replace("relation.", "");

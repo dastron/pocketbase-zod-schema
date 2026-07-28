@@ -5,6 +5,7 @@ import type {
   FieldMetadata,
   FileFieldOptions,
   FilesFieldOptions,
+  JSONFieldOptions,
   NumberFieldOptions,
   PocketBaseFieldType,
   RelationConfig,
@@ -25,6 +26,7 @@ describe("Type exports", () => {
     const selectOptions: SelectFieldOptions = { maxSelect: 3 };
     const fileOptions: FileFieldOptions = { maxSize: 1000000 };
     const filesOptions: FilesFieldOptions = { minSelect: 1, maxSelect: 5 };
+    const jsonOptions: JSONFieldOptions = { maxSize: "5M" };
 
     const relationConfig: RelationConfig = { collection: "users" };
     const relationsConfig: RelationsConfig = { collection: "tags", minSelect: 1 };
@@ -40,6 +42,7 @@ describe("Type exports", () => {
     expect(selectOptions).toBeDefined();
     expect(fileOptions).toBeDefined();
     expect(filesOptions).toBeDefined();
+    expect(jsonOptions).toBeDefined();
     expect(relationConfig).toBeDefined();
     expect(relationsConfig).toBeDefined();
     expect(fieldType).toBeDefined();

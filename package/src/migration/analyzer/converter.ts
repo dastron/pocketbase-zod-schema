@@ -72,7 +72,13 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     }
 
     // Remove 'required' from options if present (it's a top-level property, not an option)
-    const { required: _required, ...options } = fieldMetadata.options || {};
+    const { required: _required, ...metadataOptions } = fieldMetadata.options || {};
+
+    // A validator chained onto a field helper (`TextField().max(60)`, or a
+    // shared rule reused with `.regex(...)`) states the same constraint as the
+    // helper's own options, so both are read. The helper wins where they
+    // overlap: its options are what the caller wrote for PocketBase.
+    const options = { ...extractChainedFieldOptions(fieldMetadata.type, unwrappedType), ...metadataOptions };
 
     const fieldDef: FieldDefinition = {
       name: fieldName,
@@ -177,6 +183,38 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
   fieldDef.options = filterSupportedFieldOptions(fieldDef.type, fieldDef.options);
 
   return fieldDef;
+}
+
+/**
+ * Field types whose PocketBase options mean the same thing as the Zod
+ * validators they are read from.
+ *
+ * The rest are excluded because the same validator says something else there: a
+ * `date` field is spelled as a Zod string, so `.min()` on it is a *length*, not
+ * an earliest date, and `autodate`/`editor`/`json` carry no constraint
+ * PocketBase would store. Reading those would invent options the schema never
+ * declared.
+ */
+const TYPES_READING_CHAINED_VALIDATORS = new Set(["text", "password", "number", "select", "file"]);
+
+/**
+ * Reads the options a field helper's Zod validators declare, for the field
+ * types where the two line up.
+ *
+ * `TextField()` records what was passed to it, which leaves anything chained
+ * afterwards (`TextField().max(60).regex(...)`, or a reusable rule the helper
+ * wraps) visible only in the Zod schema.
+ *
+ * @param fieldType - The PocketBase field type from the helper's metadata
+ * @param unwrappedType - The Zod type with optional/default/nullable removed
+ * @returns The options the validators declare, empty when the type opts out
+ */
+function extractChainedFieldOptions(fieldType: string, unwrappedType: z.ZodTypeAny): Record<string, any> {
+  if (!TYPES_READING_CHAINED_VALIDATORS.has(fieldType)) {
+    return {};
+  }
+
+  return extractFieldOptions(unwrappedType);
 }
 
 /**
