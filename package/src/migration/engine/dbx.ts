@@ -15,6 +15,7 @@
 
 import {
   ExpressionError,
+  compareForSort,
   evaluateCondition,
   parseCondition,
   parseValueOperand,
@@ -155,17 +156,7 @@ function looseMatch(left: unknown, right: unknown): boolean {
   );
 }
 
-function compare(left: unknown, right: unknown): number {
-  if (looseMatch(left, right)) {
-    return 0;
-  }
-  return evaluateCondition(
-    { kind: "compare", operator: "<", left: { kind: "value", value: left }, right: { kind: "value", value: right } },
-    { field: () => undefined }
-  )
-    ? -1
-    : 1;
-}
+const compare = compareForSort;
 
 // ---------------------------------------------------------------------------
 // SQL subset

@@ -426,6 +426,11 @@ Show current migration status without generating files.
 | `--verify` | Compare files on disk against PocketBase's `_migrations` table; exit non-zero on drift |
 | `--pb-data <path>` | PocketBase data directory or `data.db` file (defaults to `pb_data` next to the migrations directory) |
 
+Reading the database adds an **Applied Migrations** section (drift, plus what the pending files
+will do once applied). The schema comparison is unaffected — it always diffs against the migration
+files on disk, so `status` and `generate` report the same pending work. In `--json` output the
+extra information appears under `migrations`, including `migrations.unapplied` counts.
+
 ### `generate-types`
 
 Generate TypeScript definitions from your Zod schemas.
@@ -642,7 +647,9 @@ import {
   the **two** parameters
 - `getFieldTypeInfo(zodType, fieldName): { type, isMultiple, options }`
 - `extractFieldOptions(zodType)`, `extractComprehensiveFieldOptions(zodType)`,
-  `filterSupportedFieldOptions(type, options)`
+  `filterSupportedFieldOptions(type, options)`,
+  `getSupportedFieldOptionKeys(type?)` — the option keys the generator may emit
+  for a field type, and the same list the engine's reader reads back
 - `isFieldRequired`, `unwrapZodType`, `getDefaultValue`, `isArrayType`, `getArrayElementType`,
   `isGeoPointType`
 - Per-type mappers: `mapZodStringType`, `mapZodNumberType`, `mapZodBooleanType`, `mapZodEnumType`,

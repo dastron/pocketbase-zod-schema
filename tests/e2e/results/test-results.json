@@ -1,12 +1,12 @@
 {
-  "lastUpdated": "2026-07-27T06:06:31.238Z",
+  "lastUpdated": "2026-07-28T03:06:20.826Z",
   "totalTests": 16,
   "averageDiffPercentage": 100,
   "tests": {
     "infrastructure-test": {
       "scenarioName": "infrastructure-test",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:06:31.238Z",
+      "timestamp": "2026-07-28T03:06:20.825Z",
       "passed": true,
       "details": {
         "score": 100,
@@ -16,11 +16,11 @@
     "blank-collection": {
       "scenarioName": "blank-collection",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:06:29.198Z",
+      "timestamp": "2026-07-28T03:06:18.649Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132388_created_blank_test_.js",
-        "libraryFile": "1785132388_created_blank_test.js",
+        "nativeFile": "_captured_1785207977_created_blank_test_.js",
+        "libraryFile": "1785207978_created_blank_test.js",
         "differences": [],
         "score": 100
       }
@@ -28,11 +28,11 @@
     "basic-collection": {
       "scenarioName": "basic-collection",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:04:21.157Z",
+      "timestamp": "2026-07-28T03:04:17.270Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132256_created_basic_test_.js",
-        "libraryFile": "1785132256_created_basic_test.js",
+        "nativeFile": "_captured_1785207852_created_basic_test_.js",
+        "libraryFile": "1785207853_created_basic_test.js",
         "differences": [],
         "score": 100
       }
@@ -40,11 +40,11 @@
     "all-field-types": {
       "scenarioName": "all-field-types",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:04:37.940Z",
+      "timestamp": "2026-07-28T03:04:33.022Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132273_created_field_types_test_.js",
-        "libraryFile": "1785132273_created_field_types_test.js",
+        "nativeFile": "_captured_1785207868_created_field_types_test_.js",
+        "libraryFile": "1785207868_created_field_types_test.js",
         "differences": [],
         "score": 100
       }
@@ -52,11 +52,11 @@
     "file-field-types": {
       "scenarioName": "file-field-types",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:04:46.314Z",
+      "timestamp": "2026-07-28T03:04:40.901Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132281_created_file_test_.js",
-        "libraryFile": "1785132282_created_file_test.js",
+        "nativeFile": "_captured_1785207876_created_file_test_.js",
+        "libraryFile": "1785207876_created_file_test.js",
         "differences": [],
         "score": 100
       }
@@ -64,11 +64,11 @@
     "geopoint-field-types": {
       "scenarioName": "geopoint-field-types",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:04:54.702Z",
+      "timestamp": "2026-07-28T03:04:48.799Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132289_created_geo_test_.js",
-        "libraryFile": "1785132290_created_geo_test.js",
+        "nativeFile": "_captured_1785207883_created_geo_test_.js",
+        "libraryFile": "1785207884_created_geo_test.js",
         "differences": [],
         "score": 100
       }
@@ -76,11 +76,11 @@
     "select-field-variations": {
       "scenarioName": "select-field-variations",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:05:03.071Z",
+      "timestamp": "2026-07-28T03:04:56.709Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132298_created_select_variations_test_.js",
-        "libraryFile": "1785132298_created_select_variations_test.js",
+        "nativeFile": "_captured_1785207891_created_select_variations_test_.js",
+        "libraryFile": "1785207892_created_select_variations_test.js",
         "differences": [],
         "score": 100
       }
@@ -88,11 +88,11 @@
     "unique-indexes": {
       "scenarioName": "unique-indexes",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:05:11.449Z",
+      "timestamp": "2026-07-28T03:05:04.602Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132306_created_unique_test_.js",
-        "libraryFile": "1785132307_created_unique_test.js",
+        "nativeFile": "_captured_1785207899_created_unique_test_.js",
+        "libraryFile": "1785207900_created_unique_test.js",
         "differences": [],
         "score": 100
       }
@@ -100,11 +100,11 @@
     "api-rules-unrestricted": {
       "scenarioName": "api-rules-unrestricted",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:05:19.823Z",
+      "timestamp": "2026-07-28T03:05:12.504Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132315_created_public_test_.js",
-        "libraryFile": "1785132315_created_public_test.js",
+        "nativeFile": "_captured_1785207907_created_public_test_.js",
+        "libraryFile": "1785207908_created_public_test.js",
         "differences": [],
         "score": 100
       }
@@ -112,11 +112,11 @@
     "api-rules-restricted": {
       "scenarioName": "api-rules-restricted",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:05:28.161Z",
+      "timestamp": "2026-07-28T03:05:20.408Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132323_created_private_test_.js",
-        "libraryFile": "1785132323_created_private_test.js",
+        "nativeFile": "_captured_1785207915_created_private_test_.js",
+        "libraryFile": "1785207916_created_private_test.js",
         "differences": [],
         "score": 100
       }
@@ -124,11 +124,11 @@
     "complex-api-rules": {
       "scenarioName": "complex-api-rules",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:05:36.551Z",
+      "timestamp": "2026-07-28T03:05:28.313Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132331_created_complex_rules_test_.js",
-        "libraryFile": "1785132332_created_complex_rules_test.js",
+        "nativeFile": "_captured_1785207923_created_complex_rules_test_.js",
+        "libraryFile": "1785207924_created_complex_rules_test.js",
         "differences": [],
         "score": 100
       }
@@ -136,11 +136,11 @@
     "auth-collection": {
       "scenarioName": "auth-collection",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:05:44.917Z",
+      "timestamp": "2026-07-28T03:05:36.211Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132340_created_users_test_final.js",
-        "libraryFile": "1785132340_created_users_test_final.js",
+        "nativeFile": "_captured_1785207931_created_users_test_final.js",
+        "libraryFile": "1785207931_created_users_test_final.js",
         "differences": [],
         "score": 100
       }
@@ -148,11 +148,11 @@
     "single-relation": {
       "scenarioName": "single-relation",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:06:01.659Z",
+      "timestamp": "2026-07-28T03:05:51.991Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132356_created_posts.js",
-        "libraryFile": "1785132357_created_posts.js",
+        "nativeFile": "_captured_1785207947_created_posts.js",
+        "libraryFile": "1785207947_created_posts.js",
         "differences": [],
         "score": 100
       }
@@ -160,11 +160,11 @@
     "multiple-relations": {
       "scenarioName": "multiple-relations",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:06:10.054Z",
+      "timestamp": "2026-07-28T03:05:59.853Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132365_created_articles.js",
-        "libraryFile": "1785132365_created_articles.js",
+        "nativeFile": "_captured_1785207955_created_articles.js",
+        "libraryFile": "1785207955_created_articles.js",
         "differences": [],
         "score": 100
       }
@@ -172,11 +172,11 @@
     "cascade-delete-relations": {
       "scenarioName": "cascade-delete-relations",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:06:18.430Z",
+      "timestamp": "2026-07-28T03:06:07.751Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132373_created_comments.js",
-        "libraryFile": "1785132374_created_comments.js",
+        "nativeFile": "_captured_1785207962_created_comments.js",
+        "libraryFile": "1785207963_created_comments.js",
         "differences": [],
         "score": 100
       }
@@ -184,11 +184,11 @@
     "auth-with-manage-rule": {
       "scenarioName": "auth-with-manage-rule",
       "diffPercentage": 100,
-      "timestamp": "2026-07-27T06:05:53.299Z",
+      "timestamp": "2026-07-28T03:05:44.085Z",
       "passed": true,
       "details": {
-        "nativeFile": "_captured_1785132348_created_admins_test_final.js",
-        "libraryFile": "1785132349_created_admins_test_final.js",
+        "nativeFile": "_captured_1785207939_created_admins_test_final.js",
+        "libraryFile": "1785207939_created_admins_test_final.js",
         "differences": [],
         "score": 100
       }

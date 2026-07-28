@@ -90,6 +90,24 @@ describe("Record", () => {
     expect(record.id).toMatch(/^[a-z0-9]{15}$/);
   });
 
+  it("carries the password and pre-modification values across a transaction clone", () => {
+    const store = storeWithPosts();
+    const record = store.records.save(new RecordModel(store.getByNameOrId("posts")!, { id: "r1", title: "First" }));
+    record.setPassword("hunter2");
+    record.set("title", "Second");
+
+    const cloned = store.clone().records.getById("pbc_posts", "r1")!;
+
+    expect(cloned.validatePassword("hunter2")).toBe(true);
+    expect(cloned.validatePassword("wrong")).toBe(false);
+    expect(cloned.originalCopy().get("title")).toBe("First");
+    expect(cloned.get("title")).toBe("Second");
+    // Rebound to the cloned schema, and independent of the source record
+    expect(cloned.collection()).not.toBe(record.collection());
+    cloned.set("title", "Third");
+    expect(record.get("title")).toBe("Second");
+  });
+
   it("names the fields a record carries that the collection does not declare", () => {
     const store = storeWithPosts();
     const record = new RecordModel(store.getByNameOrId("posts")!, { title: "Hello", oops: 1 });
@@ -162,6 +180,32 @@ describe("record operations inside a migration", () => {
     );
 
     expect(rows(store).map((row) => row.status)).toEqual(["draft", "published", "featured"]);
+  });
+
+  it("sorts numeric fields numerically, like ORDER BY", () => {
+    const store = storeWithPosts();
+    seed(store, [
+      { id: "r1", title: "nine", views: 9 },
+      { id: "r2", title: "ten", views: 10 },
+      { id: "r3", title: "two", views: 2 },
+    ]);
+
+    run(
+      store,
+      `const ordered = app.findRecordsByFilter("posts", "views > 0", "-views", 0, 0);
+       const first = ordered[0];
+       first.set("status", "top");
+       app.save(first);
+
+       const viaSql = app.db().newQuery("SELECT id FROM posts ORDER BY views DESC").all();
+       const sqlFirst = app.findRecordById("posts", viaSql[0].id);
+       sqlFirst.set("title", "sql-top");
+       app.save(sqlFirst);`
+    );
+
+    const top = rows(store).find((row) => row.status === "top")!;
+    expect(top.views).toBe(10);
+    expect(top.title).toBe("sql-top");
   });
 
   it("binds filter parameters", () => {
@@ -382,12 +426,24 @@ describe("condition parsing", () => {
     ["tag IS NOT NULL", false],
     ["views BETWEEN 40 AND 50", true],
     ["NOT (status = 'draft')", false],
+    ["status NOT IN ('draft', 'archived')", false],
+    ["status NOT IN ('published', 'archived')", true],
+    ["status NOT LIKE 'dra%'", false],
+    ["status NOT LIKE 'pub%'", true],
+    ["views NOT BETWEEN 40 AND 50", false],
+    ["views NOT BETWEEN 1 AND 5", true],
+    ["NOT status IN ('draft')", false],
+    ["status NOT IN ('published') && views NOT BETWEEN 1 AND 5", true],
   ])("evaluates %s", (source, expected) => {
     expect(evaluateCondition(parseCondition(source as string), context)).toBe(expected);
   });
 
   it("rejects syntax it cannot evaluate", () => {
     expect(() => parseCondition("status @@ 'draft'")).toThrow(ExpressionError);
+  });
+
+  it("rejects NOT that is not followed by IN, LIKE or BETWEEN", () => {
+    expect(() => parseCondition("status NOT = 'draft'")).toThrow(/Expected IN, LIKE or BETWEEN after NOT/);
   });
 
   it("requires a bound parameter to be supplied", () => {

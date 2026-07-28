@@ -12,7 +12,7 @@
  * (see `data-api.ts`), backed by the in-memory record store.
  */
 
-import { Collection } from "./collection";
+import { Collection, ensureAuthSystemFields } from "./collection";
 import { createDataApi } from "./data-api";
 import { generateRuntimeFieldId } from "./fields";
 import { RecordModel } from "./records";
@@ -125,6 +125,8 @@ class SimulatedAppImpl {
     if (!collection.name) {
       throw new Error("[engine] cannot save a collection without a name");
     }
+    // PocketBase restores missing auth system fields as part of the save
+    ensureAuthSystemFields(collection);
     for (const field of collection.fields) {
       if (typeof field.id !== "string" || field.id === "") {
         field.id = generateRuntimeFieldId(typeof field.type === "string" ? field.type : "");
@@ -192,6 +194,7 @@ class SimulatedAppImpl {
     const imported = new Set<string>();
     for (const raw of rawCollections) {
       const collection = this.toCollection(raw);
+      ensureAuthSystemFields(collection);
       this.store.upsert(collection);
       imported.add(collection.id);
     }

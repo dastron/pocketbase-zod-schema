@@ -266,18 +266,31 @@ class Parser {
       return { kind: "null", negated, operand: left };
     }
 
+    // Postfix negation: `status NOT IN (...)`, `title NOT LIKE 'x'`,
+    // `n NOT BETWEEN 1 AND 5`. Nothing else may follow an operand.
+    const negated = this.matchKeyword("not");
+
     if (this.matchKeyword("in")) {
-      return { kind: "in", negated: false, left, values: this.parseValueList() };
+      return { kind: "in", negated, left, values: this.parseValueList() };
     }
 
     if (this.matchKeyword("like")) {
-      return { kind: "like", negated: false, left, pattern: this.parseOperand(), implicitWildcards: false };
+      return { kind: "like", negated, left, pattern: this.parseOperand(), implicitWildcards: false };
     }
 
     if (this.matchKeyword("between")) {
       const from = this.parseOperand();
       this.expectKeyword("and");
-      return { kind: "between", negated: false, operand: left, from, to: this.parseOperand() };
+      return { kind: "between", negated, operand: left, from, to: this.parseOperand() };
+    }
+
+    if (negated) {
+      const token = this.tokens[this.index];
+      throw new ExpressionError(
+        token
+          ? `Expected IN, LIKE or BETWEEN after NOT at position ${token.position}`
+          : "Expected IN, LIKE or BETWEEN after NOT at end of expression"
+      );
     }
 
     const operator = this.peekOperator();
@@ -587,6 +600,18 @@ export function compareValues(left: unknown, right: unknown): number {
   const leftText = String(left);
   const rightText = String(right);
   return leftText === rightText ? 0 : leftText < rightText ? -1 : 1;
+}
+
+/**
+ * Ordering used by every sort surface (`sort: "-views"` and SQL `ORDER BY`),
+ * so the two agree on the same rows: equality is the filter's `=`, and the
+ * ordering below it is SQLite-ish — numeric when both sides are numbers.
+ */
+export function compareForSort(left: unknown, right: unknown): number {
+  if (looseEquals(left, right)) {
+    return 0;
+  }
+  return compareValues(left, right) < 0 ? -1 : 1;
 }
 
 function toBoolean(value: unknown): boolean {

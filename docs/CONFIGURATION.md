@@ -102,7 +102,8 @@ rollback you never intend to run is not a reason to block generating one that wo
 **Type:** `string` · **Default:** `""`
 
 PocketBase's data directory, or a path to `data.db` directly. Used to read the `_migrations` table
-so replay can stop at what has actually been applied instead of assuming every file on disk ran.
+so replay can stop at what has actually been applied instead of assuming every file on disk ran —
+which is how `status` reports drift and what the pending files still owe the database.
 Empty means "the `pb_data` directory next to the migrations directory".
 
 Requires **Node >= 22.5** (`node:sqlite`).
@@ -164,8 +165,11 @@ Positional `filters` restrict the diff to matching collection or field names (re
 | `--verify` | — compare disk against `_migrations`, exit non-zero on drift |
 | `--pb-data <path>` | `migrations.dataDirectory` |
 
-Passing `--pb-data` without `--verify` still reconstructs state from the applied set; it just does
-not fail on drift.
+Passing `--pb-data` without `--verify` still reports drift; it just does not fail on it.
+
+Reading the applied set adds the drift report — including what the pending files will do to the
+database once applied — but does not change the Schema Comparison, which always diffs against the
+migration files on disk so `status` and `generate` agree.
 
 ### `generate-types`
 

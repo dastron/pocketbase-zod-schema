@@ -208,4 +208,32 @@ describe("executeMigrationSource", () => {
     const field = store.getByNameOrId("posts")!.fields.getByName("title")!;
     expect(field.id).toMatch(/^text\d{10}$/);
   });
+
+  it("adds the auth system fields when an auth collection is saved", () => {
+    const { store } = run(`
+      migrate((app) => {
+        return app.save(new Collection({ id: "pbc_auth", name: "members", type: "auth" }));
+      }, (app) => null);
+    `);
+
+    const members = store.getByNameOrId("members")!;
+    for (const name of ["email", "password", "tokenKey", "emailVisibility", "verified"]) {
+      expect(members.fields.getByName(name), `auth system field ${name}`).toBeDefined();
+    }
+  });
+
+  it("keeps an auth system field dropped when the collection is not re-saved", () => {
+    const { store } = run(`
+      migrate((app) => {
+        return app.save(new Collection({ id: "pbc_auth", name: "members", type: "auth" }));
+      }, (app) => null);
+    `);
+
+    // A later migration drops the field without saving; the state the next
+    // file replays against must reflect the drop, not silently undo it
+    store.getByNameOrId("members")!.fields.removeByName("verified");
+    const next = store.clone();
+
+    expect(next.getByNameOrId("members")!.fields.getByName("verified")).toBeUndefined();
+  });
 });

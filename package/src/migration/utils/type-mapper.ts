@@ -624,6 +624,28 @@ const SUPPORTED_FIELD_OPTIONS: Record<PocketBaseFieldType, readonly string[]> = 
 };
 
 /**
+ * The option keys a field of `fieldType` can carry — the same set the
+ * generator is allowed to emit.
+ *
+ * The reader (`pocketbase-converter.extractFieldOptions`) uses this so that
+ * every option the generator writes is read back on replay. A key that is
+ * emitted but not read makes `compare()` see a modification on every run and
+ * emit the same `updated_*` migration forever.
+ *
+ * @param fieldType - The PocketBase field type, if known
+ * @returns The option keys readable for that type (every known key when the
+ *   type is unrecognized)
+ */
+export function getSupportedFieldOptionKeys(fieldType?: string): string[] {
+  const typeSpecific =
+    fieldType && fieldType in SUPPORTED_FIELD_OPTIONS
+      ? SUPPORTED_FIELD_OPTIONS[fieldType as PocketBaseFieldType]
+      : Object.values(SUPPORTED_FIELD_OPTIONS).flat();
+
+  return [...new Set([...typeSpecific, ...UNIVERSAL_FIELD_OPTIONS])];
+}
+
+/**
  * Drops the options a PocketBase field type does not support.
  *
  * @param fieldType - The resolved PocketBase field type

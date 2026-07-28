@@ -60,6 +60,15 @@ The final store converts to the existing internal model
 (`rawCollectionsToSnapshot` → `CollectionSchema`), so the diff and generator
 pipelines are unchanged.
 
+Field options are read back off the same whitelist the generator writes from
+(`getSupportedFieldOptionKeys()` over `SUPPORTED_FIELD_OPTIONS` in
+`utils/type-mapper.ts`). The two lists have to stay one list: an option that is
+emitted but not read comes back missing, the next `compare()` sees it as a
+modification, and `db:generate` emits the same `updated_*` migration forever.
+As in verification, an option at its Go zero value (`""`, `0`, `false`) is
+equivalent to an undeclared one, so a PocketBase-authored migration — which
+spells out every option — compares equal to a schema that simply omits them.
+
 The sandbox is a `node:vm` context with **no Node globals** — no `require`,
 `process`, or `fs` — approximating goja, where none of those exist either.
 Node's JavaScript is a superset of goja's, so any goja-valid migration
@@ -178,9 +187,8 @@ instead of throwing when there simply is no database yet.
 
 ### `status --verify`
 
-The CLI side. `--verify` reads the table, reconstructs state from the applied
-set rather than from disk, prints the drift, and exits non-zero if there is
-any:
+The CLI side. `--verify` reads the table, reconstructs the state the database
+is actually in, prints the drift, and exits non-zero if there is any:
 
 ```
 🧾 Applied Migrations
@@ -192,12 +200,22 @@ any:
 
   1 migration(s) on disk not applied to the database:
     + 1712345999_created_Comments.js
+
+  The database is behind those files. Applying them will:
+    + create Comments (base)
+
+    Start PocketBase to apply them; no new migration is needed.
 ```
+
+The applied set stays in that section. **Schema Comparison keeps diffing
+against every migration file on disk**, so `status` and `generate` answer the
+same question: a collection that already has a migration file waiting is
+reported as unapplied, never as a change needing `generate`.
 
 `--pb-data <path>` points at another location (or `migrations.dataDirectory` /
 `MIGRATION_DATA_DIR`); without it, the pb_data directory next to the
-migrations directory is used. Passing `--pb-data` without `--verify` still
-reconstructs from the applied set, it just does not fail on drift.
+migrations directory is used. Passing `--pb-data` without `--verify` prints
+the same drift report, it just does not fail on it.
 
 ## Record and `$dbx` simulation
 
@@ -383,7 +401,11 @@ execute.
   fields the converter tracks (`email`, `emailVisibility`, `verified`,
   `password`, `tokenKey`) when a migration omits them; other server-side
   auth defaults (token durations, templates) are kept only if the migration
-  or snapshot declares them.
+  or snapshot declares them. Injection happens on **save** (mirroring
+  PocketBase's `initDefaultFields`), not when the `Collection` object is
+  constructed — so a collection rebuilt from stored state (every transaction
+  clone) keeps exactly the fields that were committed, and a migration that
+  removes a system field without re-saving keeps it removed.
 - `collection.fields[0]` numeric indexing is not supported — use
   `fields.at(0)` / `getById` / `getByName`. Neither the generator nor any
   observed native migration uses numeric indexing.

@@ -8,6 +8,7 @@
 
 import { dedentSql } from "../schema/view";
 import type { CollectionSchema, FieldDefinition, SchemaSnapshot } from "./types";
+import { getSupportedFieldOptionKeys } from "./utils/type-mapper";
 
 const SNAPSHOT_VERSION = "1.0.0";
 
@@ -51,25 +52,13 @@ function extractFieldOptions(pbField: any): Record<string, any> {
     Object.assign(options, pbField.options);
   }
 
-  // Extract common field options from direct properties
+  // Extract field options from direct properties
   // These take precedence over nested options
-  const directOptionKeys = [
-    "min",
-    "max",
-    "pattern",
-    "noDecimal", // text/number fields (legacy, PocketBase uses onlyInt)
-    "onlyInt", // number fields (PocketBase uses this instead of noDecimal)
-    "values",
-    "maxSelect", // select fields
-    "mimeTypes",
-    "maxSize",
-    "thumbs",
-    "protected", // file fields
-    "onCreate",
-    "onUpdate", // autodate fields
-    "exceptDomains",
-    "onlyDomains", // email/url fields
-  ];
+  //
+  // The key list is the generator's own whitelist: anything the generator can
+  // write has to be readable here, or replay loses it and every `db:generate`
+  // re-emits the same modification
+  const directOptionKeys = getSupportedFieldOptionKeys(pbField.type);
 
   for (const key of directOptionKeys) {
     if (pbField[key] !== undefined) {
@@ -121,6 +110,7 @@ export function convertPocketBaseField(pbField: any): FieldDefinition {
 
     // Remove relation-specific properties from options
     // These belong in the relation object, not options
+    delete field.options.collectionId;
     delete field.options.maxSelect;
     delete field.options.minSelect;
     delete field.options.cascadeDelete;

@@ -23,7 +23,7 @@ import {
   type DbxExpression,
   type StatementResult,
 } from "./dbx";
-import { ExpressionError, parseCondition } from "./expression";
+import { compareForSort, ExpressionError, parseCondition } from "./expression";
 import { RecordModel } from "./records";
 import type { CollectionStore } from "./store";
 import type { EngineOptions, EngineWarning } from "./types";
@@ -94,7 +94,8 @@ export function createDataApi(store: CollectionStore, options: EngineOptions, wa
   /**
    * PocketBase's `sort` string: comma-separated field names, `-` for
    * descending. An unknown field simply compares as undefined, the way a
-   * missing column sorts in SQLite.
+   * missing column sorts in SQLite. Ordering is `compareForSort` — the same
+   * comparator SQL `ORDER BY` uses, so numbers sort numerically.
    */
   const applySort = (records: RecordModel[], sort: unknown): RecordModel[] => {
     if (typeof sort !== "string" || sort.trim() === "") {
@@ -108,13 +109,10 @@ export function createDataApi(store: CollectionStore, options: EngineOptions, wa
 
     return [...records].sort((a, b) => {
       for (const term of terms) {
-        const left = readField(a, term.field);
-        const right = readField(b, term.field);
-        if (left === right) {
-          continue;
+        const result = compareForSort(readField(a, term.field), readField(b, term.field));
+        if (result !== 0) {
+          return term.descending ? -result : result;
         }
-        const result = String(left ?? "") < String(right ?? "") ? -1 : 1;
-        return term.descending ? -result : result;
       }
       return 0;
     });

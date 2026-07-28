@@ -452,6 +452,16 @@ export interface StatusOutput {
     /** Pending files that sit behind an already-applied migration */
     outOfOrder: string[];
     inSync: boolean;
+    /**
+     * What the database still lacks compared to the schema — the changes the
+     * pending files carry. Distinct from `changes`, which counts what has no
+     * migration file at all. Absent when disk and the database agree.
+     */
+    unapplied?: {
+      create: number;
+      delete: number;
+      modify: number;
+    };
   };
 }
 

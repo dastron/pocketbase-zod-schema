@@ -15,9 +15,14 @@ import { FieldsList } from "./fields-list";
 import type { RawCollection } from "./types";
 
 /**
- * Auth collections in real PocketBase always carry these system fields;
- * the server injects them when a migration omits them. Shapes mirror what
- * PocketBase serializes into its own migration files.
+ * Auth collections in real PocketBase always carry these system fields.
+ * PocketBase injects the missing ones *when the collection is saved*
+ * (`initDefaultFields`), not when the model is constructed — so this list is
+ * applied by `ensureAuthSystemFields()` on the save path, never in the
+ * constructor. Injecting on construction would also re-add them every time a
+ * collection is rebuilt (`CollectionStore.clone()`), silently undoing a
+ * migration that dropped one. Shapes and ids mirror what PocketBase
+ * serializes into its own migration files.
  */
 const AUTH_SYSTEM_FIELDS: RawCollection[] = [
   {
@@ -106,14 +111,6 @@ export class Collection {
     this.system = data.system === true;
     this.fields = new FieldsList(Array.isArray(fields) ? fields : []);
     this.indexes = Array.isArray(indexes) ? [...indexes] : [];
-
-    if (this.type === "auth") {
-      for (const systemField of AUTH_SYSTEM_FIELDS) {
-        if (!this.fields.getByName(systemField.name)) {
-          this.fields.add({ ...systemField });
-        }
-      }
-    }
   }
 
   /** PocketBase-shaped plain object (what a snapshot array entry looks like) */
@@ -128,5 +125,22 @@ export class Collection {
     raw.fields = this.fields.serialize();
     raw.indexes = [...this.indexes];
     return raw;
+  }
+}
+
+/**
+ * PocketBase's `initDefaultFields` for auth collections: on save, any missing
+ * system field is put back. Call this from the save path only — the resulting
+ * collection is then stable across serialize/rebuild cycles, so replaying the
+ * next migration file sees exactly what the previous one committed.
+ */
+export function ensureAuthSystemFields(collection: Collection): void {
+  if (collection.type !== "auth") {
+    return;
+  }
+  for (const systemField of AUTH_SYSTEM_FIELDS) {
+    if (!collection.fields.getByName(systemField.name)) {
+      collection.fields.add({ ...systemField });
+    }
   }
 }

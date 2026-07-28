@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Collection } from "../collection";
+import { Collection, ensureAuthSystemFields } from "../collection";
 import { CollectionStore } from "../store";
 
 describe("CollectionStore", () => {
@@ -70,6 +70,19 @@ describe("CollectionStore", () => {
     expect(original.name).toBe("posts");
     expect(original.fields.getByName("alpha")!.max).toBe(10);
     expect(store.getById("pbc_2")).toBeUndefined();
+  });
+
+  it("clone does not resurrect a dropped auth system field", () => {
+    const store = new CollectionStore();
+    const users = new Collection({ id: "_pb_users_auth_", name: "users", type: "auth" });
+    ensureAuthSystemFields(users);
+    users.fields.removeByName("emailVisibility");
+    store.upsert(users);
+
+    const cloned = store.clone().getById("_pb_users_auth_")!;
+
+    expect(cloned.fields.getByName("emailVisibility")).toBeUndefined();
+    expect(cloned.fields.getByName("password")).toBeDefined();
   });
 
   it("replaceWith commits another store's state", () => {

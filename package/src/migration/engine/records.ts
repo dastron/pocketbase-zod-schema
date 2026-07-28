@@ -153,9 +153,15 @@ export class RecordModel {
     return new RecordModel(this.owner, { ...this.original });
   }
 
-  clone(): RecordModel {
-    const copy = new RecordModel(this.owner, { ...this.data });
-    copy.original = { ...this.original };
+  /**
+   * Deep, independent copy. `owner` rebinds the copy to another Collection
+   * instance (what a transaction clone needs); everything the getters cannot
+   * reach — the pre-modification `original` and the password `setPassword()`
+   * stored — is carried over, so a copy behaves like the record it came from.
+   */
+  clone(owner: Collection = this.owner): RecordModel {
+    const copy = new RecordModel(owner, structuredClone(this.data));
+    copy.original = structuredClone(this.original);
     copy.password = this.password;
     return copy;
   }
@@ -250,7 +256,7 @@ export class RecordStore {
       }
       const copiedRows = new Map<string, RecordModel>();
       for (const [recordId, record] of rows.entries()) {
-        copiedRows.set(recordId, new RecordModel(collection, structuredClone(record.export())));
+        copiedRows.set(recordId, record.clone(collection));
       }
       copy.byCollection.set(collectionId, copiedRows);
     }
