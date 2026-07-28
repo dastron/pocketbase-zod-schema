@@ -7,8 +7,8 @@
  */
 
 import { dedentSql } from "../schema/view";
-import { SnapshotError } from "./errors";
 import type { CollectionSchema, FieldDefinition, SchemaSnapshot } from "./types";
+import { getSupportedFieldOptionKeys } from "./utils/type-mapper";
 
 const SNAPSHOT_VERSION = "1.0.0";
 
@@ -52,25 +52,13 @@ function extractFieldOptions(pbField: any): Record<string, any> {
     Object.assign(options, pbField.options);
   }
 
-  // Extract common field options from direct properties
+  // Extract field options from direct properties
   // These take precedence over nested options
-  const directOptionKeys = [
-    "min",
-    "max",
-    "pattern",
-    "noDecimal", // text/number fields (legacy, PocketBase uses onlyInt)
-    "onlyInt", // number fields (PocketBase uses this instead of noDecimal)
-    "values",
-    "maxSelect", // select fields
-    "mimeTypes",
-    "maxSize",
-    "thumbs",
-    "protected", // file fields
-    "onCreate",
-    "onUpdate", // autodate fields
-    "exceptDomains",
-    "onlyDomains", // email/url fields
-  ];
+  //
+  // The key list is the generator's own whitelist: anything the generator can
+  // write has to be readable here, or replay loses it and every `db:generate`
+  // re-emits the same modification
+  const directOptionKeys = getSupportedFieldOptionKeys(pbField.type);
 
   for (const key of directOptionKeys) {
     if (pbField[key] !== undefined) {
@@ -122,6 +110,7 @@ export function convertPocketBaseField(pbField: any): FieldDefinition {
 
     // Remove relation-specific properties from options
     // These belong in the relation object, not options
+    delete field.options.collectionId;
     delete field.options.maxSelect;
     delete field.options.minSelect;
     delete field.options.cascadeDelete;
@@ -231,63 +220,28 @@ export function convertPocketBaseCollection(pbCollection: any): CollectionSchema
 }
 
 /**
- * Converts PocketBase migration format to SchemaSnapshot
- * Extracts the snapshot array from the migration file content
+ * Converts an array of raw PocketBase-shaped collection objects (as found
+ * in snapshot arrays or produced by the execution engine) to a SchemaSnapshot
  *
- * @param migrationContent - Raw migration file content
+ * @param rawCollections - Raw PocketBase collection objects
  * @returns SchemaSnapshot with collections map
  */
-export function convertPocketBaseMigration(migrationContent: string): SchemaSnapshot {
-  try {
-    // Extract the snapshot array from the migration file
-    // The format is: migrate((app) => { const snapshot = [...]; ... })
-    const snapshotMatch = migrationContent.match(/const\s+snapshot\s*=\s*(\[[\s\S]*?\]);/);
+export function rawCollectionsToSnapshot(rawCollections: any[]): SchemaSnapshot {
+  const collections = new Map<string, CollectionSchema>();
 
-    if (!snapshotMatch) {
-      throw new Error("Could not find snapshot array in migration file");
+  for (const pbCollection of rawCollections) {
+    if (!pbCollection?.name) {
+      console.warn("Skipping collection without name");
+      continue;
     }
 
-    // Parse the snapshot array as JSON
-    // We need to evaluate it as JavaScript since it's not pure JSON
-    const snapshotArrayStr = snapshotMatch[1];
-    let snapshotArray: any[];
-
-    try {
-      // Use Function constructor to safely evaluate the array
-      // This is safer than eval() and works for our use case
-      snapshotArray = new Function(`return ${snapshotArrayStr}`)();
-    } catch (parseError) {
-      throw new Error(`Failed to parse snapshot array: ${parseError}`);
-    }
-
-    if (!Array.isArray(snapshotArray)) {
-      throw new Error("Snapshot is not an array");
-    }
-
-    // Convert each collection to our format
-    const collections = new Map<string, CollectionSchema>();
-
-    for (const pbCollection of snapshotArray) {
-      if (!pbCollection.name) {
-        console.warn("Skipping collection without name");
-        continue;
-      }
-
-      const schema = convertPocketBaseCollection(pbCollection);
-      collections.set(pbCollection.name, schema);
-    }
-
-    return {
-      version: SNAPSHOT_VERSION,
-      timestamp: new Date().toISOString(),
-      collections,
-    };
-  } catch (error) {
-    throw new SnapshotError(
-      `Failed to convert PocketBase migration: ${error instanceof Error ? error.message : String(error)}`,
-      undefined,
-      "parse",
-      error instanceof Error ? error : undefined
-    );
+    const schema = convertPocketBaseCollection(pbCollection);
+    collections.set(pbCollection.name, schema);
   }
+
+  return {
+    version: SNAPSHOT_VERSION,
+    timestamp: new Date().toISOString(),
+    collections,
+  };
 }

@@ -59,6 +59,22 @@ export function areValuesEqual(a: any, b: any): boolean {
 }
 
 /**
+ * Options whose zero value carries no information: PocketBase stores them on
+ * every field of the relevant type, and a schema that omits them describes the
+ * same field. Keys not listed here (`min`, `max`, …) are compared literally.
+ */
+const OPTION_ZERO_VALUES: Record<string, any> = {
+  autogeneratePattern: "",
+  pattern: "",
+  primaryKey: false,
+  convertURLs: false,
+  cost: 0,
+  hidden: false,
+  presentable: false,
+  system: false,
+};
+
+/**
  * Normalizes a field option value to account for PocketBase defaults
  * Returns the normalized value, treating default values as equivalent to undefined
  *
@@ -68,6 +84,15 @@ export function areValuesEqual(a: any, b: any): boolean {
  * @returns Normalized value (undefined if it's a default value)
  */
 export function normalizeOptionValue(key: string, value: any, fieldType: string): any {
+  // PocketBase writes every option a field type has, at its zero value, into
+  // the migrations it authors itself. A schema that simply does not set the
+  // option means the same thing, so the zero value has to compare equal to a
+  // missing one — otherwise replaying a PocketBase-authored migration reports
+  // a modification the generator can never settle.
+  if (OPTION_ZERO_VALUES[key] !== undefined && value === OPTION_ZERO_VALUES[key]) {
+    return undefined;
+  }
+
   // maxSelect: 1 is the default for select and file fields
   if (key === "maxSelect" && value === 1 && (fieldType === "select" || fieldType === "file")) {
     return undefined; // Treat as undefined to match missing default

@@ -328,16 +328,23 @@ export function extractFieldOptions(zodType: z.ZodTypeAny): Record<string, any> 
       }
     }
 
-    if (options.min === undefined || options.max === undefined) {
-      const schema = getJsonSchema(unwrappedType);
-      if (schema) {
-        if (options.min === undefined && typeof schema.minimum === "number") {
-          options.min = schema.minimum;
-        }
-        if (options.max === undefined && typeof schema.maximum === "number") {
-          options.max = schema.maximum;
-        }
+    const schema = getJsonSchema(unwrappedType);
+    if (schema) {
+      if (options.min === undefined && typeof schema.minimum === "number") {
+        options.min = schema.minimum;
       }
+      if (options.max === undefined && typeof schema.maximum === "number") {
+        options.max = schema.maximum;
+      }
+    }
+
+    // `z.number().int()` is how an integer column is spelled in Zod; it maps
+    // onto PocketBase's onlyInt, which the generator writes from noDecimal
+    const isInteger =
+      schema?.type === "integer" ||
+      checks.some((check: any) => check.kind === "int" || String(check.def?.format ?? "").includes("int"));
+    if (isInteger) {
+      options.noDecimal = true;
     }
   }
 
@@ -581,6 +588,94 @@ export function extractComprehensiveFieldOptions(zodType: z.ZodTypeAny): Extract
 }
 
 
+
+/**
+ * Options every PocketBase field carries, whatever its type
+ */
+const UNIVERSAL_FIELD_OPTIONS = ["hidden", "presentable", "system"] as const;
+
+/**
+ * The options PocketBase actually stores per field type.
+ *
+ * Zod validators do not line up with PocketBase's option set: `z.string()
+ * .email()` carries a regex that becomes `pattern`, but PocketBase's `email`
+ * type has no `pattern` and drops it on save. Emitting one leaves the
+ * migration file describing a collection the server never had — the file and
+ * the database disagree from the moment it is applied.
+ *
+ * Keys are PocketBase's own, plus the internal aliases the generator
+ * translates on the way out (`noDecimal` -> `onlyInt`).
+ */
+const SUPPORTED_FIELD_OPTIONS: Record<PocketBaseFieldType, readonly string[]> = {
+  text: ["min", "max", "pattern", "autogeneratePattern", "primaryKey"],
+  password: ["min", "max", "pattern", "cost"],
+  email: ["exceptDomains", "onlyDomains"],
+  url: ["exceptDomains", "onlyDomains"],
+  editor: ["convertURLs", "maxSize"],
+  number: ["min", "max", "onlyInt", "noDecimal"],
+  bool: [],
+  date: ["min", "max"],
+  autodate: ["onCreate", "onUpdate"],
+  select: ["values", "maxSelect"],
+  file: ["mimeTypes", "thumbs", "maxSelect", "maxSize", "protected"],
+  relation: ["collectionId", "cascadeDelete", "minSelect", "maxSelect"],
+  json: ["maxSize"],
+  geoPoint: [],
+};
+
+/**
+ * The option keys a field of `fieldType` can carry — the same set the
+ * generator is allowed to emit.
+ *
+ * The reader (`pocketbase-converter.extractFieldOptions`) uses this so that
+ * every option the generator writes is read back on replay. A key that is
+ * emitted but not read makes `compare()` see a modification on every run and
+ * emit the same `updated_*` migration forever.
+ *
+ * @param fieldType - The PocketBase field type, if known
+ * @returns The option keys readable for that type (every known key when the
+ *   type is unrecognized)
+ */
+export function getSupportedFieldOptionKeys(fieldType?: string): string[] {
+  const typeSpecific =
+    fieldType && fieldType in SUPPORTED_FIELD_OPTIONS
+      ? SUPPORTED_FIELD_OPTIONS[fieldType as PocketBaseFieldType]
+      : Object.values(SUPPORTED_FIELD_OPTIONS).flat();
+
+  return [...new Set([...typeSpecific, ...UNIVERSAL_FIELD_OPTIONS])];
+}
+
+/**
+ * Drops the options a PocketBase field type does not support.
+ *
+ * @param fieldType - The resolved PocketBase field type
+ * @param options - Options collected from the Zod schema or field metadata
+ * @returns The supported subset, or undefined when nothing is left
+ */
+export function filterSupportedFieldOptions(
+  fieldType: PocketBaseFieldType,
+  options: Record<string, any> | undefined
+): Record<string, any> | undefined {
+  if (!options) {
+    return options;
+  }
+
+  const supported = SUPPORTED_FIELD_OPTIONS[fieldType];
+  if (!supported) {
+    return options;
+  }
+
+  const allowed = new Set<string>([...supported, ...UNIVERSAL_FIELD_OPTIONS]);
+  const filtered: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(options)) {
+    if (allowed.has(key)) {
+      filtered[key] = value;
+    }
+  }
+
+  return Object.keys(filtered).length > 0 ? filtered : undefined;
+}
 
 /**
  * Gets the PocketBase field type with additional context

@@ -288,7 +288,8 @@ const PostSchema = z.object({
 
 **Options:**
 - `mimeTypes?: string[]` - Allowed MIME types (e.g., `["image/*", "application/pdf"]`)
-- `maxSize?: number` - Maximum file size in bytes
+- `maxSize?: ByteSize` - Maximum file size. A number is raw bytes; a string may use a `K`/`M`/`G`
+  suffix (case-insensitive), e.g. `"5M"`. Maximum allowed is `"8G"`.
 - `thumbs?: string[]` - Thumbnail sizes to generate (e.g., `["100x100", "200x200"]`)
 - `protected?: boolean` - Whether file requires auth to access
 
@@ -299,12 +300,16 @@ import { FileField } from "pocketbase-zod-schema/schema";
 const ProductSchema = z.object({
   thumbnail: FileField({ 
     mimeTypes: ["image/*"], 
-    maxSize: 5242880, // 5MB
+    maxSize: "5M", // or 5242880
     thumbs: ["100x100", "200x200"],
   }),
   document: FileField({ mimeTypes: ["application/pdf"] }),
 });
 ```
+
+**Return type:** `z.ZodType<string, File | string>` — the input accepts a `File` (or an existing
+filename), and the parsed output is the stored filename string. `FilesField` is the array
+equivalent: `z.ZodType<string[], (File | string)[]>`.
 
 **Generated PocketBase Field:**
 ```javascript
@@ -425,10 +430,10 @@ const LocationSchema = z.object({
 **RelationField Options (Single Relation):**
 - `collection: string` - Target collection name (required)
 - `cascadeDelete?: boolean` - Delete related records when this record is deleted (default: `false`)
+- `displayFields?: string[] | null` - Fields to show in the PocketBase admin UI
 
 **RelationsField Options (Multiple Relations):**
-- `collection: string` - Target collection name (required)
-- `cascadeDelete?: boolean` - Delete related records when this record is deleted (default: `false`)
+- All `RelationField` options plus:
 - `minSelect?: number` - Minimum number of relations required (default: `0`)
 - `maxSelect?: number` - Maximum number of relations allowed (default: `999`)
 
@@ -493,12 +498,13 @@ const PostSchema = z.object({
 | `FilesField(options?)` | file | minSelect, maxSelect, mimeTypes | `images: FilesField({ maxSelect: 5 })` |
 | `JSONField(schema?)` | json | schema | `metadata: JSONField()` |
 | `GeoPointField()` | geoPoint | None | `location: GeoPointField()` |
-| `RelationField(config)` | relation | collection, cascadeDelete | `author: RelationField({ collection: "users" })` |
+| `RelationField(config)` | relation | collection, cascadeDelete, displayFields | `author: RelationField({ collection: "users" })` |
 | `RelationsField(config)` | relation | collection, minSelect, maxSelect | `tags: RelationsField({ collection: "tags" })` |
 
----
+`SingleSelectField(values)` and `MultiSelectField(values, options?)` are also exported, for when
+you want the single/multiple decision made at the call site instead of inferred from `maxSelect`.
 
-## Automatic Type Inference (Backward Compatible)
+---
 
 ## Automatic Type Inference (Backward Compatible)
 
@@ -511,30 +517,42 @@ For backward compatibility, the library still supports automatic type inference 
 | `z.string()` | `text` | `name: z.string()` |
 | `z.string().email()` | `email` | `email: z.string().email()` |
 | `z.string().url()` | `url` | `website: z.string().url()` |
+| `z.string().datetime()` | `date` | `publishedAt: z.string().datetime()` |
 | `z.number()` | `number` | `age: z.number()` |
 | `z.boolean()` | `bool` | `active: z.boolean()` |
 | `z.date()` | `date` | `birthdate: z.date()` |
-| `z.enum([...])` | `text` | `status: z.enum(["active", "inactive"])` |
+| `z.enum([...])` | `select` | `status: z.enum(["active", "inactive"])` |
 | `z.record(z.any())` | `json` | `metadata: z.record(z.any())` |
+| `z.object({...})` | `json` | `settings: z.object({ theme: z.string() })` |
 | `z.instanceof(File)` | `file` | `avatar: z.instanceof(File)` |
+| `z.array(z.instanceof(File))` | `file` | `images: z.array(z.instanceof(File))` |
+| `z.array(z.string())` | `relation` | see the caveat below |
+| `z.array(<anything else>)` | `json` | `scores: z.array(z.number())` |
+
+> **Caveat — `z.array(z.string())` always maps to `relation`.** The array-of-strings case is
+> assumed to be a relation regardless of the field name. If the name does not also satisfy the
+> naming convention below, the field is emitted as a `relation` with **no target collection**,
+> which PocketBase will reject. Use `RelationsField({ collection })` for real relations and
+> `JSONField(z.array(z.string()))` for a plain list of strings.
 
 ### Relation Type Mappings (Automatic Detection)
 
-### Relation Type Mappings (Automatic Detection)
-
-**Note:** For explicit relation definitions, use `RelationField()` and `RelationsField()` helpers instead.
-
-Relations are detected by field naming conventions:
+**Note:** For explicit relation definitions, use `RelationField()` and `RelationsField()` helpers instead. Naming-convention detection exists for backward compatibility and only applies when a field carries no relation metadata.
 
 ### Single Relations
 
-Field name matches a collection name (singular or plural):
+A **`z.string()` field whose name starts with an uppercase letter** is treated as a single
+relation, unless the name is one of the excluded common fields (`Title`, `Name`, `Description`,
+`Content`, `Summary`, `Status`, `Type`). The target collection is the field name pluralized —
+whether or not a collection by that name exists.
 
 ```typescript
 {
   User: z.string(),           // → relation to Users (maxSelect: 1)
   Author: z.string(),         // → relation to Authors (maxSelect: 1)
   Category: z.string(),       // → relation to Categories (maxSelect: 1)
+  Title: z.string(),          // → text (excluded name)
+  username: z.string(),       // → text (lowercase)
 }
 ```
 
@@ -551,13 +569,15 @@ Field name matches a collection name (singular or plural):
 
 ### Multiple Relations
 
-Field name ends with a collection name:
+A **`z.array(z.string())` field whose name contains any uppercase letter** is treated as a multiple
+relation. The target collection is the *last* capitalized word in the name, pluralized.
 
 ```typescript
 {
   Tags: z.array(z.string()),              // → relation to Tags (maxSelect: 999)
   SubscriberUsers: z.array(z.string()),   // → relation to Users (maxSelect: 999)
   Categories: z.array(z.string()),        // → relation to Categories (maxSelect: 999)
+  relatedPosts: z.array(z.string()),      // → relation to Posts (the "P" is enough)
 }
 ```
 
@@ -647,40 +667,22 @@ bio: z.string().optional()
 
 ## File Upload Mappings
 
-File uploads require special handling due to form data vs. database storage:
-
-### Input Schema (Form Validation)
+A file field has two shapes: a `File` on the way in, a filename string on the way out. `FileField()`
+already models both, so a single declaration covers the collection *and* the form:
 
 ```typescript
 import { z } from "zod";
-
-export const inputImageFileSchema = {
-  avatar: z
-    .instanceof(File)
-    .refine((file) => file.size <= 5000000, "Max 5MB")
-    .refine(
-      (file) => ["image/jpeg", "image/png"].includes(file.type),
-      "Only JPG/PNG"
-    ),
-};
-
-export const UserInputSchema = z.object({
-  name: z.string(),
-  ...inputImageFileSchema,
-});
-```
-
-### Database Schema (Storage)
-
-```typescript
-export const baseImageFileSchema = {
-  avatar: z.string(), // Stored as filename string
-};
+import { defineCollection, FileField, TextField } from "pocketbase-zod-schema/schema";
 
 export const UserSchema = z.object({
-  name: z.string(),
-  ...baseImageFileSchema,
-}).extend(baseSchema);
+  name: TextField({ max: 100 }),
+  avatar: FileField({
+    mimeTypes: ["image/jpeg", "image/png"],
+    maxSize: "5M",
+  }),
+});
+
+export default defineCollection({ collectionName: "users", schema: UserSchema });
 ```
 
 ### Generated PocketBase Field
@@ -691,14 +693,30 @@ export const UserSchema = z.object({
   type: "file",
   required: true,
   maxSelect: 1,
-  maxSize: 5242880, // 5MB in bytes
+  maxSize: 5242880,
   mimeTypes: ["image/jpeg", "image/png"]
 }
 ```
 
+### When you need a separate input schema
+
+Keep one only for fields that exist on the form but not in the database (`passwordConfirm`, a
+client-side size message):
+
+```typescript
+export const UserInputSchema = UserSchema.extend({
+  passwordConfirm: z.string(),
+  avatar: z.instanceof(File).refine((f) => f.size <= 5_000_000, "Max 5MB"),
+});
+```
+
+The library also ships ready-made fragments — `baseImageFileSchema` (adds `thumbnailURL` and
+`imageFiles` to `baseSchema`), `inputImageFileSchema` and `omitImageFilesSchema`. All three are
+plain objects of Zod fields, so spread them or pass them to `.extend()`.
+
 ## Enum Mappings
 
-Zod enums are mapped to PocketBase text fields with validation:
+Zod enums map to PocketBase `select` fields, with the enum members becoming the allowed values:
 
 ### Zod Enum
 
@@ -707,7 +725,7 @@ import { z } from "zod";
 
 export const StatusEnum = z.enum(["draft", "published", "archived"]);
 
-export const PostInputSchema = z.object({
+export const PostSchema = z.object({
   status: StatusEnum,
 });
 ```
@@ -717,26 +735,30 @@ export const PostInputSchema = z.object({
 ```javascript
 {
   name: "status",
-  type: "text",
+  type: "select",
   required: true,
-  options: {
-    values: ["draft", "published", "archived"]
-  }
+  values: ["draft", "published", "archived"],
+  maxSelect: 1
 }
 ```
 
+`SelectField(values, { maxSelect })` is the explicit form and the only way to declare a
+multi-select.
+
 ## Collection Type Detection
 
-Collections are automatically typed based on their fields:
+`defineCollection({ type })` always wins. When `type` is omitted, the type is inferred:
 
 ### Auth Collection
 
-Detected when schema contains `email` field:
+Detected when the schema contains **both** an `email` and a `password` field (case-insensitive on
+the field names). One without the other is not enough:
 
 ```typescript
-export const UserInputSchema = z.object({
-  email: z.string().email(),
-  username: z.string(),
+export const UserSchema = z.object({
+  email: EmailField(),
+  password: TextField({ min: 8 }),
+  name: TextField({ max: 100 }).optional(),
 });
 ```
 
@@ -745,18 +767,21 @@ export const UserInputSchema = z.object({
 {
   name: "Users",
   type: "auth", // Automatically detected
-  fields: [...]
+  fields: [...] // plus the injected system fields
 }
 ```
 
+Auth collections get PocketBase's system fields injected (`email`, `emailVisibility`, `verified`,
+`password`, `tokenKey`), and `manageRule` is only emitted for this type.
+
 ### Base Collection
 
-Default type for all other collections:
+Default for everything else:
 
 ```typescript
-export const PostInputSchema = z.object({
-  title: z.string(),
-  content: z.string(),
+export const PostSchema = z.object({
+  title: TextField(),
+  content: EditorField(),
 });
 ```
 
@@ -769,26 +794,39 @@ export const PostInputSchema = z.object({
 }
 ```
 
+### View Collection
+
+Never inferred — declared with `defineView()` or `type: "view"`, and always accompanied by a
+`viewQuery`. PocketBase derives a view's fields by running the query, so the Zod schema is used for
+TypeScript types only and the generated migration contains **no `fields` and no `indexes` array**.
+See [VIEW_COLLECTIONS.md](./VIEW_COLLECTIONS.md).
+
+> Changing an existing collection's *type* is not diffed and produces no migration. Recreate the
+> collection instead.
+
 ## Special Cases
 
 ### Array Fields (Non-Relation)
 
-Arrays that don't match relation naming conventions:
+Arrays of non-strings become `json`:
 
 ```typescript
 {
-  tags: z.array(z.string()), // Not matching any collection name
+  scores: z.array(z.number()),
 }
 ```
 
 **Generated PocketBase Field:**
 ```javascript
 {
-  name: "tags",
-  type: "json", // Stored as JSON array
+  name: "scores",
+  type: "json",
   required: true
 }
 ```
+
+An array of *strings* does **not** land here — it is always inferred as a relation. For a plain
+list of strings use `JSONField(z.array(z.string()))`.
 
 ### JSON Fields
 
@@ -1006,8 +1044,6 @@ export const ProductCollection = defineCollection({
 });
 ```
 
-## Best Practices
-
 ## General Best Practices
 
 1. **Use field helpers for new schemas** - Get explicit type declarations and PocketBase-specific options
@@ -1020,6 +1056,9 @@ export const ProductCollection = defineCollection({
 
 ## See Also
 
-- [Migration Guide](./MIGRATION_GUIDE.md) - Complete migration documentation
+- [API Reference](./API.md) - Every exported function and type
+- [Naming Conventions](./NAMING_CONVENTIONS.md) - The exact relation-detection rules
+- [View Collections](./VIEW_COLLECTIONS.md) - SQL-backed collections, whose fields are derived not declared
+- [Migration Guide](./MIGRATION_GUIDE.md) - Adoption and upgrade notes
 - [PocketBase Field Types](https://pocketbase.io/docs/collections/) - Official PocketBase docs
 - [Zod Documentation](https://zod.dev/) - Zod validation library

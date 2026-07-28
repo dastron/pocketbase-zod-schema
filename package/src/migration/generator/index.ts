@@ -9,10 +9,15 @@
 import * as fs from "fs";
 import * as path from "path";
 import { FileSystemError, MigrationGenerationError } from "../errors";
-import type { SchemaDiff } from "../types";
+import type { CollectionOperation, SchemaDiff } from "../types";
 import { mergeConfig, type MigrationGeneratorConfig } from "./config";
 import { createMigrationFileStructure, resolveMigrationDir, writeMigrationFile } from "./file-writer";
-import { generateDownMigration, generateOperationDownMigration, generateOperationUpMigration, generateUpMigration } from "./migrator";
+import {
+  generateDownMigration,
+  generateOperationDownMigration,
+  generateOperationUpMigration,
+  generateUpMigration,
+} from "./migrator";
 import { generateCollectionMigrationFilename, generateMigrationFilename, splitDiffByCollection } from "./operations";
 import { generateTimestamp } from "./utils";
 
@@ -28,14 +33,30 @@ export * from "./rules";
 export * from "./utils";
 
 /**
- * Main generation function
- * Generates migration files from schema diff (one file per collection operation)
+ * A migration file that has been generated but not yet written to disk
+ */
+export interface PlannedMigration {
+  /** Filename the migration will be written as */
+  filename: string;
+  /** Complete migration file content */
+  content: string;
+  /** The collection operation this file was generated from */
+  operation: CollectionOperation;
+}
+
+/**
+ * Generates migration file contents from a schema diff without writing them
+ *
+ * Splitting planning from writing lets callers inspect or verify a migration
+ * before it lands in the migrations directory — see the engine's
+ * `verifyMigrationSources`, which the CLI's `generate --verify` runs over the
+ * plan and aborts on.
  *
  * @param diff - Schema diff containing all changes
  * @param config - Migration generator configuration
- * @returns Array of paths to the generated migration files
+ * @returns One planned migration per collection operation, in dependency order
  */
-export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | string): string[] {
+export function planMigrations(diff: SchemaDiff, config: MigrationGeneratorConfig | string): PlannedMigration[] {
   // Support legacy string-only parameter (migration directory)
   const normalizedConfig: MigrationGeneratorConfig = typeof config === "string" ? { migrationDir: config } : config;
 
@@ -78,7 +99,7 @@ export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | st
     const operations = splitDiffByCollection(diff, baseTimestamp);
 
     // Generate migration file for each operation
-    const filePaths: string[] = [];
+    const planned: PlannedMigration[] = [];
 
     // Read existing files for duplicate check
     let existingFiles: string[] = [];
@@ -110,13 +131,10 @@ export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | st
       // Generate filename for this operation
       const filename = generateCollectionMigrationFilename(operation);
 
-      // Write migration file
-      const filePath = writeMigrationFile(migrationDir, filename, content);
-
-      filePaths.push(filePath);
+      planned.push({ filename, content, operation });
     }
 
-    return filePaths;
+    return planned;
   } catch (error) {
     // If it's already a MigrationGenerationError or FileSystemError, re-throw it
     if (error instanceof MigrationGenerationError || error instanceof FileSystemError) {
@@ -130,6 +148,37 @@ export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | st
       error as Error
     );
   }
+}
+
+/**
+ * Main generation function
+ * Generates migration files from schema diff (one file per collection operation)
+ *
+ * @param diff - Schema diff containing all changes
+ * @param config - Migration generator configuration
+ * @returns Array of paths to the generated migration files
+ */
+export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | string): string[] {
+  const normalizedConfig: MigrationGeneratorConfig = typeof config === "string" ? { migrationDir: config } : config;
+  const planned = planMigrations(diff, normalizedConfig);
+
+  if (planned.length === 0) {
+    return [];
+  }
+
+  const migrationDir = resolveMigrationDir(normalizedConfig);
+  return writePlannedMigrations(planned, migrationDir);
+}
+
+/**
+ * Writes planned migrations to disk, in order
+ *
+ * @param planned - Migrations produced by planMigrations()
+ * @param migrationDir - Absolute path to the migrations directory
+ * @returns Array of paths to the written files
+ */
+export function writePlannedMigrations(planned: PlannedMigration[], migrationDir: string): string[] {
+  return planned.map((migration) => writeMigrationFile(migrationDir, migration.filename, migration.content));
 }
 
 /**
@@ -149,6 +198,14 @@ export class MigrationGenerator {
    */
   generate(diff: SchemaDiff): string[] {
     return generate(diff, this.config);
+  }
+
+  /**
+   * Generates the migration file contents without writing them, so they can
+   * be inspected or verified first
+   */
+  plan(diff: SchemaDiff): PlannedMigration[] {
+    return planMigrations(diff, this.config);
   }
 
   /**

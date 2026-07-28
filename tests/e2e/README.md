@@ -9,7 +9,82 @@ The E2E test system:
 2. Creates isolated test workspaces
 3. Generates migrations using both PocketBase CLI and the library
 4. Compares the generated migrations for compatibility
-5. Reports detailed compatibility metrics
+5. Applies the library migration with the real binary and checks the result
+6. Reports detailed compatibility metrics
+
+### Validation stages
+
+Each scenario is checked three ways, from weakest to strongest signal:
+
+| Stage | Component | What it proves | Gated |
+| --- | --- | --- | --- |
+| Text comparison | `cli-response-analyzer.ts` | How closely the generated file resembles PocketBase's own (`overallScore`) | no — informational |
+| State equivalence | `engine-state-comparator.ts` | Both migrations, executed in the engine, produce the same schema (`stateEquivalenceScore`) | yes |
+| Real apply | `real-apply-verifier.ts` | PocketBase itself applies the migration, and the engine simulated exactly what it stored (`realApplyScore`) | yes |
+
+Both gated scores are asserted per scenario against
+`minimumStateEquivalenceScore` and `minimumRealApplyScore`
+(`fixtures/test-scenarios.ts`), each defaulting to 100 — the two states must
+be identical. A scenario pins a lower baseline only for a divergence that is
+understood and tracked; every such number carries a comment naming the gap.
+Dropping below a pinned baseline fails the test, so a regression cannot slip
+through as a logged warning. When a gap is closed, raise its baseline back to
+100 in the same change, otherwise the gate stops guarding it.
+
+The text-similarity score is reported but never asserted: two migrations can
+express the same schema in very different text (statement order, `addAt` vs
+`add`, `unmarshal` vs property assignment), so it measures resemblance rather
+than correctness.
+
+### Reading migration files
+
+`migration-inspector.ts` is the only thing that reads a migration file. It
+executes the file through the migration engine (starting from the `users`
+auth collection every real instance has) and reports the collections the file
+created, modified, or deleted. There is no text scanning: a migration that
+mutates a collection it looked up, loops over field definitions, or computes
+a name is read exactly as PocketBase would run it, and a file the engine
+cannot execute fails loudly instead of parsing as zero collections.
+
+The real-apply stage is the oracle: it copies the library-generated
+migration into a fresh workspace, runs `pocketbase migrate up`, reads the
+collections back through `GET /api/collections`, and diffs that against the
+engine's simulation of the same files. Both sides start from the collections
+a freshly-initialized instance has, captured once per run.
+
+Two failure modes it catches that nothing else does: a migration PocketBase
+refuses to apply (a hard test failure — note `migrate up` exits 0 even when
+a migration fails, so the outcome is parsed from its output), and a
+migration PocketBase applies *differently* than the engine simulated, which
+is a defect in the engine or the generator. Option defaults PocketBase
+materializes (`pattern: ""`, `min: 0`) are reconciled first, so what remains
+is real divergence.
+
+#### Known divergences
+
+There are none: every scenario scores 100 on all three stages, and no
+scenario pins a baseline below the default 100. A scenario that has to pin a
+lower one carries a comment naming the gap, so `minimumStateEquivalenceScore`
+or `minimumRealApplyScore` appearing in `fixtures/test-scenarios.ts` is itself
+the signal that something is outstanding.
+
+Getting here closed four generator defects — `pattern` carried onto
+`email`/`date` fields from the Zod validator, `password` emitted as
+`type: "text"` rather than PocketBase's `password` type, `tokenKey` without
+its min 30 / max 60, and a fixed collection id baked into the auth index
+names — and three harness gaps, where `library-cli.ts` built Zod schemas that
+under-described the scenario (`editor` and `autodate` as plain strings, a
+select without its `maxSelect`) and `native-migration-generator.ts` created
+collections over the REST API without the `created`/`updated` autodate fields
+PocketBase's own collection form adds.
+
+One difference is normalized rather than fixed. PocketBase names an auth
+collection's generated indexes after the collection id
+(`idx_tokenKey_pbc_2283551112`); the two sides assign ids independently — the
+library generates a random `pb_` one by design — so those names can never
+match. Both comparators substitute the id each side used before diffing (see
+`normalizeIndexNames` in `state-diff.ts`), which keeps the uniqueness,
+columns and `WHERE` clause under comparison while ignoring the id.
 
 ## Directory Structure
 
@@ -73,6 +148,8 @@ Test individual E2E system components in isolation:
 - Native Migration Generator
 - Library CLI Simulator
 - Diff Analyzer
+- Engine State Comparator
+- Real Apply Verifier
 - Report Generator
 
 ### Integration Tests (`integration/`)

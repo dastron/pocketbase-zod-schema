@@ -20,13 +20,22 @@ export {
   createWorkspaceManager,
 } from './workspace-manager.js';
 
+// Migration Inspector (engine-backed migration reader)
+export {
+  type InspectedMigration,
+  type InspectOptions,
+  type ParsedCollection,
+  type ParsedField,
+  type ParsedMigration,
+  createBaselineStore,
+  inspectMigrationFile,
+  inspectMigrationSource,
+} from './migration-inspector.js';
+
 // Native Migration Generator
 export {
   type NativeMigrationGenerator,
   type CollectionChanges,
-  type ParsedCollection,
-  type ParsedField,
-  type ParsedMigration,
   NativeMigrationGeneratorImpl,
   createNativeMigrationGenerator,
 } from './native-migration-generator.js';
@@ -38,6 +47,42 @@ export {
   LibraryCLIImpl,
   createLibraryCLI,
 } from './library-cli.js';
+
+// PocketBase Admin REST API helpers
+export {
+  SUPERUSER_EMAIL,
+  SUPERUSER_PASSWORD,
+  adminUrlForPort,
+  authenticateSuperuser,
+  fetchCollections,
+} from './pb-admin-api.js';
+
+// State diff helpers
+export {
+  type StateLabels,
+  alignForComparison,
+  describeDiff,
+  diffStates,
+  scopeSnapshot,
+  scoreDiff,
+} from './state-diff.js';
+
+// Engine State Comparator
+export {
+  type EngineStateComparator,
+  type StateComparisonResult,
+  createEngineStateComparator,
+} from './engine-state-comparator.js';
+
+// Real Apply Verifier
+export {
+  type RealApplyComparison,
+  type RealApplyOptions,
+  type RealApplyOutcome,
+  type RealApplyVerifier,
+  createRealApplyVerifier,
+  parseMigrateOutput,
+} from './real-apply-verifier.js';
 
 // CLI Response Analyzer
 export {

@@ -9,7 +9,9 @@ import { readdir, readFile, stat, copyFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { TestWorkspace } from './workspace-manager.js';
 import { CollectionDefinition, FieldDefinition, CollectionRules } from '../fixtures/test-scenarios.js';
-import { logger, sleep, retry } from '../utils/test-helpers.js';
+import { authenticateSuperuser } from './pb-admin-api.js';
+import { inspectMigrationFile, type ParsedMigration } from './migration-inspector.js';
+import { logger, sleep } from '../utils/test-helpers.js';
 
 export interface CollectionChanges {
   addFields?: FieldDefinition[];
@@ -20,38 +22,25 @@ export interface CollectionChanges {
   updateRules?: Partial<CollectionRules>;
 }
 
-export interface ParsedCollection {
-  id: string;
-  name: string;
-  type: 'base' | 'auth' | 'view';
-  system: boolean;
-  fields: ParsedField[];
-  indexes: string[];
-  rules: CollectionRules;
-}
+// The parsed-migration shape lives with the inspector that produces it;
+// re-exported here because both e2e components and the analyzer consume it
+export type { ParsedCollection, ParsedField, ParsedMigration } from './migration-inspector.js';
 
-export interface ParsedField {
-  id: string;
-  name: string;
-  type: string;
-  required: boolean;
-  unique: boolean;
-  options: Record<string, any>;
-  relation?: {
-    collectionId: string;
-    cascadeDelete: boolean;
-    maxSelect: number;
-    minSelect: number | null;
-    displayFields: string[] | null;
-  };
-}
-
-export interface ParsedMigration {
-  filename: string;
-  upFunction: string;
-  downFunction: string;
-  collections: ParsedCollection[];
-}
+/**
+ * The timestamp fields PocketBase's own collection form creates.
+ *
+ * Creating a collection over the REST API produces exactly the fields the
+ * payload lists — nothing more — while the Admin UI, and every migration
+ * PocketBase writes for a collection made through it, carries these two
+ * autodate fields (see package/.../reference-migrations). The library adds
+ * them too, so a native payload without them compares a collection that has
+ * timestamps against one that does not, and every scenario loses points to a
+ * difference neither side actually disagrees about.
+ */
+const AUTODATE_TIMESTAMP_FIELDS = [
+  { name: 'created', type: 'autodate', onCreate: true, onUpdate: false },
+  { name: 'updated', type: 'autodate', onCreate: true, onUpdate: true },
+] as const;
 
 export interface NativeMigrationGenerator {
   createCollection(workspace: TestWorkspace, definition: CollectionDefinition): Promise<string>;
@@ -247,29 +236,12 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
   }
 
   /**
-   * Parse a migration file into structured data
+   * Read a migration file by executing it through the migration engine and
+   * reporting the collections it produced.
    */
   async parseMigrationFile(filePath: string): Promise<ParsedMigration> {
     try {
-      const content = await readFile(filePath, 'utf-8');
-      const filename = filePath.split('/').pop() || '';
-
-      // Extract up and down functions using regex
-      const upMatch = content.match(/migrate\s*\(\s*\((?:db|app)\)\s*=>\s*\{([\s\S]*?)\}\s*,/);
-      const downMatch = content.match(/,\s*\((?:db|app)\)\s*=>\s*\{([\s\S]*?)\}\s*\)/);
-
-      const upFunction = upMatch ? upMatch[0] : '';
-      const downFunction = downMatch ? downMatch[0] : '';
-
-      // Parse collections from the migration content
-      const collections = this.parseCollectionsFromMigration(content);
-
-      return {
-        filename,
-        upFunction,
-        downFunction,
-        collections,
-      };
+      return await inspectMigrationFile(filePath);
     } catch (error) {
       logger.error(`Failed to parse migration file ${filePath}:`, error);
       throw error;
@@ -283,7 +255,10 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
     const collectionData: any = {
       name: definition.name,
       type: definition.type,
-      fields: await Promise.all(definition.fields.map(field => this.buildFieldData(field, adminUrl, authToken))),
+      fields: [
+        ...(await Promise.all(definition.fields.map(field => this.buildFieldData(field, adminUrl, authToken)))),
+        ...AUTODATE_TIMESTAMP_FIELDS,
+      ],
     };
 
     // Add rules if specified
@@ -384,52 +359,8 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
    * Uses retry logic to handle timing issues after PocketBase startup
    */
   private async authenticateAdmin(adminUrl: string): Promise<{ token: string }> {
-    return await retry(
-      async () => {
-        // Try to authenticate as superuser (v0.23+)
-        let authResponse = await fetch(`${adminUrl}/api/collections/_superusers/auth-with-password`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            identity: 'test@example.com',
-            password: 'testpassword123',
-          }),
-          signal: AbortSignal.timeout(this.adminApiTimeout),
-        });
-
-        // Fallback for older versions (pre v0.23)
-        if (authResponse.status === 404) {
-          authResponse = await fetch(`${adminUrl}/api/admins/auth-with-password`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              identity: 'test@example.com',
-              password: 'testpassword123',
-            }),
-            signal: AbortSignal.timeout(this.adminApiTimeout),
-          });
-        }
-
-        if (!authResponse.ok) {
-          const errorText = await authResponse.text();
-          throw new Error(`Failed to authenticate admin: ${authResponse.status} - ${errorText}`);
-        }
-
-        const authData = await authResponse.json();
-        logger.debug('Admin authentication successful');
-        return authData;
-      },
-      {
-        maxAttempts: 5,
-        baseDelay: 500,
-        maxDelay: 2000,
-        backoffFactor: 1.5,
-      }
-    );
+    const token = await authenticateSuperuser(adminUrl, { timeout: this.adminApiTimeout });
+    return { token };
   }
 
   /**
@@ -551,122 +482,6 @@ export class NativeMigrationGeneratorImpl implements NativeMigrationGenerator {
     }
 
     return updated;
-  }
-
-  /**
-   * Parse collections from migration content
-   */
-  private parseCollectionsFromMigration(content: string): ParsedCollection[] {
-    const collections: ParsedCollection[] = [];
-
-    try {
-      // Find all occurrences of "new Collection({"
-      const collectionStartRegex = /new Collection\s*\(\s*\{/g;
-      let match;
-
-      while ((match = collectionStartRegex.exec(content)) !== null) {
-        const startIndex = match.index + match[0].length - 1; // pointing to {
-        let depth = 0;
-        let endIndex = -1;
-
-        // Find matching closing brace, ignoring strings
-        let inString = false;
-        let stringChar = '';
-
-        for (let i = startIndex; i < content.length; i++) {
-          const char = content[i];
-
-          if (inString) {
-            if (char === stringChar && content[i - 1] !== '\\') {
-              inString = false;
-            }
-            continue;
-          }
-
-          if (char === '"' || char === "'" || char === '`') {
-            inString = true;
-            stringChar = char;
-            continue;
-          }
-
-          if (char === '{') {
-            depth++;
-          } else if (char === '}') {
-            depth--;
-            if (depth === 0) {
-              endIndex = i;
-              break;
-            }
-          }
-        }
-
-        if (endIndex !== -1) {
-          const collectionData = content.substring(startIndex, endIndex + 1);
-
-          try {
-            // Use new Function to parse the collection data object safely
-            // valid JS object syntax from the migration file
-            const parseConfig = new Function(`return ${collectionData}`);
-            const config = parseConfig();
-
-            if (!config.id || !config.name || !config.type) {
-              continue;
-            }
-
-            // Map fields from schema/fields property
-            const rawFields = config.schema || config.fields || [];
-            const fields: ParsedField[] = rawFields.map((f: any) => {
-              const parsedField: ParsedField = {
-                id: f.id,
-                name: f.name,
-                type: f.type,
-                required: !!f.required,
-                unique: !!f.unique,
-                options: f.options || {}
-              };
-
-              if (f.type === 'relation') {
-                parsedField.relation = {
-                  collectionId: f.collectionId,
-                  cascadeDelete: f.cascadeDelete ?? false,
-                  maxSelect: f.maxSelect ?? 1,
-                  minSelect: f.minSelect ?? null,
-                  displayFields: f.displayFields ?? null
-                };
-              }
-
-              return parsedField;
-            });
-
-            // Map rules
-            const rules: CollectionRules = {
-              listRule: config.listRule,
-              viewRule: config.viewRule,
-              createRule: config.createRule,
-              updateRule: config.updateRule,
-              deleteRule: config.deleteRule,
-              manageRule: config.manageRule,
-            };
-
-            collections.push({
-              id: config.id,
-              name: config.name,
-              type: config.type,
-              system: !!config.system,
-              fields,
-              indexes: config.indexes || [],
-              rules,
-            });
-          } catch (e) {
-            logger.warn(`Failed to parse collection data: ${e}`);
-          }
-        }
-      }
-    } catch (error) {
-      logger.warn(`Error parsing collections from migration content:`, error);
-    }
-
-    return collections;
   }
 }
 

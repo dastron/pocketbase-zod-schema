@@ -24,7 +24,7 @@ import * as path from "path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { compare } from "../../diff";
 import { generate } from "../../generator";
-import { parseMigrationOperations } from "../../migration-parser";
+import { executeMigrationFiles } from "../helpers/migration-executor";
 import type { CollectionSchema, SchemaDefinition, SchemaSnapshot } from "../../types";
 
 describe("Migration Loop Detection", () => {
@@ -92,25 +92,14 @@ describe("Migration Loop Detection", () => {
     generatedFiles.push(generatedPath);
     expect(fs.existsSync(generatedPath)).toBe(true);
 
-    // Step 3: Parse the generated migration
-    const migrationContent = fs.readFileSync(generatedPath, "utf-8");
-    const operations = parseMigrationOperations(migrationContent);
-
-    // Step 4: Create snapshot from parsed operations
-    const snapshot: SchemaSnapshot = {
-      version: "1.0.0",
-      timestamp: new Date().toISOString(),
-      collections: new Map<string, CollectionSchema>(),
-    };
-
-    for (const collection of operations.collectionsToCreate) {
-      snapshot.collections.set(collection.name, collection);
-    }
+    // Step 3: Execute the generated migration to reconstruct the state it produces
+    const executed = executeMigrationFiles([generatedPath]);
+    const snapshot = executed.snapshot;
 
     // Add users collection to snapshot (it's in the schema but not generated)
     snapshot.collections.set("users", { name: "users", id: "users_id", type: "auth", fields: [] } as CollectionSchema);
 
-    // Step 5: Compare original schema to parsed snapshot
+    // Step 4: Compare original schema against the reconstructed state
     const diffAfterGeneration = compare(originalSchema, snapshot);
 
     return {
@@ -119,8 +108,8 @@ describe("Migration Loop Detection", () => {
         diffAfterGeneration.collectionsToModify.length === 0 &&
         diffAfterGeneration.collectionsToDelete.length === 0,
       diff: diffAfterGeneration,
-      generatedMigration: migrationContent,
-      parsedCollections: operations.collectionsToCreate,
+      generatedMigration: fs.readFileSync(generatedPath, "utf-8"),
+      parsedCollections: executed.created,
     };
   }
 
@@ -790,26 +779,17 @@ describe("Migration Loop Detection", () => {
       expect(initialMigrationPaths.length).toBeGreaterThan(0);
       generatedFiles.push(...initialMigrationPaths);
 
-      // Step 2: Parse the first migration to get the Files collection ID
-      const firstMigrationContent = fs.readFileSync(initialMigrationPaths[0], "utf-8");
-      const firstOperations = parseMigrationOperations(firstMigrationContent);
-      expect(firstOperations.collectionsToCreate.length).toBeGreaterThan(0);
+      // Step 2: Execute the first migration to get the Files collection ID
+      const firstRun = executeMigrationFiles([initialMigrationPaths[0]]);
+      expect(firstRun.created.length).toBeGreaterThan(0);
 
-      const filesCollectionFromMigration = firstOperations.collectionsToCreate.find((c) => c.name === "Files");
+      const filesCollectionFromMigration = firstRun.created.find((c) => c.name === "Files");
       expect(filesCollectionFromMigration).toBeDefined();
       expect(filesCollectionFromMigration?.id).toBeDefined();
       const filesCollectionId = filesCollectionFromMigration!.id!;
 
-      // Step 3: Create snapshot from first migration
-      const snapshot: SchemaSnapshot = {
-        version: "1.0.0",
-        timestamp: new Date().toISOString(),
-        collections: new Map<string, CollectionSchema>(),
-      };
-
-      for (const collection of firstOperations.collectionsToCreate) {
-        snapshot.collections.set(collection.name, collection);
-      }
+      // Step 3: Create snapshot from the first migration's state
+      const snapshot = firstRun.snapshot;
       snapshot.collections.set("users", { name: "users", id: "users_id", type: "auth", fields: [] } as CollectionSchema);
 
       // Step 4: Create schema with "Media" collection that has relation to "Files"
@@ -862,17 +842,14 @@ describe("Migration Loop Detection", () => {
       expect(secondMigrationContent).toContain(`"collectionId": "${filesCollectionId}"`);
       expect(secondMigrationContent).not.toContain('app.findCollectionByNameOrId("Files").id');
 
-      // Step 7: Parse the second migration and verify idempotency
-      const secondOperations = parseMigrationOperations(secondMigrationContent);
-      const updatedSnapshot: SchemaSnapshot = {
-        version: "1.0.0",
-        timestamp: new Date().toISOString(),
-        collections: new Map(snapshot.collections),
-      };
-
-      for (const collection of secondOperations.collectionsToCreate) {
-        updatedSnapshot.collections.set(collection.name, collection);
-      }
+      // Step 7: Replay both migrations and verify idempotency
+      const updatedSnapshot = executeMigrationFiles([initialMigrationPaths[0], secondMigrationPaths[0]]).snapshot;
+      updatedSnapshot.collections.set("users", {
+        name: "users",
+        id: "users_id",
+        type: "auth",
+        fields: [],
+      } as CollectionSchema);
 
       // Step 8: Compare again - should show no changes
       const finalDiff = compare(updatedSchema, updatedSnapshot);
@@ -921,19 +898,8 @@ describe("Migration Loop Detection", () => {
       expect(initialMigrationPaths.length).toBeGreaterThan(0);
       generatedFiles.push(...initialMigrationPaths);
 
-      // Parse first migration to get collection IDs
-      const firstMigrationContent = fs.readFileSync(initialMigrationPaths[0], "utf-8");
-      const firstOperations = parseMigrationOperations(firstMigrationContent);
-
-      const snapshot: SchemaSnapshot = {
-        version: "1.0.0",
-        timestamp: new Date().toISOString(),
-        collections: new Map<string, CollectionSchema>(),
-      };
-
-      for (const collection of firstOperations.collectionsToCreate) {
-        snapshot.collections.set(collection.name, collection);
-      }
+      // Execute the first migration to get collection IDs
+      const snapshot = executeMigrationFiles([initialMigrationPaths[0]]).snapshot;
       snapshot.collections.set("users", { name: "users", id: "users_id", type: "auth", fields: [] } as CollectionSchema);
 
       // Step 2: Add Media collection
@@ -947,18 +913,13 @@ describe("Migration Loop Detection", () => {
       expect(mediaMigrationPaths.length).toBeGreaterThan(0);
       generatedFiles.push(...mediaMigrationPaths);
 
-      const mediaMigrationContent = fs.readFileSync(mediaMigrationPaths[0], "utf-8");
-      const mediaOperations = parseMigrationOperations(mediaMigrationContent);
-
-      const snapshotWithMedia: SchemaSnapshot = {
-        version: "1.0.0",
-        timestamp: new Date().toISOString(),
-        collections: new Map(snapshot.collections),
-      };
-
-      for (const collection of mediaOperations.collectionsToCreate) {
-        snapshotWithMedia.collections.set(collection.name, collection);
-      }
+      const snapshotWithMedia = executeMigrationFiles([initialMigrationPaths[0], mediaMigrationPaths[0]]).snapshot;
+      snapshotWithMedia.collections.set("users", {
+        name: "users",
+        id: "users_id",
+        type: "auth",
+        fields: [],
+      } as CollectionSchema);
 
       const filesCollectionFromSnapshot = snapshotWithMedia.collections.get("Files");
       expect(filesCollectionFromSnapshot).toBeDefined();

@@ -116,8 +116,10 @@ describe("Field Metadata Integration", () => {
       const definition = buildFieldDefinition("images", field);
 
       expect(definition.type).toBe("file");
-      expect(definition.options?.minSelect).toBe(1);
       expect(definition.options?.maxSelect).toBe(5);
+      // PocketBase file fields have no minSelect - it stays a Zod-level
+      // constraint rather than something written into the migration
+      expect(definition.options?.minSelect).toBeUndefined();
     });
 
     it("should use JSONField metadata", () => {
@@ -348,8 +350,8 @@ describe("Field Metadata Integration", () => {
 
       expect(definition.type).toBe("file");
       expect(definition.required).toBe(true);
-      expect(definition.options?.minSelect).toBe(1);
       expect(definition.options?.maxSelect).toBe(10);
+      expect(definition.options?.minSelect).toBeUndefined();
     });
 
     it("should handle optional JSONField", () => {

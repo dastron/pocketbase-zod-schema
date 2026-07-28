@@ -1,209 +1,260 @@
 # Migration Configuration Reference
 
-This document describes all configuration options available for the schema-driven migration system.
+Every configuration option the migration CLI reads, and where it can come from.
 
-## Configuration File
+## Configuration file
 
-The migration system can be configured using a `pocketbase-migrate.config.js` file.
+The tool searches the current working directory, then a `shared/` subdirectory, for the first of:
 
-### Default Configuration
+```
+pocketbase-migrate.config.js
+pocketbase-migrate.config.mjs
+pocketbase-migrate.config.json
+migrate.config.js
+migrate.config.mjs
+migrate.config.json
+```
 
-If no configuration file is present, the system uses these defaults:
+`-c, --config <path>` overrides the search with an explicit path (and errors if that file does not
+exist). JavaScript config files are imported as ES modules and may use a default export.
+
+## Precedence
+
+CLI arguments > environment variables > configuration file > defaults.
+
+## Defaults
+
+With no configuration file present:
 
 ```javascript
-// pocketbase-migrate.config.js (default values)
 export default {
   schema: {
-    directory: 'src/schema',
-    exclude: ['base.ts', 'index.ts', 'permissions.ts', 'permission-templates.ts'],
+    directory: "src/schema",
+    exclude: ["base.ts", "index.ts", "permissions.ts", "permission-templates.ts"],
   },
   migrations: {
-    directory: 'pocketbase/pb_migrations',
-    format: 'timestamp_description',
+    directory: "pocketbase/pb_migrations",
+    format: "timestamp_description",
+    verify: false,
+    dataDirectory: "",
   },
   diff: {
     warnOnDelete: true,
     requireForceForDestructive: true,
   },
+  typeGen: {
+    outPath: "pocketbase-types.ts",
+  },
 };
 ```
 
-## Configuration Options
+## Options
 
-### schema
+### `schema.directory`
 
-Configuration for schema file discovery and parsing.
+**Type:** `string` · **Default:** `"src/schema"`
 
-#### schema.directory
+Directory containing Zod schema files. Resolved relative to the current working directory, with
+`shared/<directory>` as a fallback. Startup fails with a `ConfigurationError` if neither exists.
 
-**Type:** `string`  
-**Default:** `'src/schema'`  
-**Description:** Directory containing Zod schema files
+### `schema.exclude`
 
-#### schema.exclude
+**Type:** `string[]` · **Default:** `["base.ts", "index.ts", "permissions.ts", "permission-templates.ts"]`
 
-**Type:** `string[]`  
-**Default:** `['base.ts', 'index.ts', 'permissions.ts', 'permission-templates.ts']`  
-**Description:** Files to exclude from schema parsing
+Filenames or glob patterns to skip during schema discovery. Use it for files that hold helpers
+rather than collections — a barrel `index.ts`, shared field fragments, test files.
 
-### migrations
+Note this replaces the default list rather than adding to it, so re-list anything you still want
+excluded:
 
-Configuration for migration file generation.
-
-#### migrations.directory
-
-**Type:** `string`  
-**Default:** `'pocketbase/pb_migrations'`  
-**Description:** Directory where migration files are written. Snapshots are automatically stored in this directory.
-
-#### migrations.format
-
-**Type:** `string`  
-**Default:** `'timestamp_description'`  
-**Description:** Format for migration filenames
-
-**Supported formats:**
-- `'timestamp_description'` - `[timestamp]_[description].js` (recommended)
-- `'timestamp'` - `[timestamp].js` (minimal)
-
-### diff
-
-Configuration for schema comparison and change detection.
-
-#### diff.warnOnDelete
-
-**Type:** `boolean`  
-**Default:** `true`  
-**Description:** Show warnings for destructive operations (field/collection deletion)
-
-#### diff.requireForceForDestructive
-
-**Type:** `boolean`  
-**Default:** `true`  
-**Description:** Require `--force` flag for destructive changes
-
-**Destructive changes include:**
-- Deleting collections
-- Deleting fields
-- Changing field types (may cause data loss)
-- Reducing field size constraints
-
-## Snapshot Management
-
-Snapshots are automatically managed within the migrations directory. The system:
-
-1. Looks for the most recent `*_collections_snapshot.js` file in the migrations directory
-2. Uses this as the baseline for detecting schema changes
-3. Generates new snapshot migrations when changes are detected
-
-No separate snapshot configuration is needed.
-
-## CLI Options
-
-CLI options override configuration file settings.
-
-### Global Options
-
-```bash
-pocketbase-migrate generate [options]
+```javascript
+exclude: ["*.test.ts", "*.spec.ts", "base.ts", "fields.ts", "index.ts", "view.ts"]
 ```
 
-#### --output, -o
+### `migrations.directory`
 
-**Type:** `string`  
-**Description:** Override migrations output directory
+**Type:** `string` · **Default:** `"pocketbase/pb_migrations"`
+
+Where migration files are written, and where the current database state is reconstructed from.
+
+### `migrations.format`
+
+**Type:** `string` · **Default:** `"timestamp_description"`
+
+**Currently unused.** The key is accepted and validated but no code reads it; generated filenames
+are always `<unix-timestamp>_<description>.js`. Reserved for a future filename-format option.
+
+### `migrations.verify`
+
+**Type:** `boolean` · **Default:** `false`
+
+When true, `generate` executes each new migration's `up()` and then `down()` in the simulation
+before writing it, and writes nothing if a migration fails to apply or fails to restore the
+previous state. It also runs the goja lint over what it is about to write.
+
+Off by default because building the baseline costs a full replay of the existing migrations, and a
+rollback you never intend to run is not a reason to block generating one that works forward.
+
+**CLI:** `--verify` / `--no-verify` · **Env:** `MIGRATION_VERIFY`
+
+### `migrations.dataDirectory`
+
+**Type:** `string` · **Default:** `""`
+
+PocketBase's data directory, or a path to `data.db` directly. Used to read the `_migrations` table
+so replay can stop at what has actually been applied instead of assuming every file on disk ran —
+which is how `status` reports drift and what the pending files still owe the database.
+Empty means "the `pb_data` directory next to the migrations directory".
+
+Requires **Node >= 22.5** (`node:sqlite`).
+
+**CLI:** `--pb-data <path>` (on `status`) · **Env:** `MIGRATION_DATA_DIR`
+
+### `diff.warnOnDelete`
+
+**Type:** `boolean` · **Default:** `true`
+
+Warn when a collection or field would be deleted.
+
+### `diff.requireForceForDestructive`
+
+**Type:** `boolean` · **Default:** `true`
+
+Require `--force` before generating destructive changes: deleting a collection, deleting a field,
+changing a field's type, or tightening a size constraint. Deleting a **view** collection is not
+destructive — a view stores no data.
+
+**Env:** `MIGRATION_REQUIRE_FORCE`
+
+### `typeGen.outPath`
+
+**Type:** `string` · **Default:** `"pocketbase-types.ts"`
+
+Default output path for `generate-types`. Overridden per run by `-o, --output`.
+
+## CLI options
+
+Global to every command:
+
+| Option | Description |
+| --- | --- |
+| `-c, --config <path>` | Explicit configuration file |
+| `-v, --version` | Print the version — **`-v` is version, not verbose** |
+| `--verbose` | Verbose output |
+| `--quiet` | Suppress non-essential output |
+| `--no-color` | Disable colored output |
+
+### `generate [filters...]`
+
+| Option | Overrides |
+| --- | --- |
+| `-o, --output <directory>` | `migrations.directory` |
+| `--schema-dir <directory>` | `schema.directory` |
+| `-f, --force` | `diff.requireForceForDestructive` for this run |
+| `--dry-run` | — shows what would be generated, writes nothing |
+| `--verify` / `--no-verify` | `migrations.verify` |
+
+Positional `filters` restrict the diff to matching collection or field names (regex supported).
+
+### `status`
+
+| Option | Overrides |
+| --- | --- |
+| `--schema-dir <directory>` | `schema.directory` |
+| `--json` | — machine-readable output |
+| `--verify` | — compare disk against `_migrations`, exit non-zero on drift |
+| `--pb-data <path>` | `migrations.dataDirectory` |
+
+Passing `--pb-data` without `--verify` still reports drift; it just does not fail on it.
+
+Reading the applied set adds the drift report — including what the pending files will do to the
+database once applied — but does not change the Schema Comparison, which always diffs against the
+migration files on disk so `status` and `generate` agree.
+
+### `generate-types`
+
+| Option | Overrides |
+| --- | --- |
+| `-o, --output <path>` | `typeGen.outPath` |
+| `--schema-dir <directory>` | `schema.directory` |
+
+### `lint [files...]`
+
+| Option | Overrides |
+| --- | --- |
+| `-o, --output <directory>` | `migrations.directory` |
+| `--no-execute` | — static checks only |
+
+## Environment variables
+
+| Variable | Sets |
+| --- | --- |
+| `MIGRATION_SCHEMA_DIR` | `schema.directory` |
+| `MIGRATION_SCHEMA_EXCLUDE` | `schema.exclude` (comma-separated) |
+| `MIGRATION_OUTPUT_DIR` | `migrations.directory` |
+| `MIGRATION_VERIFY` | `migrations.verify` (`"true"` / anything else) |
+| `MIGRATION_DATA_DIR` | `migrations.dataDirectory` |
+| `MIGRATION_REQUIRE_FORCE` | `diff.requireForceForDestructive` (`"true"` / anything else) |
 
 ```bash
-pocketbase-migrate generate --output ./custom/migrations
+MIGRATION_SCHEMA_DIR=src/models MIGRATION_VERIFY=true npx pocketbase-migrate generate
 ```
 
-#### --force, -f
+There is no environment variable for `typeGen.outPath`.
 
-**Type:** `boolean`  
-**Description:** Skip confirmation for destructive changes
+## Validation
 
-```bash
-pocketbase-migrate generate --force
-```
+Configuration is validated after merging. A `ConfigurationError` naming the offending keys is
+thrown when `schema.directory` is empty, `schema.exclude` is not an array, `migrations.directory`
+is empty, `migrations.verify` is not a boolean, `migrations.dataDirectory` is not a string, either
+`diff.*` flag is not a boolean, `typeGen.outPath` is empty, or the schema directory does not exist.
 
-#### --schema-dir
+Unknown keys are ignored rather than rejected — a typo in a key name fails silently, so check
+spelling against this page.
 
-**Type:** `string`  
-**Description:** Override schema directory
-
-```bash
-pocketbase-migrate generate --schema-dir ./src/models
-```
-
-## Environment Variables
-
-```bash
-# Override schema directory
-MIGRATION_SCHEMA_DIR=src/models
-
-# Override schema exclude patterns (comma-separated)
-MIGRATION_SCHEMA_EXCLUDE=base.ts,index.ts,helpers.ts
-
-# Override migration directory
-MIGRATION_OUTPUT_DIR=database/migrations
-
-# Skip force requirement
-MIGRATION_REQUIRE_FORCE=false
-```
-
-## Complete Configuration Example
+## Complete example
 
 ```javascript
 // pocketbase-migrate.config.js
 export default {
   schema: {
-    directory: 'src/schema',
-    exclude: [
-      'base.ts',
-      'index.ts',
-      'permissions.ts',
-      '*.test.ts',
-    ],
+    directory: "src/schema",
+    exclude: ["*.test.ts", "*.spec.ts", "base.ts", "fields.ts", "index.ts"],
   },
   migrations: {
-    directory: process.env.MIGRATION_DIR || 'pocketbase/pb_migrations',
-    format: 'timestamp_description',
+    directory: process.env.MIGRATION_DIR || "pocketbase/pb_migrations",
+    verify: process.env.CI === "true",
+    dataDirectory: "",
   },
   diff: {
-    warnOnDelete: process.env.NODE_ENV === 'production',
-    requireForceForDestructive: process.env.NODE_ENV === 'production',
+    warnOnDelete: true,
+    requireForceForDestructive: true,
+  },
+  typeGen: {
+    outPath: "src/pocketbase-types.ts",
   },
 };
 ```
 
-## Best Practices
+## Best practices
 
-### Version Control
+**Do:**
 
-✅ **DO:**
-- Commit configuration file
-- Commit migration files (including snapshots)
-- Use consistent paths across team
+- Commit the configuration file and every migration file
+- Keep paths relative to the project root so they work for everyone
+- Leave `requireForceForDestructive` on, and review generated migrations before applying them
+- Turn `verify` on in CI, where the extra replay costs nothing you are waiting on
 
-❌ **DON'T:**
+**Don't:**
+
 - Use absolute paths
-- Change configuration frequently
-- Use different configs per developer
-
-### Safety
-
-✅ **DO:**
-- Enable warnings in production
-- Require force for destructive changes
-- Review generated migrations before applying
-
-❌ **DON'T:**
-- Disable all safety features
-- Use force flag by default
-- Skip migration review
+- Put `--force` in a package script
+- Edit or delete a migration that has already been applied — state is reconstructed by replaying
+  those files, so changing one retroactively changes what the next diff sees
 
 ## See Also
 
-- [Migration Guide](./MIGRATION_GUIDE.md) - Complete migration documentation
-- [Type Mapping Reference](./TYPE_MAPPING.md) - Type conversion rules
-- [Naming Conventions](./NAMING_CONVENTIONS.md) - Naming guidelines
+- [Execution Engine](./EXECUTION_ENGINE.md) — what `verify` and `dataDirectory` control
+- [Migration Guide](./MIGRATION_GUIDE.md) — adoption and upgrade notes
+- [Type Mapping Reference](./TYPE_MAPPING.md) — type conversion rules
+- [Naming Conventions](./NAMING_CONVENTIONS.md) — naming guidelines

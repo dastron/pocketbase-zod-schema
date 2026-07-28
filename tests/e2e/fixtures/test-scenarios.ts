@@ -8,7 +8,27 @@ export interface TestScenario {
   category: 'basic' | 'field-types' | 'indexes' | 'rules' | 'auth' | 'updates' | 'relations';
   collectionDefinition: CollectionDefinition;
   expectedFeatures: string[];
+  /**
+   * Legacy text-similarity threshold. Informational only — it scores how
+   * closely the two migration *files* read, which says little about whether
+   * they mean the same thing. The gates are the two scores below.
+   */
   minimumScore: number;
+  /**
+   * Gate: minimum agreement between the state PocketBase's own migration
+   * produces and the state the library's migration produces, both executed
+   * through the engine. Defaults to 100 (identical states). A scenario pins a
+   * lower number only where a known gap is being tracked — see the comment on
+   * each one; raise it back to 100 when the gap is closed.
+   */
+  minimumStateEquivalenceScore?: number;
+  /**
+   * Gate: minimum agreement between what a real PocketBase binary stores after
+   * applying the library's migration and what the engine simulates for the
+   * same file. Defaults to 100. Below 100 means either the generator emits
+   * something PocketBase discards or the engine mis-simulates it.
+   */
+  minimumRealApplyScore?: number;
   skipReason?: string;
   enabled?: boolean;
   tags?: string[];
@@ -392,7 +412,11 @@ export const authScenarios: TestScenario[] = [
       }
     },
     expectedFeatures: ['auth_fields', 'manage_rule', 'role_based_access', 'admin_permissions'],
-    minimumScore: 65,
+    // Kept at or above the runner's floor on purpose: `getFilteredScenarios`
+    // drops any scenario whose own minimumScore is below the configured one,
+    // so a lower number here silently removes this scenario from the run
+    // rather than holding it to a laxer bar.
+    minimumScore: 70,
     enabled: true,
     tags: ['auth', 'admin', 'manage-rule']
   }

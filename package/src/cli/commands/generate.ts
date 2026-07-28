@@ -6,22 +6,32 @@
 import { Command } from "commander";
 import * as path from "path";
 import {
-  compare,
-  detectDestructiveChangesValidation as detectDestructiveChanges,
-  formatDestructiveChanges,
-  generate,
-  parseSchemaFiles,
-  requiresForceFlagValidation as requiresForceFlag,
-  summarizeDestructiveChanges,
-  filterDiff,
-} from "../../migration/index.js";
-import {
   ConfigurationError,
   FileSystemError,
+  MigrationExecutionError,
   MigrationGenerationError,
   SchemaParsingError,
   SnapshotError,
 } from "../../migration/errors.js";
+import {
+  CollectionStore,
+  compare,
+  detectDestructiveChangesValidation as detectDestructiveChanges,
+  filterDiff,
+  formatDestructiveChanges,
+  formatGojaLintFinding,
+  lintMigrationSource,
+  parseSchemaFiles,
+  planMigrations,
+  replayMigrationsDirectory,
+  requiresForceFlagValidation as requiresForceFlag,
+  summarizeDestructiveChanges,
+  verifyMigrationSources,
+  writePlannedMigrations,
+  type GojaLintResult,
+  type MigrationRoundTripResult,
+  type PlannedMigration,
+} from "../../migration/index.js";
 import { loadSnapshotWithMigrations } from "../../migration/snapshot.js";
 import type { SchemaDefinition } from "../../migration/types.js";
 import { getMigrationsDirectory, getSchemaDirectory, loadConfig, type MigrationConfig } from "../utils/config.js";
@@ -111,6 +121,112 @@ function handleDestructiveChanges(diff: any, config: MigrationConfig, force: boo
 }
 
 /**
+ * Outcome of the pre-write verification pass
+ */
+type VerificationOutcome =
+  | { status: "verified"; count: number }
+  /** The existing migrations could not be executed, so there is no baseline */
+  | { status: "baseline-unexecutable"; error: MigrationExecutionError }
+  | { status: "failed"; failures: MigrationRoundTripResult[] }
+  /** The migration would not run in PocketBase's goja runtime */
+  | { status: "incompatible"; results: GojaLintResult[] };
+
+/**
+ * Executes each planned migration's up() and down() in the simulated
+ * PocketBase JSVM, starting from the state the existing migrations
+ * reconstruct, and reports anything that does not roll back cleanly.
+ *
+ * @param planned - Migrations generated but not yet written
+ * @param migrationsDir - Directory holding the existing migrations
+ * @returns What the verification found (rendered by reportVerification)
+ */
+function verifyPlannedMigrations(planned: PlannedMigration[], migrationsDir: string): VerificationOutcome {
+  // Executing in the engine proves nothing about goja, which is what will
+  // actually run the file — so check compatibility before round-tripping
+  const lintResults = planned.map((migration) => lintMigrationSource(migration.content, { file: migration.filename }));
+  const incompatible = lintResults.filter((result) => !result.ok);
+  if (incompatible.length > 0) {
+    return { status: "incompatible", results: incompatible };
+  }
+
+  let baseline: CollectionStore;
+  try {
+    baseline = replayMigrationsDirectory(migrationsDir)?.store ?? new CollectionStore();
+  } catch (error) {
+    if (error instanceof MigrationExecutionError) {
+      return { status: "baseline-unexecutable", error };
+    }
+    throw error;
+  }
+
+  const report = verifyMigrationSources(
+    planned.map((migration) => ({ file: migration.filename, source: migration.content })),
+    { initialStore: baseline }
+  );
+
+  return report.ok
+    ? { status: "verified", count: report.results.length }
+    : { status: "failed", failures: report.failures };
+}
+
+/**
+ * Prints a verification outcome
+ *
+ * @returns True if generation should proceed
+ */
+function reportVerification(outcome: VerificationOutcome): boolean {
+  if (outcome.status === "verified") {
+    logSuccess(`Verified ${outcome.count} migration(s): up and down both apply and the state round-trips`);
+    return true;
+  }
+
+  if (outcome.status === "incompatible") {
+    logError("Generated migration uses JavaScript PocketBase cannot run - no files were written.");
+    console.log();
+    for (const result of outcome.results) {
+      for (const finding of result.findings.filter((entry) => entry.severity === "error")) {
+        console.log(`  ${formatGojaLintFinding(finding)}`);
+      }
+    }
+    console.log();
+    logInfo("This is a bug in the generator - please report it with the schema that produced it.");
+    return false;
+  }
+
+  if (outcome.status === "baseline-unexecutable") {
+    logError("Cannot verify: an existing migration could not be executed.");
+    console.error();
+    console.error(outcome.error.getDetailedMessage());
+    console.error();
+    logInfo("Fix the migration above, or run without --verify.");
+    return false;
+  }
+
+  logError("Migration verification failed - no files were written.");
+  console.log();
+
+  for (const failure of outcome.failures) {
+    if (failure.error) {
+      console.log(`  ${failure.file}: ${failure.error.phase}() failed`);
+      console.log(`    ${failure.error.message}`);
+      continue;
+    }
+
+    const reason = failure.missingDown ? "no down() to undo it" : "down() did not restore the previous state";
+    console.log(`  ${failure.file}: ${reason}`);
+    for (const difference of failure.differences) {
+      console.log(`    ${difference.message}`);
+    }
+  }
+
+  console.log();
+  logInfo("Suggestions:");
+  console.log("  • Re-run with --no-verify to write the migration(s) anyway");
+  console.log("  • Report the differences above if the migration was generated from a Zod schema");
+  return false;
+}
+
+/**
  * Executes the generate command
  *
  * @param filters - Optional filters for collection/field names
@@ -129,7 +245,7 @@ export async function executeGenerate(filters: string[], options: any): Promise<
     logDebug("Starting migration generation...");
     logDebug(`Options: ${JSON.stringify(options, null, 2)}`);
     if (filters && filters.length > 0) {
-        logDebug(`Filters: ${JSON.stringify(filters)}`);
+      logDebug(`Filters: ${JSON.stringify(filters)}`);
     }
 
     // Load configuration
@@ -147,7 +263,9 @@ export async function executeGenerate(filters: string[], options: any): Promise<
       excludePatterns: config.schema.exclude,
       useCompiledFiles: false, // Use source files since we're in development/testing
     };
-    const currentSchema: SchemaDefinition = await withProgress("Parsing Zod schemas...", () => parseSchemaFiles(analyzerConfig));
+    const currentSchema: SchemaDefinition = await withProgress("Parsing Zod schemas...", () =>
+      parseSchemaFiles(analyzerConfig)
+    );
 
     logSuccess(`Found ${currentSchema.collections.size} collection(s)`);
 
@@ -174,16 +292,16 @@ export async function executeGenerate(filters: string[], options: any): Promise<
     // Check for destructive changes BEFORE filtering if we are going to skip them (for logging)
     // Only if we are NOT forcing.
     if (skipDestructive) {
-        const destructive = detectDestructiveChanges(diff);
-        if (destructive.length > 0) {
-             logInfo(`ℹ️  Omitting ${destructive.length} destructive change(s) because --force is not set.`);
-        }
+      const destructive = detectDestructiveChanges(diff);
+      if (destructive.length > 0) {
+        logInfo(`ℹ️  Omitting ${destructive.length} destructive change(s) because --force is not set.`);
+      }
     }
 
     // Apply filter
     diff = filterDiff(diff, {
-        patterns: filters,
-        skipDestructive: skipDestructive
+      patterns: filters,
+      skipDestructive: skipDestructive,
     });
 
     // Check if there are any changes
@@ -208,14 +326,31 @@ export async function executeGenerate(filters: string[], options: any): Promise<
     // Generate migration
     logSection("📝 Generating Migration");
 
-    const migrationPaths = await withProgress("Creating migration file...", () =>
-      Promise.resolve(generate(diff, { migrationDir: migrationsDir, force: options.force }))
+    const planned = await withProgress("Creating migration file...", () =>
+      Promise.resolve(planMigrations(diff, { migrationDir: migrationsDir, force: options.force }))
     );
 
-    if (migrationPaths.length === 0) {
+    if (planned.length === 0) {
       logWarning("No migration files were generated (no changes detected or duplicate migration).");
       return;
     }
+
+    // Self-verify before writing: execute up() and down() in the simulated
+    // PocketBase JSVM and confirm the state round-trips
+    if (config.migrations.verify) {
+      logSection("🔁 Verifying Migration");
+
+      const outcome = await withProgress("Executing up() and down()...", () =>
+        Promise.resolve(verifyPlannedMigrations(planned, migrationsDir))
+      );
+
+      if (!reportVerification(outcome)) {
+        console.error();
+        process.exit(1);
+      }
+    }
+
+    const migrationPaths = writePlannedMigrations(planned, migrationsDir);
 
     if (migrationPaths.length === 1) {
       logSuccess(`Migration file created: ${path.basename(migrationPaths[0])}`);
@@ -314,6 +449,8 @@ export function createGenerateCommand(): Command {
     .option("-f, --force", "Force generation even with destructive changes or duplicates", false)
     .option("--dry-run", "Show what would be generated without creating files", false)
     .option("--schema-dir <directory>", "Directory containing Zod schema files")
+    .option("--verify", "Execute up() and down() before writing, and refuse migrations that do not roll back")
+    .option("--no-verify", "Skip round-trip verification even when it is enabled in the configuration")
     .addHelpText(
       "after",
       `
@@ -323,6 +460,7 @@ Examples:
   $ pocketbase-migrate generate User.name          Generate migration only for User.name field
   $ pocketbase-migrate generate --force            Force generation with destructive changes
   $ pocketbase-migrate generate --dry-run          Preview changes without generating files
+  $ pocketbase-migrate generate --verify           Verify up() and down() round-trip before writing
   $ pocketbase-migrate generate -o ./migrations    Specify output directory
 `
     )

@@ -1,3 +1,14 @@
+/**
+ * Reads a generated migration file's literal syntax with Babel, for tests that
+ * assert on what the generator *wrote* — the field literals it emitted, the
+ * operations it used, the shape of the up/down closures.
+ *
+ * This is not a state reconstructor and must never be used as one. To find out
+ * what a migration *does*, execute it: see `migration-executor.ts`. (The
+ * production static parser this shares a name with is gone; migrations are
+ * only ever read by executing them.)
+ */
+
 import { parse } from "@babel/parser";
 import * as fs from "fs";
 

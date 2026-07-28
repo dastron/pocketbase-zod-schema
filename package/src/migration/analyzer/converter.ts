@@ -5,7 +5,13 @@ import type { PermissionSchema } from "../../utils/permissions";
 import { PermissionAnalyzer } from "../permission-analyzer";
 import type { CollectionSchema, FieldDefinition } from "../types";
 import { getMaxSelect, getMinSelect, isRelationField, resolveTargetCollection } from "../utils/relation-detector";
-import { extractFieldOptions, isFieldRequired, mapZodTypeToPocketBase, unwrapZodType } from "../utils/type-mapper";
+import {
+  extractFieldOptions,
+  filterSupportedFieldOptions,
+  isFieldRequired,
+  mapZodTypeToPocketBase,
+  unwrapZodType,
+} from "../utils/type-mapper";
 import { validateViewQuery } from "../../schema/view";
 import {
   extractCollectionTypeFromSchema,
@@ -14,6 +20,7 @@ import {
   extractViewQueryFromSchema,
 } from "./extractors";
 import { generateFieldId } from "../utils/collection-id-generator.js";
+import { getAuthSystemFields } from "../generator/utils";
 
 /**
  * Detects if a collection is an auth collection
@@ -72,7 +79,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
       id: generateFieldId(fieldMetadata.type, fieldName),
       type: fieldMetadata.type,
       required,
-      options: Object.keys(options).length > 0 ? options : undefined,
+      options: filterSupportedFieldOptions(fieldMetadata.type, Object.keys(options).length > 0 ? options : undefined),
       zodType: zodType,
     };
 
@@ -164,6 +171,11 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     delete fieldDef.options.max;
   }
 
+  // Zod validators are richer than PocketBase's option set, and the type is
+  // only settled here (relation detection above can still change it), so the
+  // unsupported leftovers are dropped last
+  fieldDef.options = filterSupportedFieldOptions(fieldDef.type, fieldDef.options);
+
   return fieldDef;
 }
 
@@ -207,40 +219,12 @@ export function convertZodSchemaToCollectionSchema(
 
   // Ensure auth system fields exist for auth collections
   if (collectionType === "auth") {
-    // These fields are required for auth collections and should match the native CLI output
-    // Options are set to match PocketBase defaults found in snapshots
-    const authSystemFields = [
-      {
-        name: "password",
-        type: "password",
-        required: true,
-        options: { min: 8, max: 0, pattern: "" },
-      },
-      {
-        name: "email",
-        type: "email",
-        required: true,
-        options: { exceptDomains: null, onlyDomains: null },
-      },
-      {
-        name: "emailVisibility",
-        type: "bool",
-        required: false,
-        options: {},
-      },
-      {
-        name: "verified",
-        type: "bool",
-        required: false,
-        options: {},
-      },
-      {
-        name: "tokenKey",
-        type: "text",
-        required: true,
-        options: { min: 30, max: 60, pattern: "" },
-      },
-    ] as const;
+    // These fields are required for auth collections and should match the
+    // native CLI output. The generator writes its own definitions for them
+    // (getAuthSystemFields), so taking the options from the same place keeps
+    // the analyzed schema equal to what replaying the generated migration
+    // reads back — otherwise every run re-emits the same field modifications
+    const authSystemFields = getAuthSystemFields();
 
     // Add or update auth fields
     for (const authField of authSystemFields) {

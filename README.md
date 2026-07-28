@@ -13,7 +13,13 @@ A TypeScript-first migration generator for PocketBase that uses Zod schemas to c
 - 🔄 **Automatic Migrations**: Generate PocketBase migrations from schema changes
 - 👁️ **View Collections**: Define read-only SQL views alongside your regular collections
 - 🔍 **Change Detection**: Smart diff engine with destructive change warnings
-- 📋 **Status Reporting**: Check migration status without generating files
+- ⚙️ **Execution Engine**: Reconstructs current state by *executing* your migrations in a simulated
+  PocketBase JSVM — no fragile text parsing, so loops and helper functions are understood
+  ([details](docs/EXECUTION_ENGINE.md))
+- ✅ **Verification & Linting**: Round-trip `up()`/`down()` before writing, and catch JavaScript
+  that PocketBase's goja runtime cannot run
+- 📋 **Status Reporting**: Check migration status without generating files, including drift against
+  PocketBase's `_migrations` table
 - 🛠️ **CLI Tools**: Command-line interface for migration management
 
 ## Installation
@@ -115,23 +121,42 @@ const post = await pb.collection("posts").getOne("post-id");
 ### 4. Apply Migrations
 
 ```bash
-./pocketbase migrate
+./pocketbase migrate up
 ```
+
+PocketBase also applies pending migrations on `serve`, so restarting the server is enough in
+development.
 
 ## CLI Commands
 
+Global options, available on every command:
+
+```
+  -c, --config <path>    Configuration file path
+  -v, --version          Print the version   ← note: -v is version, not verbose
+      --verbose          Enable verbose logging
+      --quiet            Suppress non-essential output
+      --no-color         Disable colored output
+```
+
 ### `generate`
 
-Generate PocketBase migrations from schema changes.
+Generate PocketBase migrations from schema changes. One file is written per collection operation.
 
 ```bash
-pocketbase-migrate generate [options]
+pocketbase-migrate generate [filters...] [options]
+
+Arguments:
+  filters                   Restrict the diff to matching collection or field names (regex supported)
 
 Options:
-  -c, --config <path>     Configuration file path
-  -f, --force            Force generation even with destructive changes
-  -v, --verbose          Enable verbose logging
-  --dry-run              Show what would be generated without writing files
+  -o, --output <directory>  Output directory for migration files
+  -f, --force               Force generation even with destructive changes or duplicates
+  --dry-run                 Show what would be generated without writing files
+  --schema-dir <directory>  Directory containing Zod schema files
+  --verify                  Execute up() and down() before writing; refuse migrations that
+                            do not roll back cleanly
+  --no-verify               Skip verification even when enabled in the config file
 ```
 
 ### `status`
@@ -142,8 +167,28 @@ Check migration status without generating files.
 pocketbase-migrate status [options]
 
 Options:
-  -c, --config <path>     Configuration file path
-  -v, --verbose          Enable verbose logging
+  --schema-dir <directory>  Directory containing Zod schema files
+  --json                    Output status as JSON
+  --verify                  Compare files on disk against PocketBase's _migrations table
+                            and exit non-zero on any drift
+  --pb-data <path>          PocketBase data directory or data.db file
+                            (defaults to pb_data next to the migrations directory)
+```
+
+`--verify` needs Node >= 22.5, since it reads the database with `node:sqlite`.
+
+### `lint`
+
+Check migration files for JavaScript that runs in Node but not in PocketBase's goja runtime —
+`require`, `process`, `fetch`, `setTimeout`, `async`/`await`, `import`/`export`, class fields.
+Exits non-zero on any error-severity finding.
+
+```bash
+pocketbase-migrate lint [files...] [options]
+
+Options:
+  -o, --output <directory>  Directory containing migration files
+  --no-execute              Static checks only, skipping stubbed-API warnings
 ```
 
 ### `generate-types`
@@ -154,10 +199,8 @@ Generate TypeScript definitions from your Zod schemas. This creates a `pocketbas
 pocketbase-migrate generate-types [options]
 
 Options:
-  -c, --config <path>     Configuration file path
-  -o, --output <path>     Output file path (default: pocketbase-types.ts)
+  -o, --output <path>       Output file path (default: pocketbase-types.ts)
   --schema-dir <directory>  Directory containing Zod schema files
-  -v, --verbose          Enable verbose logging
 ```
 
 **Example:**
@@ -195,20 +238,27 @@ Create a `pocketbase-migrate.config.js` file:
 export default {
   schema: {
     directory: './src/schema',
-    exclude: ['*.test.ts', '*.spec.ts']
+    exclude: ['*.test.ts', '*.spec.ts', 'base.ts', 'index.ts']
   },
   migrations: {
     directory: './pocketbase/pb_migrations',
-    format: 'js'
+    verify: false,        // round-trip up()/down() before writing
+    dataDirectory: ''     // '' = pb_data next to the migrations directory
   },
   diff: {
     warnOnDelete: true,
     requireForceForDestructive: true
+  },
+  typeGen: {
+    outPath: 'pocketbase-types.ts'
   }
 };
 ```
 
-Snapshots are automatically managed within the migrations directory - no separate configuration needed.
+There is no snapshot file to configure. The current database state is reconstructed by
+**executing** the migration files in the migrations directory — the newest
+`*_collections_snapshot.js` plus everything after it. Every option is documented in
+[docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ## Schema Definition
 
@@ -363,16 +413,23 @@ export const PostCollection = defineCollection({
 **Available Templates:**
 - `"public"` - All operations are public
 - `"authenticated"` - All operations require authentication
-- `"owner-only"` - Only the owner can perform operations
+- `"owner-only"` - Only the owner can perform operations (uses `ownerField`, default `"User"`)
+- `"admin-only"` - Requires `@request.auth.<roleField> = "admin"` (default `roleField` is `"role"`)
+- `"read-public"` - Public read, authenticated write
+- `"custom"` - No base rules; `customRules` supplies everything
+
+`PermissionTemplates.locked()` (superusers only) and `PermissionTemplates.readOnlyAuthenticated()`
+have no template name — call them directly and pass the result as `permissions`. See
+[docs/PERMISSIONS_USAGE.md](docs/PERMISSIONS_USAGE.md).
 
 ## Programmatic Usage
 
 ```typescript
-import { 
+import {
   parseSchemaFiles,
   compare,
   generate,
-  loadSnapshotIfExists 
+  loadSnapshotWithMigrations,
 } from 'pocketbase-zod-schema/migration';
 
 const migrationsDir = './pocketbase/pb_migrations';
@@ -380,17 +437,21 @@ const migrationsDir = './pocketbase/pb_migrations';
 // Analyze schemas
 const currentSchema = await parseSchemaFiles('./src/schema');
 
-// Load previous snapshot from migrations directory
-const previousSnapshot = loadSnapshotIfExists({
+// Reconstruct the current database state by executing the existing migrations
+const previousSnapshot = loadSnapshotWithMigrations({
   migrationsPath: migrationsDir
 });
 
 // Generate diff
 const diff = compare(currentSchema, previousSnapshot);
 
-// Generate migration (includes snapshot)
-const migrationPath = generate(diff, migrationsDir);
+// Write one migration file per collection operation; returns the paths written
+const migrationPaths = generate(diff, migrationsDir);
 ```
+
+Use `loadSnapshotWithMigrations`, not `loadSnapshotIfExists` — the latter executes only the
+snapshot file and ignores every migration after it, which is almost never the current state. Full
+API in [docs/API.md](docs/API.md).
 
 ## Complete Example
 
@@ -482,12 +543,15 @@ export const CategoryCollection = defineCollection({
 
 ## Documentation
 
-- [API Reference](docs/API.md)
-- [Configuration Guide](docs/CONFIGURATION.md)
-- [Migration Guide](docs/MIGRATION_GUIDE.md)
-- [Type Mapping](docs/TYPE_MAPPING.md)
-- [View Collections](docs/VIEW_COLLECTIONS.md)
-- [Naming Conventions](docs/NAMING_CONVENTIONS.md)
+- [API Reference](docs/API.md) — every exported function, type and CLI flag
+- [Execution Engine](docs/EXECUTION_ENGINE.md) — how migrations are read back, verification, goja lint
+- [Configuration Guide](docs/CONFIGURATION.md) — config keys, CLI options, environment variables
+- [Migration Guide](docs/MIGRATION_GUIDE.md) — adoption, upgrade notes, troubleshooting
+- [Type Mapping](docs/TYPE_MAPPING.md) — Zod → PocketBase field rules
+- [View Collections](docs/VIEW_COLLECTIONS.md) — read-only SQL-backed collections
+- [Naming Conventions](docs/NAMING_CONVENTIONS.md) — files, collections, relation detection
+- [Permissions](docs/PERMISSIONS_USAGE.md) — templates and API rules
+- [Contributing](docs/CONTRIBUTING.md) · [Release Process](docs/RELEASE.md)
 
 ## Development (repo contributors)
 
@@ -495,6 +559,10 @@ This repo is a Yarn workspace / monorepo:
 
 - The **published package** lives in `package/`
 - The root `package.json` proxies common commands to that workspace
+
+The root `package.json` also drives a demo host workspace: `package/src/schema/*.ts` doubles as the
+library's example schemas *and* the schema directory `pocketbase-migrate.config.js` points at, with
+the generated migrations in `pocketbase/pb_migrations/`.
 
 ### Setup
 
@@ -506,21 +574,25 @@ yarn install --immutable
 ### Common commands
 
 ```bash
-# run tests
-yarn test
+# library (proxied to the package/ workspace)
+yarn test          # vitest run
+yarn typecheck     # tsc --noEmit
+yarn lint          # eslint src --fix
+yarn build         # tsup (esm + cjs + dts)
+yarn precommit     # lint + typecheck + test
 
-# typecheck
-yarn typecheck
+# host workspace (drives the demo schemas in package/src/schema)
+yarn db:status                     # preview changes without writing
+yarn db:generate                   # schemas -> migration files
+yarn db:typegen                    # regenerate pocketbase-types.ts
+yarn db:download && yarn db:start  # fetch + run PocketBase (applies migrations on start)
+yarn db:stop
 
-# lint
-yarn lint
-
-# build
-yarn build
-
-# watch/dev mode (if configured)
-yarn dev
+# end-to-end against a real PocketBase binary (slow)
+yarn test:e2e
 ```
+
+Requires Node 20+; `status --verify` additionally needs Node 22.5+ for `node:sqlite`.
 
 ## Deployment / Release (maintainers)
 
@@ -532,16 +604,20 @@ Releases are automated with [Release Please](https://github.com/googleapis/relea
 ### Requirements
 
 - **Conventional Commits**: use `feat:`, `fix:`, `perf:`, etc. (see `docs/RELEASE.md`)
-- **NPM token**: repo secret `NPM_TOKEN` must be set for publishing
+- **npm trusted publishing**: the publish job authenticates with OIDC (`id-token: write`), not a
+  token. Configure this package as a trusted publisher on npmjs.com, pointing at this repository
+  and `release.yml`. There is no `NPM_TOKEN` secret in the CI publish path.
 
 ### Manual publish (emergency)
 
-If CI publishing is blocked and you need to publish manually, use the **same command as CI**. It only requires `NPM_TOKEN`:
+If CI publishing is blocked:
 
 ```bash
-export NPM_TOKEN="***"
-yarn publish:npm
+yarn publish:npm    # runs `npm publish --access public` in package/
 ```
+
+This needs a local `npm login` (or `NPM_TOKEN` in your environment) — OIDC only works inside GitHub
+Actions. The root workspace is private, so publishing must happen from `package/`.
 
 ### Files that control releases
 
@@ -559,4 +635,4 @@ MIT © [dastron](https://github.com/dastron)
 
 ## Changelog
 
-See [CHANGELOG.md](docs/CHANGELOG.md) for release history.
+See [package/CHANGELOG.md](package/CHANGELOG.md) for release history.

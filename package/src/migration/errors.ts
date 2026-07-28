@@ -94,6 +94,47 @@ export class SnapshotError extends MigrationError {
 }
 
 /**
+ * Error thrown when the execution engine fails to run a migration file
+ * Carries the file path and the phase that failed so the user can pinpoint
+ * (and fix or exclude) the offending migration
+ */
+export class MigrationExecutionError extends MigrationError {
+  public readonly filePath?: string;
+  public readonly phase?: "evaluate" | "up" | "down";
+  public readonly originalError?: Error;
+
+  constructor(message: string, filePath?: string, phase?: "evaluate" | "up" | "down", originalError?: Error) {
+    super(message);
+    this.name = "MigrationExecutionError";
+    this.filePath = filePath;
+    this.phase = phase;
+    this.originalError = originalError;
+    Object.setPrototypeOf(this, MigrationExecutionError.prototype);
+  }
+
+  /**
+   * Creates a formatted error message with file path and phase details
+   */
+  public getDetailedMessage(): string {
+    const parts: string[] = [this.message];
+
+    if (this.filePath) {
+      parts.push(`\nFile: ${this.filePath}`);
+    }
+
+    if (this.phase) {
+      parts.push(`\nPhase: ${this.phase}`);
+    }
+
+    if (this.originalError) {
+      parts.push(`\nCause: ${this.originalError.message}`);
+    }
+
+    return parts.join("");
+  }
+}
+
+/**
  * Error thrown when migration file generation fails
  * Used when migration files cannot be created or written
  */

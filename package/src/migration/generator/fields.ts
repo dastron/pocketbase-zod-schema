@@ -92,9 +92,9 @@ export function generateFieldDefinitionObject(field: FieldDefinition, collection
     const cascadeDelete = field.relation.cascadeDelete ?? false;
     parts.push(`      "cascadeDelete": ${cascadeDelete}`);
 
-    // Always include displayFields (default: null)
-    const displayFields = field.relation.displayFields ?? null;
-    parts.push(`      "displayFields": ${formatValue(displayFields)}`);
+    // `displayFields` is deliberately not emitted: PocketBase dropped it from
+    // the relation field in v0.23 and silently discards it on save, so writing
+    // it only makes the generated file diverge from what PocketBase stores
   }
 
   return `    {\n${parts.join(",\n")},\n    }`;
@@ -203,9 +203,8 @@ export function generateFieldConstructorOptions(field: FieldDefinition, collecti
     const cascadeDelete = field.relation.cascadeDelete ?? false;
     parts.push(`    "cascadeDelete": ${cascadeDelete}`);
 
-    if (field.relation.displayFields) {
-      parts.push(`    "displayFields": ${formatValue(field.relation.displayFields)}`);
-    }
+    // See generateFieldDefinitionObject: PocketBase has no displayFields
+    // option on relation fields since v0.23
   }
 
   return parts.join(",\n");

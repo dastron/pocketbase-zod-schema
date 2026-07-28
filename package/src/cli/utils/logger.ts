@@ -438,6 +438,31 @@ export interface StatusOutput {
     modify: number;
   };
   destructive: boolean;
+  /**
+   * Disk vs. PocketBase's `_migrations` table. Present only when an applied
+   * migrations list was read (`--verify` / `--pb-data`).
+   */
+  migrations?: {
+    source: string;
+    applied: number;
+    /** On disk, not yet applied */
+    pending: string[];
+    /** Applied, no longer on disk */
+    missing: string[];
+    /** Pending files that sit behind an already-applied migration */
+    outOfOrder: string[];
+    inSync: boolean;
+    /**
+     * What the database still lacks compared to the schema — the changes the
+     * pending files carry. Distinct from `changes`, which counts what has no
+     * migration file at all. Absent when disk and the database agree.
+     */
+    unapplied?: {
+      create: number;
+      delete: number;
+      modify: number;
+    };
+  };
 }
 
 /**

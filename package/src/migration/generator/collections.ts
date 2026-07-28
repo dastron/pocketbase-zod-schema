@@ -80,7 +80,7 @@ export function generateCollectionCreation(
   // Add indexes
   let allIndexes = [...(collection.indexes || [])];
   if (collection.type === "auth") {
-    allIndexes = [...getAuthSystemIndexes(collection.name), ...allIndexes];
+    allIndexes = [...getAuthSystemIndexes(collection.name, collection.id), ...allIndexes];
   }
   lines.push(`    "indexes": ${generateIndexesArray(allIndexes)},`);
 

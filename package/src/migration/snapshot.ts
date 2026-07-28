@@ -10,14 +10,10 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { FileSystemError, SnapshotError } from "./errors";
-import {
-  extractTimestampFromFilename,
-  findMigrationsAfterSnapshot,
-  parseMigrationOperations,
-  type ParsedCollectionUpdate,
-} from "./migration-parser";
-import { convertPocketBaseMigration } from "./pocketbase-converter";
+import { MigrationExecutionError, FileSystemError, SnapshotError } from "./errors";
+import type { AppliedMigrationsSource } from "./engine/applied-migrations";
+import { replayMigrations, replayMigrationsDirectory } from "./engine/replayer";
+import type { EngineOptions } from "./engine/types";
 import type { CollectionSchema, SchemaDefinition, SchemaSnapshot } from "./types";
 
 const SNAPSHOT_VERSION = "1.0.0";
@@ -54,6 +50,20 @@ export interface SnapshotConfig {
    * Custom snapshot version for testing
    */
   version?: string;
+
+  /**
+   * Options forwarded to the execution engine, which reconstructs state by
+   * executing migration files in a simulated PocketBase JSVM.
+   */
+  engineOptions?: EngineOptions;
+
+  /**
+   * Migrations PocketBase has actually applied, read from its `_migrations`
+   * table (see `readAppliedMigrations`). When supplied, replay starts from
+   * the newest applied snapshot and stops at the applied set, so a migration
+   * written but not yet run does not leak into the reconstructed state.
+   */
+  appliedMigrations?: AppliedMigrationsSource | string[] | null;
 }
 
 /**
@@ -81,7 +91,8 @@ const SNAPSHOT_MIGRATIONS: SnapshotMigration[] = [
 /**
  * Default configuration values
  */
-const DEFAULT_CONFIG: Omit<Required<SnapshotConfig>, "migrationsPath"> & { migrationsPath?: string } = {
+const DEFAULT_CONFIG: Omit<Required<SnapshotConfig>, "migrationsPath" | "engineOptions" | "appliedMigrations"> &
+  Pick<SnapshotConfig, "migrationsPath" | "engineOptions" | "appliedMigrations"> = {
   snapshotPath: DEFAULT_SNAPSHOT_FILENAME,
   workspaceRoot: process.cwd(),
   autoMigrate: true,
@@ -509,134 +520,16 @@ export function findLatestSnapshot(migrationsPath: string): string | null {
 }
 
 /**
- * Applies migration operations to a snapshot state
- * Creates new collections and deletes collections as specified
+ * Reconstructs the current database state: executes the snapshot migration and
+ * every migration after it in a simulated PocketBase JSVM.
  *
- * @param snapshot - Base snapshot state
- * @param operations - Migration operations to apply
- * @returns Updated snapshot with operations applied
- */
-export function applyMigrationOperations(
-  snapshot: SchemaSnapshot,
-  operations: {
-    collectionsToCreate: CollectionSchema[];
-    collectionsToDelete: string[];
-    collectionsToUpdate: ParsedCollectionUpdate[];
-  }
-): SchemaSnapshot {
-  const updatedCollections = new Map(snapshot.collections);
-
-  // Apply deletions first
-  for (const collectionName of operations.collectionsToDelete) {
-    updatedCollections.delete(collectionName);
-  }
-
-  // Apply creations
-  for (const collection of operations.collectionsToCreate) {
-    updatedCollections.set(collection.name, collection);
-  }
-
-  // Apply updates
-  for (const update of operations.collectionsToUpdate) {
-    const collection = updatedCollections.get(update.collectionName);
-    if (collection) {
-      // Add fields
-      if (update.fieldsToAdd.length > 0) {
-        for (const newField of update.fieldsToAdd) {
-          // Check if field with same ID already exists (update/replace)
-          const existingIndex = collection.fields.findIndex((f) => f.id === newField.id);
-          if (newField.id && existingIndex !== -1) {
-            collection.fields[existingIndex] = newField;
-          } else {
-            collection.fields.push(newField);
-          }
-        }
-      }
-
-      // Remove fields
-      if (update.fieldsToRemove.length > 0) {
-        collection.fields = collection.fields.filter((f) => !update.fieldsToRemove.includes(f.name));
-      }
-
-      // Update fields
-      for (const fieldUpdate of update.fieldsToUpdate) {
-        const field = collection.fields.find((f) => f.name === fieldUpdate.fieldName);
-        if (field) {
-          const topLevelFieldProps = ["name", "type", "required", "unique", "system", "id", "presentable"];
-
-          for (const [key, value] of Object.entries(fieldUpdate.changes)) {
-            if (key.startsWith("options.")) {
-              const optionKey = key.replace("options.", "");
-              if (!field.options) field.options = {};
-              field.options[optionKey] = value;
-            } else if (key.startsWith("relation.")) {
-              const relationKey = key.replace("relation.", "");
-              if (!field.relation && field.type === "relation") {
-                // Should initialize relation object if missing but type is relation
-                field.relation = { collection: "" };
-              }
-              if (field.relation) {
-                (field.relation as any)[relationKey] = value;
-              }
-            } else if (topLevelFieldProps.includes(key)) {
-              (field as any)[key] = value;
-            } else {
-              // It's likely an option (e.g. 'values', 'min', 'max') being set directly
-              // as produced by the generator or PocketBase SDK
-              if (!field.options) field.options = {};
-              field.options[key] = value;
-            }
-          }
-        }
-      }
-
-      // Indexes
-      if (update.indexesToAdd.length > 0) {
-        if (!collection.indexes) collection.indexes = [];
-        collection.indexes.push(...update.indexesToAdd);
-      }
-
-      if (update.indexesToRemove.length > 0) {
-        if (collection.indexes) {
-          collection.indexes = collection.indexes.filter((idx) => !update.indexesToRemove.includes(idx));
-        }
-      }
-
-      // View query (view collections only)
-      if (update.viewQuery !== undefined) {
-        collection.viewQuery = update.viewQuery;
-      }
-
-      // Rules
-      if (Object.keys(update.rulesToUpdate).length > 0) {
-        if (!collection.rules) collection.rules = {};
-        if (!collection.permissions) collection.permissions = {};
-
-        for (const [key, value] of Object.entries(update.rulesToUpdate)) {
-          // key is like 'listRule'
-          // TS constraint: key must be one of the known rule types.
-          // Since ParsedCollectionUpdate uses string key, we cast or check.
-          (collection.rules as any)[key] = value;
-          (collection.permissions as any)[key] = value;
-        }
-      }
-    } else {
-      console.warn(`Attempted to update non-existent collection: ${update.collectionName}`);
-    }
-  }
-
-  return {
-    ...snapshot,
-    collections: updatedCollections,
-  };
-}
-
-/**
- * Loads snapshot and applies all migrations that come after it
- * This gives us the current state of the database schema
+ * A migration that cannot be executed fails hard — continuing past it would
+ * silently reconstruct the wrong state and cause the generator to emit
+ * incorrect diffs.
  *
  * @param config - Snapshot configuration (must include migrationsPath)
- * @returns SchemaSnapshot object representing current state or null if snapshot doesn't exist
+ * @returns SchemaSnapshot representing the current state, or null when there is
+ *   nothing to replay (an empty database)
  */
 export function loadSnapshotWithMigrations(config: SnapshotConfig = {}): SchemaSnapshot | null {
   const migrationsPath = config.migrationsPath;
@@ -645,55 +538,28 @@ export function loadSnapshotWithMigrations(config: SnapshotConfig = {}): SchemaS
     return null;
   }
 
-  // Check if migrationsPath is actually a file (for backward compatibility with tests)
-  if (fs.existsSync(migrationsPath) && fs.statSync(migrationsPath).isFile()) {
-    try {
-      const migrationContent = fs.readFileSync(migrationsPath, "utf-8");
-      return convertPocketBaseMigration(migrationContent);
-    } catch (error) {
-      console.warn(`Failed to load snapshot from ${migrationsPath}: ${error}`);
-      return null;
-    }
-  }
-
-  // It's a directory, find the latest snapshot
-  const latestSnapshotPath = findLatestSnapshot(migrationsPath);
-
-  if (!latestSnapshotPath) {
-    // No snapshot found - return null (empty database)
-    return null;
-  }
-
   try {
-    // Read and convert the PocketBase snapshot file
-    const migrationContent = fs.readFileSync(latestSnapshotPath, "utf-8");
-    let snapshot = convertPocketBaseMigration(migrationContent);
-
-    // Extract timestamp from snapshot filename
-    const snapshotFilename = path.basename(latestSnapshotPath);
-    const snapshotTimestamp = extractTimestampFromFilename(snapshotFilename);
-
-    if (snapshotTimestamp) {
-      // Find all migration files after the snapshot
-      const migrationFiles = findMigrationsAfterSnapshot(migrationsPath, snapshotTimestamp);
-
-      // Apply each migration in order
-      for (const migrationFile of migrationFiles) {
-        try {
-          const migrationContent = fs.readFileSync(migrationFile, "utf-8");
-          const operations = parseMigrationOperations(migrationContent);
-          snapshot = applyMigrationOperations(snapshot, operations);
-        } catch (error) {
-          console.warn(`Failed to apply migration ${migrationFile}: ${error}`);
-          // Continue with other migrations even if one fails
-        }
-      }
+    // File path instead of a directory (backward compatibility with tests):
+    // execute just that one file
+    if (fs.existsSync(migrationsPath) && fs.statSync(migrationsPath).isFile()) {
+      return replayMigrations([migrationsPath], config.engineOptions).snapshot;
     }
 
-    return snapshot;
+    const result = replayMigrationsDirectory(migrationsPath, {
+      ...config.engineOptions,
+      applied: config.appliedMigrations,
+    });
+    return result ? result.snapshot : null;
   } catch (error) {
-    console.warn(`Failed to load snapshot from ${latestSnapshotPath}: ${error}`);
-    return null;
+    if (error instanceof MigrationExecutionError) {
+      throw new SnapshotError(
+        `Failed to execute migration ${error.filePath ?? "<unknown>"}: ${error.message}`,
+        error.filePath,
+        "parse",
+        error
+      );
+    }
+    throw error;
   }
 }
 
@@ -701,8 +567,8 @@ export function loadSnapshotWithMigrations(config: SnapshotConfig = {}): SchemaS
  * Loads snapshot if it exists, returns null for first run
  * Convenience method that handles missing snapshot gracefully
  * Finds the most recent snapshot file from migrations directory
- * NOTE: This function only loads the snapshot, not migrations after it.
- * Use loadSnapshotWithMigrations() if you need the current state including migrations.
+ * NOTE: This function only executes the snapshot file, not the migrations
+ * after it. Use loadSnapshotWithMigrations() for the current state.
  *
  * @param config - Snapshot configuration (must include migrationsPath)
  * @returns SchemaSnapshot object or null if snapshot doesn't exist
@@ -715,34 +581,23 @@ export function loadSnapshotIfExists(config: SnapshotConfig = {}): SchemaSnapsho
     return null;
   }
 
-  // Check if migrationsPath is actually a file (for backward compatibility with tests)
-  // If it's a file, treat it as a direct snapshot file path
-  if (fs.existsSync(migrationsPath) && fs.statSync(migrationsPath).isFile()) {
-    try {
-      const migrationContent = fs.readFileSync(migrationsPath, "utf-8");
-      return convertPocketBaseMigration(migrationContent);
-    } catch (error) {
-      console.warn(`Failed to load snapshot from ${migrationsPath}: ${error}`);
-      return null;
-    }
+  // A file path is treated as a direct snapshot file path
+  const snapshotPath =
+    fs.existsSync(migrationsPath) && fs.statSync(migrationsPath).isFile()
+      ? migrationsPath
+      : findLatestSnapshot(migrationsPath);
+
+  if (!snapshotPath) {
+    // No snapshot found - return null (empty database)
+    return null;
   }
 
-  // It's a directory, find the latest snapshot
-  const latestSnapshotPath = findLatestSnapshot(migrationsPath);
-
-  if (latestSnapshotPath) {
-    try {
-      // Read and convert the PocketBase snapshot file
-      const migrationContent = fs.readFileSync(latestSnapshotPath, "utf-8");
-      return convertPocketBaseMigration(migrationContent);
-    } catch (error) {
-      console.warn(`Failed to load snapshot from ${latestSnapshotPath}: ${error}`);
-      return null;
-    }
+  try {
+    return replayMigrations([snapshotPath], config.engineOptions).snapshot;
+  } catch (error) {
+    console.warn(`Failed to load snapshot from ${snapshotPath}: ${error}`);
+    return null;
   }
-
-  // No snapshot found - return null (empty database)
-  return null;
 }
 
 /**
@@ -766,13 +621,8 @@ export function loadBaseMigration(migrationPath: string): SchemaSnapshot {
       );
     }
 
-    // Read the migration file
-    const migrationContent = fs.readFileSync(migrationPath, "utf-8");
-
-    // Convert to SchemaSnapshot
-    const snapshot = convertPocketBaseMigration(migrationContent);
-
-    return snapshot;
+    // Execute the migration to reconstruct the state it defines
+    return replayMigrations([migrationPath]).snapshot;
   } catch (error) {
     // If it's already a SnapshotError, re-throw it
     if (error instanceof SnapshotError) {
@@ -851,11 +701,6 @@ export function validateSnapshot(snapshot: SchemaSnapshot): { valid: boolean; is
 }
 
 /**
- * Re-exports convertPocketBaseMigration for backward compatibility
- */
-export { convertPocketBaseMigration } from "./pocketbase-converter";
-
-/**
  * SnapshotManager class for object-oriented usage
  * Provides a stateful interface for snapshot management
  */
@@ -892,13 +737,6 @@ export class SnapshotManager {
    */
   snapshotExists(): boolean {
     return snapshotExists(this.config);
-  }
-
-  /**
-   * Converts a PocketBase migration to a snapshot
-   */
-  convertPocketBaseMigration(content: string): SchemaSnapshot {
-    return convertPocketBaseMigration(content);
   }
 
   /**

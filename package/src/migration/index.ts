@@ -21,7 +21,6 @@ export type { SchemaAnalyzerConfig } from "./analyzer/index.js";
 // Snapshot module
 export {
   SnapshotManager,
-  convertPocketBaseMigration,
   findLatestSnapshot,
   getSnapshotPath,
   getSnapshotVersion,
@@ -49,6 +48,7 @@ export {
   compareRelationConfigurations,
   detectDestructiveChanges,
   detectFieldChanges,
+  filterDiff,
   filterSystemCollections,
   findNewCollections,
   findNewFields,
@@ -60,7 +60,6 @@ export {
   matchCollectionsByName,
   matchFieldsByName,
   requiresForceFlag,
-  filterDiff,
 } from "./diff/index.js";
 export type { ChangeSummary, DestructiveChange, DiffEngineConfig } from "./diff/index.js";
 
@@ -84,9 +83,78 @@ export {
   generatePermissionUpdate,
   generateTimestamp,
   generateUpMigration,
+  planMigrations,
   writeMigrationFile,
+  writePlannedMigrations,
 } from "./generator/index.js";
-export type { MigrationGeneratorConfig } from "./generator/index.js";
+export type { MigrationGeneratorConfig, PlannedMigration } from "./generator/index.js";
+
+// Execution engine module
+export {
+  APPLIED_MIGRATIONS_TABLE,
+  AppliedMigrationsError,
+  CollectionStore,
+  ExpressionError,
+  POCKETBASE_DATABASE_FILENAME,
+  RecordModel,
+  RecordStore,
+  UnsupportedQueryError,
+  appliedMigrationsFromList,
+  availableGlobals,
+  compareStores,
+  createDbx,
+  defaultDataDirectory,
+  describeStateDifferences,
+  discoverMigrations,
+  executeMigrationDownFile,
+  executeMigrationDownSource,
+  executeMigrationFile,
+  executeMigrationSource,
+  extractTimestampFromFilename,
+  formatGojaLintFinding,
+  gojaFindingsFromWarnings,
+  isDbxExpression,
+  lintMigrationFile,
+  lintMigrationFiles,
+  lintMigrationSource,
+  parseCondition,
+  planMigrationReplay,
+  readAppliedMigrations,
+  readAppliedMigrationsIfPresent,
+  replayMigrations,
+  replayMigrationsDirectory,
+  resolveDatabasePath,
+  verifyMigrationFileRoundTrip,
+  verifyMigrationFiles,
+  verifyMigrationRoundTrip,
+  verifyMigrationSources,
+} from "./engine/index.js";
+export type {
+  AppliedMigration,
+  AppliedMigrationsSource,
+  Condition,
+  DbxExpression,
+  DiscoveredMigration,
+  EngineOptions,
+  EngineRecordMode,
+  EngineStrictness,
+  EngineWarning,
+  GojaLintFinding,
+  GojaLintOptions,
+  GojaLintResult,
+  GojaLintRule,
+  GojaLintSeverity,
+  MigrationDirection,
+  MigrationExecutionResult,
+  MigrationPlan,
+  MigrationRoundTripResult,
+  MigrationSourceRef,
+  MigrationVerificationReport,
+  PlanOptions,
+  ReplayResult,
+  StateCompareOptions,
+  StateDifference,
+} from "./engine/index.js";
 
 // Types
 export * from "./types.js";
@@ -102,7 +170,7 @@ export {
   requiresForceFlag as requiresForceFlagValidation,
   summarizeDestructiveChanges,
 } from "./validation.js";
-export type { DestructiveChange as ValidationDestructiveChange, DestructiveChangeType } from "./validation.js";
+export type { DestructiveChangeType, DestructiveChange as ValidationDestructiveChange } from "./validation.js";
 
 // Migration utilities
 export * from "./utils/pluralize.js";

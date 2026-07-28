@@ -187,12 +187,17 @@ export function getAuthSystemFields(): FieldDefinition[] {
     {
       name: "password",
       id: "password3208210256",
-      type: "text",
+      // PocketBase stores the password as its own field type with an 8
+      // character minimum; emitting it as `text` makes PocketBase rewrite the
+      // field on apply, leaving the migration file describing a collection
+      // the server never had
+      type: "password",
       required: true,
       options: {
+        cost: 0,
         hidden: true,
         max: 0,
-        min: 0,
+        min: 8,
         pattern: "",
         presentable: false,
         system: true,
@@ -204,9 +209,10 @@ export function getAuthSystemFields(): FieldDefinition[] {
       type: "text",
       required: true,
       options: {
+        autogeneratePattern: "[a-zA-Z0-9]{50}",
         hidden: true,
-        max: 0,
-        min: 0,
+        max: 60,
+        min: 30,
         pattern: "",
         presentable: false,
         system: true,
@@ -253,13 +259,21 @@ export function getAuthSystemFields(): FieldDefinition[] {
 /**
  * Generates default system indexes for auth collections
  *
+ * PocketBase names these after the collection they belong to
+ * (`idx_tokenKey_<collectionId>`). SQLite index names are database-wide, so
+ * the suffix has to vary per collection — a fixed one makes a second auth
+ * collection fail to apply with "index ... already exists".
+ *
  * @param collectionName - Name of the auth collection
+ * @param collectionId - Id of the auth collection; falls back to its name
  * @returns Array of index SQL statements
  */
-export function getAuthSystemIndexes(collectionName: string): string[] {
+export function getAuthSystemIndexes(collectionName: string, collectionId?: string): string[] {
+  const suffix = collectionId || collectionName;
+
   return [
-    `CREATE UNIQUE INDEX \`idx_tokenKey_pbc_2283551112\` ON \`${collectionName}\` (\`tokenKey\`)`,
-    `CREATE UNIQUE INDEX \`idx_email_pbc_2283551112\` ON \`${collectionName}\` (\`email\`) WHERE \`email\` != ''`,
+    `CREATE UNIQUE INDEX \`idx_tokenKey_${suffix}\` ON \`${collectionName}\` (\`tokenKey\`)`,
+    `CREATE UNIQUE INDEX \`idx_email_${suffix}\` ON \`${collectionName}\` (\`email\`) WHERE \`email\` != ''`,
   ];
 }
 

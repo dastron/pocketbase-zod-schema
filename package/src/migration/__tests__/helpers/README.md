@@ -4,9 +4,33 @@ This directory contains helper utilities for the migration test suite.
 
 ## Implemented Helpers
 
+### migration-executor.ts
+
+Reads migrations by **executing** them — the only way to know what a migration
+actually does, since loops, helper functions and computed values do not exist
+until the code has run. This is how tests reconstruct state.
+
+**Functions:**
+
+- `executeMigrationFiles(files, options)` / `executeMigrationSources(sources, options)` -
+  execute in order and report `{ snapshot, store, created, updated, deleted, warnings }`,
+  where `created`/`updated`/`deleted` are a before/after diff of the store
+- `snapshotFromMigrationFiles(files)` / `snapshotFromMigrationSources(sources)` -
+  just the resulting `SchemaSnapshot`
+- `createBaselineStore(options)` - the prior state a migration runs against
+  (`baseline` raw collections, `baselineFiles`, `baselineSources`)
+- `requireCollection(snapshot, name)` - lookup that throws instead of returning
+  `undefined`, so a typo cannot silently pass
+
+An update migration reaches for `app.findCollectionByNameOrId(...)`, which
+throws when the collection is absent — give it a `baseline` or `baselineFiles`.
+
 ### migration-parser.ts
 
-Parses PocketBase migration JavaScript files into structured data for comparison.
+Parses PocketBase migration JavaScript files into structured data, for asserting
+on what the generator **wrote** (emitted field literals, operation calls, the
+up/down closure shapes). It reads syntax, not behavior — never use it to
+reconstruct state; use `migration-executor.ts` for that.
 
 **Functions:**
 

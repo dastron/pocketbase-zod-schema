@@ -11,13 +11,12 @@ import * as path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compare } from "../../diff";
 import { generate } from "../../generator";
-import { parseMigrationOperations } from "../../migration-parser";
 import type { SchemaDefinition } from "../../types";
 import {
   CreateAuthCollectionWithManageRuleSchema,
   CreateCollectionWithNullPermissionsSchema,
 } from "../fixtures/schemas";
-import { parseMigrationFile } from "../helpers";
+import { executeMigrationSources, parseMigrationFile, requireCollection } from "../helpers";
 
 /**
  * Helper function to create a schema definition from a collection schema
@@ -134,8 +133,8 @@ describe("Permission Handling Integration Tests", () => {
     });
   });
 
-  describe("8.4 Parser detects unmarshal rule changes", () => {
-    it("should parse rule values from unmarshal({...}, collection) blocks", () => {
+  describe("8.4 unmarshal rule changes are applied", () => {
+    it("should apply rule values from unmarshal({...}, collection) blocks", () => {
       const migrationContent = `/// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
   const collection = app.findCollectionByNameOrId("pb_abc123") // TestCollection;
@@ -155,16 +154,18 @@ migrate((app) => {
   return app.save(collection)
 })`;
 
-      const result = parseMigrationOperations(migrationContent);
+      const result = executeMigrationSources([migrationContent], {
+        baseline: [{ id: "pb_abc123", name: "TestCollection", type: "base", fields: [] }],
+      });
 
-      expect(result.collectionsToUpdate).toHaveLength(1);
-      const update = result.collectionsToUpdate[0];
-      expect(update.rulesToUpdate["createRule"]).toBe("@collection.Admins.user ?= @request.auth.id");
-      expect(update.rulesToUpdate["deleteRule"]).toBe("@collection.Admins.user ?= @request.auth.id");
-      expect(update.rulesToUpdate["updateRule"]).toBe("@collection.Admins.user ?= @request.auth.id");
+      expect(result.updated).toHaveLength(1);
+      const collection = requireCollection(result.snapshot, "TestCollection");
+      expect(collection.rules?.createRule).toBe("@collection.Admins.user ?= @request.auth.id");
+      expect(collection.rules?.deleteRule).toBe("@collection.Admins.user ?= @request.auth.id");
+      expect(collection.rules?.updateRule).toBe("@collection.Admins.user ?= @request.auth.id");
     });
 
-    it("should parse null rule values from unmarshal blocks", () => {
+    it("should apply null rule values from unmarshal blocks", () => {
       const migrationContent = `/// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
   const col = app.findCollectionByNameOrId("my_collection") // MyCollection;
@@ -175,12 +176,23 @@ migrate((app) => {
   return app.save(col)
 }, (app) => {})`;
 
-      const result = parseMigrationOperations(migrationContent);
+      const result = executeMigrationSources([migrationContent], {
+        baseline: [
+          {
+            id: "pb_def456",
+            name: "my_collection",
+            type: "base",
+            fields: [],
+            listRule: "@request.auth.id != ''",
+            viewRule: "@request.auth.id != ''",
+          },
+        ],
+      });
 
-      expect(result.collectionsToUpdate).toHaveLength(1);
-      const update = result.collectionsToUpdate[0];
-      expect(update.rulesToUpdate["listRule"]).toBeNull();
-      expect(update.rulesToUpdate["viewRule"]).toBeNull();
+      expect(result.updated).toHaveLength(1);
+      const collection = requireCollection(result.snapshot, "my_collection");
+      expect(collection.rules?.listRule).toBeNull();
+      expect(collection.rules?.viewRule).toBeNull();
     });
   });
 });

@@ -6,6 +6,7 @@
  */
 
 import { ParsedMigration, ParsedCollection, ParsedField } from './native-migration-generator.js';
+import { normalizeIndexNames } from './state-diff.js';
 import { logger } from '../utils/test-helpers.js';
 import { ResultsTracker, updateTestResult } from '../utils/results-tracker.js';
 
@@ -27,6 +28,24 @@ export interface MigrationComparison {
   minorDifferences: Difference[];
   structuralSimilarity: number;
   contentSimilarity: number;
+  /**
+   * Semantic equivalence score from executing both migrations through the
+   * engine and diffing the resulting states (see engine-state-comparator).
+   * 100 = states identical. Populated by the e2e workflow after the
+   * text-based comparison.
+   */
+  stateEquivalenceScore?: number;
+  /** State-level differences found by the engine comparison */
+  stateDifferences?: string[];
+  /**
+   * Agreement between real PocketBase and the engine's simulation after
+   * applying the library migration with the real binary (see
+   * real-apply-verifier). 100 = the simulated state matches what PocketBase
+   * actually stored.
+   */
+  realApplyScore?: number;
+  /** State differences between real PocketBase and the engine */
+  realApplyDifferences?: string[];
 }
 
 export interface FilenameComparison {
@@ -233,7 +252,7 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
     const fields = this.compareFields(native.fields, library.fields);
 
     // Compare indexes
-    const indexes = this.compareIndexes(native.indexes, library.indexes);
+    const indexes = this.compareIndexes(native.indexes, library.indexes, native.id, library.id);
 
     // Compare rules
     const rules = this.compareRules(native.rules, library.rules);
@@ -567,9 +586,24 @@ export class CLIResponseAnalyzerImpl implements CLIResponseAnalyzer {
 
   /**
    * Compare indexes between collections
+   *
+   * The collection ids are neutralized first: PocketBase names an auth
+   * collection's generated indexes after the collection itself
+   * (`idx_tokenKey_pbc_2283551112`), and the two sides pick their ids
+   * independently, so those names never match however identical the
+   * constraints are. Same normalization as the engine comparison in
+   * state-diff.ts.
    */
-  private compareIndexes(nativeIndexes: string[], libraryIndexes: string[]): IndexComparison[] {
+  private compareIndexes(
+    rawNativeIndexes: string[],
+    rawLibraryIndexes: string[],
+    nativeCollectionId?: string,
+    libraryCollectionId?: string
+  ): IndexComparison[] {
     const comparisons: IndexComparison[] = [];
+
+    const nativeIndexes = normalizeIndexNames(rawNativeIndexes, nativeCollectionId);
+    const libraryIndexes = normalizeIndexNames(rawLibraryIndexes, libraryCollectionId);
 
     // Create sets for efficient comparison
     const nativeSet = new Set(nativeIndexes);

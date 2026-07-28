@@ -4,7 +4,13 @@ This document outlines the naming conventions used in the schema-driven migratio
 
 ## Collection Names
 
-Collection names are automatically derived from schema file names and pluralized.
+`collectionName` in `defineCollection()` / `defineView()` is authoritative. Only when it is absent
+is the name derived from the schema file name and pluralized.
+
+```typescript
+// src/schema/post.ts — collection is "posts", not "Posts"
+export default defineCollection({ collectionName: "posts", schema: PostSchema });
+```
 
 ### Basic Rules
 
@@ -61,11 +67,27 @@ Use camelCase for regular field names:
 
 ### Relation Fields
 
-Relation fields follow special naming conventions for automatic detection.
+> **Prefer `RelationField()` / `RelationsField()`.** They state the target collection explicitly,
+> which is checked, and they support `cascadeDelete`, `minSelect`/`maxSelect` and `displayFields`.
+> The naming conventions below are a **fallback** that only applies to fields carrying no relation
+> metadata, kept for backward compatibility.
+
+```typescript
+// Preferred — explicit, no naming rules involved
+{
+  author: RelationField({ collection: "users" }),
+  tags: RelationsField({ collection: "tags", maxSelect: 10 }),
+}
+```
 
 #### Single Relations (One-to-One, Many-to-One)
 
-Field name should match the target collection name (singular or plural):
+A **`z.string()` field whose name starts with an uppercase letter** is detected as a single
+relation. The target collection is the field name pluralized — the rule never checks that such a
+collection exists, so a typo produces a relation to a collection that isn't there.
+
+Seven names are excluded because they are common text fields: `Title`, `Name`, `Description`,
+`Content`, `Summary`, `Status`, `Type`.
 
 ```typescript
 {
@@ -73,6 +95,8 @@ Field name should match the target collection name (singular or plural):
   Author: z.string(),         // → Authors collection (maxSelect: 1)
   Category: z.string(),       // → Categories collection (maxSelect: 1)
   Post: z.string(),           // → Posts collection (maxSelect: 1)
+  Title: z.string(),          // → text (excluded name)
+  slug: z.string(),           // → text (lowercase)
 }
 ```
 
@@ -90,7 +114,8 @@ Field name should match the target collection name (singular or plural):
 
 #### Multiple Relations (One-to-Many, Many-to-Many)
 
-Field name should end with the target collection name:
+A **`z.array(z.string())` field whose name contains any uppercase letter** is detected as a
+multiple relation. The target collection is the *last* capitalized word in the name, pluralized.
 
 ```typescript
 {
@@ -98,10 +123,17 @@ Field name should end with the target collection name:
   Categories: z.array(z.string()),        // → Categories collection (maxSelect: 999)
   SubscriberUsers: z.array(z.string()),   // → Users collection (maxSelect: 999)
   AuthorUsers: z.array(z.string()),       // → Users collection (maxSelect: 999)
+  relatedPosts: z.array(z.string()),      // → Posts collection (one uppercase letter is enough)
 }
 ```
 
 **Pattern:** `[Prefix]CollectionName: z.array(z.string())`
+
+> **Watch out:** an all-lowercase `z.array(z.string())` such as `tags: z.array(z.string())` still
+> maps to the `relation` **type** — arrays of strings always do — but fails this naming check, so
+> it is emitted with no target collection and PocketBase rejects it. Use
+> `RelationsField({ collection: "tags" })` for a relation, or `JSONField(z.array(z.string()))` for
+> a plain list of strings.
 
 **Generated Field:**
 ```javascript
@@ -188,15 +220,18 @@ export const SocialPostInputSchema = z.object({
 ### Schema Directory Structure
 
 ```
-shared/src/schema/
-├── index.ts              # Export all schemas
-├── base.ts               # Base schema definitions
-├── user.ts               # User entity
-├── post.ts               # Post entity
-├── comment.ts            # Comment entity
-├── tag.ts                # Tag entity
-└── category.ts           # Category entity
+src/schema/
+├── index.ts              # Optional barrel; add to schema.exclude
+├── base.ts               # Your own shared fragments; add to schema.exclude
+├── user.ts               # User entity      → Users
+├── post.ts               # Post entity      → Posts
+├── comment.ts            # Comment entity   → Comments
+├── tag.ts                # Tag entity       → Tags
+└── projectStats.ts       # View collection  → ProjectStats
 ```
+
+Files that hold helpers rather than collections must be listed in `schema.exclude`, or the analyzer
+will try to read a collection out of them. Subdirectories are supported.
 
 ### File Naming Rules
 
@@ -214,39 +249,51 @@ shared/src/schema/
 
 ## Schema Export Names
 
-### Input Schema
+### Which export the analyzer picks
 
-For form validation and API input:
+Per file, in order: the **default export**, then `*Collection`, then `*Schema`. Prefer a default
+export of `defineCollection()` — it is unambiguous:
 
 ```typescript
-export const EntityInputSchema = z.object({
-  // fields...
-});
+const PostCollection = defineCollection({ collectionName: "posts", schema: PostSchema });
+export default PostCollection;
 ```
 
-**Pattern:** `[Entity]InputSchema`
+### Collection definition
 
-**Examples:**
-- `UserInputSchema`
-- `PostInputSchema`
-- `CommentInputSchema`
-- `BlogPostInputSchema`
+**Pattern:** `[Entity]Collection`
+
+```typescript
+export const PostCollection = defineCollection({ ... });
+```
 
 ### Database Schema
 
-For database storage (includes base fields):
-
-```typescript
-export const EntitySchema = EntityInputSchema.extend(baseSchema);
-```
+The Zod shape passed to `defineCollection()`, and what you infer types from.
 
 **Pattern:** `[Entity]Schema`
 
-**Examples:**
-- `UserSchema`
-- `PostSchema`
-- `CommentSchema`
-- `BlogPostSchema`
+**Examples:** `UserSchema`, `PostSchema`, `CommentSchema`, `BlogPostSchema`
+
+Add `baseSchema` when you want the PocketBase-managed fields in the inferred type. `baseSchema` is
+a plain object of Zod fields, so pass it to `.extend()` (or spread it) — it has no `.extend()`
+method of its own:
+
+```typescript
+export const PostTypeSchema = PostSchema.extend(baseSchema);
+export type Post = z.infer<typeof PostTypeSchema>;
+```
+
+### Input Schema
+
+Only needed for fields that exist on a form but not in the database (`passwordConfirm`, a `File`
+before upload).
+
+**Pattern:** `[Entity]InputSchema`
+
+```typescript
+export const UserInputSchema = UserSchema.extend({ passwordConfirm: z.string() });
+```
 
 ### Type Exports
 
@@ -292,91 +339,121 @@ export const PostInputSchema = z.object({
 
 ## Migration File Names
 
-Migration files are automatically generated with timestamps:
+Migration files are generated automatically — one per collection operation — and follow
+PocketBase's own convention.
 
-**Pattern:** `[timestamp]_[description].js`
+**Pattern:** `[unix-timestamp]_[description].js`
+
+The description is derived from the operation:
+
+| Operation | Description |
+| --- | --- |
+| Create one collection | `created_<Name>` |
+| Create several | `created_<n>_collections` |
+| Modify one collection | `updated_<Name>` |
+| Modify several | `updated_<n>_collections` |
+| Delete one collection | `deleted_<Name>` |
+| Delete several | `deleted_<n>_collections` |
 
 **Examples:**
-- `1234567890_create_users.js`
-- `1234567891_add_featured_to_posts.js`
-- `1234567892_create_comments.js`
-- `1234567893_add_tags_relation_to_posts.js`
+- `1769385981_created_Projects.js`
+- `1785109687_created_ProjectStats.js`
+- `1764626004_updated_edit_collection_add_field.js`
+
+One filename is special: `[timestamp]_collections_snapshot.js` is a full snapshot of every
+collection — written by `./pocketbase migrate collections`, and the point state reconstruction
+replays from. Never rename or edit these by hand.
 
 ## Complete Example
 
-Here's a complete example showing all naming conventions:
+Recommended style — explicit relations, explicit collection name, default export:
 
 ```typescript
-// File: shared/src/schema/blogPost.ts
+// File: src/schema/blogPost.ts
 
 import { z } from "zod";
-import { baseSchema } from "./base";
-import { PostStatusEnum } from "../enums";
+import {
+  baseSchema,
+  defineCollection,
+  BoolField,
+  DateField,
+  EditorField,
+  RelationField,
+  RelationsField,
+  SelectField,
+  TextField,
+} from "pocketbase-zod-schema/schema";
 
-// Input schema for forms/API
-export const BlogPostInputSchema = z.object({
+export const BlogPostSchema = z.object({
   // Standard fields (camelCase)
-  title: z.string().min(5).max(200),
-  slug: z.string().regex(/^[a-z0-9-]+$/),
-  content: z.string(),
-  excerpt: z.string().optional(),
-  
-  // Enum field
-  status: PostStatusEnum,
-  
-  // Boolean fields (with prefix)
-  isFeatured: z.boolean(),
-  isPublished: z.boolean(),
-  
-  // Date fields
-  publishedAt: z.date().optional(),
-  
-  // Single relations (match collection name)
-  User: z.string(),           // Author
-  Category: z.string(),       // Primary category
-  
-  // Multiple relations (end with collection name)
-  Tags: z.array(z.string()),              // Post tags
-  CoauthorUsers: z.array(z.string()),     // Co-authors
-  RelatedPosts: z.array(z.string()),      // Related posts
+  title: TextField({ min: 5, max: 200 }),
+  slug: TextField({ pattern: /^[a-z0-9-]+$/ }),
+  content: EditorField(),
+  excerpt: TextField({ max: 500 }).optional(),
+
+  // Select field
+  status: SelectField(["draft", "published", "archived"]),
+
+  // Boolean fields (is/has/can prefix)
+  isFeatured: BoolField(),
+  isPublished: BoolField(),
+
+  // Date field
+  publishedAt: DateField().optional(),
+
+  // Single relations — explicit target, no naming rules involved
+  author: RelationField({ collection: "users" }),
+  category: RelationField({ collection: "categories" }),
+
+  // Multiple relations
+  tags: RelationsField({ collection: "tags", maxSelect: 10 }),
+  coauthors: RelationsField({ collection: "users" }),
 });
 
-// Database schema (extends base)
-export const BlogPostSchema = BlogPostInputSchema.extend(baseSchema);
+// Type-level schema with the PocketBase-managed fields
+export const BlogPostTypeSchema = BlogPostSchema.extend(baseSchema);
+export type BlogPost = z.infer<typeof BlogPostTypeSchema>;
 
-// Type exports
-export type BlogPost = z.infer<typeof BlogPostSchema>;
-export type BlogPostInput = z.infer<typeof BlogPostInputSchema>;
+export default defineCollection({
+  collectionName: "BlogPosts",
+  schema: BlogPostSchema,
+  permissions: { template: "owner-only", ownerField: "author" },
+  indexes: ["CREATE UNIQUE INDEX idx_blogposts_slug ON BlogPosts (slug)"],
+});
 ```
 
-**Generated Collection:** `BlogPosts`
+**Generated Collection:** `BlogPosts` (from `collectionName`; it would also be `BlogPosts` if
+derived from the filename)
 
-**Generated Migration:** `1234567890_create_blog_posts.js`
+**Generated Migration:** `1769385981_created_BlogPosts.js`
 
 ## Quick Reference
 
 ### Collection Names
-- File: `entity.ts` → Collection: `Entities`
-- Singular file name → Plural collection name
+- `collectionName` wins; otherwise `entity.ts` → `Entities`
+- Singular file name → plural collection name
 - Special cases: `person.ts` → `People`, `category.ts` → `Categories`
 
 ### Field Names
 - Standard: `camelCase` (e.g., `firstName`, `emailAddress`)
-- Single relation: `CollectionName` (e.g., `User`, `Category`)
-- Multiple relation: `[Prefix]CollectionName` (e.g., `Tags`, `SubscriberUsers`)
+- Relations: use `RelationField()` / `RelationsField()` and name the field however you like
+- Fallback detection (no relation metadata): `z.string()` starting uppercase → single relation;
+  `z.array(z.string())` containing an uppercase letter → multiple relation
 - Boolean: `is/has/can` prefix (e.g., `isActive`, `hasAccess`)
 
 ### Schema Names
-- Input: `[Entity]InputSchema` (e.g., `UserInputSchema`)
+- Collection: `[Entity]Collection`, exported as default
 - Database: `[Entity]Schema` (e.g., `UserSchema`)
+- Input: `[Entity]InputSchema`, only when the form differs from the collection
 - Enum: `[Entity][Property]Enum` (e.g., `UserStatusEnum`)
 
 ### File Names
 - Schema: `entity.ts` (singular, camelCase)
-- Migration: `[timestamp]_[description].js` (auto-generated)
+- Migration: `[timestamp]_created_<Name>.js` and friends (auto-generated)
 
 ## See Also
 
-- [Migration Guide](./MIGRATION_GUIDE.md) - Complete migration documentation
+- [API Reference](./API.md) - Every exported function and type
+- [Migration Guide](./MIGRATION_GUIDE.md) - Adoption and upgrade notes
 - [Type Mapping Reference](./TYPE_MAPPING.md) - Type conversion rules
-- [Schema Examples](./src/schema/) - Example schema definitions
+- [View Collections](./VIEW_COLLECTIONS.md) - SQL-backed read-only collections
