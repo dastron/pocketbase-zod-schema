@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.0.0](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.7.2...pocketbase-zod-schema-v1.0.0) (2026-07-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove the static migration parser, execute migrations only
+
+### Features
+
+* add migration execution engine replacing static analysis ([5fc9e81](https://github.com/dastron/pocketbase-zod-schema/commit/5fc9e8191fb7863dd1b96f87c165a44033f05341))
+* add migration execution engine replacing static analysis as default ([eb094c7](https://github.com/dastron/pocketbase-zod-schema/commit/eb094c79f4f57c71402e68223e12122c99b8f474))
+* add migration execution engine replacing static analysis as default ([b787cf0](https://github.com/dastron/pocketbase-zod-schema/commit/b787cf0ba4a9e0e3d80f4eb0951e90890bf33ccd))
+* deprecation warning for static processor ([865f96d](https://github.com/dastron/pocketbase-zod-schema/commit/865f96db51eefd05fc53ff8e412cd4f49e9853e5))
+* **engine:** _migrations awareness, record simulation, goja lint ([ce799d3](https://github.com/dastron/pocketbase-zod-schema/commit/ce799d38d2d50e6596cf7bb880656caff7c5631e))
+* **engine:** verify down migrations round-trip ([35509f5](https://github.com/dastron/pocketbase-zod-schema/commit/35509f500ae8034a095115e8263779daef2aed94))
+* **engine:** verify down migrations round-trip ([0b74452](https://github.com/dastron/pocketbase-zod-schema/commit/0b74452ff8c564c579de2462407908b2207ff0cb))
+* remove the static migration parser, execute migrations only ([b5bb6cb](https://github.com/dastron/pocketbase-zod-schema/commit/b5bb6cb204a7132041b112a1c68051bdd4238a02))
+
+
+### Bug Fixes
+
+* address review comments ([61e5441](https://github.com/dastron/pocketbase-zod-schema/commit/61e544128d57b49c3377ec9938d06e47d17a3df5))
+* e2e test regression ([cb6e166](https://github.com/dastron/pocketbase-zod-schema/commit/cb6e166b0fa4850087344ae999b9e5098950e16b))
+* flakey test ([4902cf2](https://github.com/dastron/pocketbase-zod-schema/commit/4902cf23aa944872a072d814f12590bd3182236c))
+
 ## [0.7.2](https://github.com/dastron/pocketbase-zod-schema/compare/pocketbase-zod-schema-v0.7.1...pocketbase-zod-schema-v0.7.2) (2026-07-26)
 
 
