@@ -7,8 +7,13 @@ Define your PocketBase collections using Zod schemas and automatically generate 
 - **Type-safe schema definitions** - Use Zod to define your PocketBase collections with full TypeScript support
 - **Automatic migrations** - Generate PocketBase-compatible migration files from your schema changes
 - **Relation support** - Easily define single and multiple relations between collections
+- **View collections** - Read-only collections backed by a SQL query, declared alongside the rest
 - **Permission templates** - Built-in templates for common permission patterns
 - **Index definitions** - Declare indexes alongside your schema
+- **Execution engine** - Current state is reconstructed by *executing* your migrations in a
+  simulated PocketBase JSVM, so loops, helper functions and computed values are understood
+- **Verification & linting** - Round-trip `up()`/`down()` before writing a migration, and catch
+  JavaScript that PocketBase's goja runtime cannot run
 - **CLI & programmatic API** - Use the CLI for quick generation or the API for custom workflows
 
 ## Installation
@@ -260,16 +265,18 @@ The library provides explicit field helper functions for all PocketBase field ty
 
 **FileField(options?)**
 - `mimeTypes?: string[]` - Allowed MIME types (e.g., `["image/*", "application/pdf"]`)
-- `maxSize?: number` - Maximum file size in bytes
+- `maxSize?: ByteSize` - Maximum file size: a number of bytes, or a string with a `K`/`M`/`G`
+  suffix (`"5M"`, `"1G"`; max `"8G"`)
 - `thumbs?: string[]` - Thumbnail sizes to generate (e.g., `["100x100", "200x200"]`)
 - `protected?: boolean` - Whether file requires auth to access
-- Returns: `z.ZodType<File>`
+- Returns: `z.ZodType<string, File | string>` — accepts a `File` on input, parses to the stored
+  filename string
 
 **FilesField(options?)**
 - All `FileField` options plus:
 - `minSelect?: number` - Minimum number of files required
 - `maxSelect?: number` - Maximum number of files allowed
-- Returns: `z.ZodArray<z.ZodType<File>>`
+- Returns: `z.ZodType<string[], (File | string)[]>`
 
 **JSONField(schema?)**
 - `schema?: z.ZodTypeAny` - Optional Zod schema for JSON structure validation
@@ -419,12 +426,60 @@ const ProjectSchema = z.object({
 **`RelationField(config)`** - Single relation
 - `collection: string` - Target collection name (required)
 - `cascadeDelete?: boolean` - Delete related records when this record is deleted (default: `false`)
+- `displayFields?: string[] | null` - Fields to display in the PocketBase admin UI
 
 **`RelationsField(config)`** - Multiple relations
-- `collection: string` - Target collection name (required)
-- `cascadeDelete?: boolean` - Delete related records when this record is deleted (default: `false`)
+- All `RelationField` options plus:
 - `minSelect?: number` - Minimum number of relations required (default: `0`)
 - `maxSelect?: number` - Maximum number of relations allowed (default: `999`)
+
+> Relations can also be detected from field naming (a `z.string()` starting with an uppercase
+> letter, or a `z.array(z.string())` containing one). That fallback exists for backward
+> compatibility — prefer the helpers, which name the target collection explicitly.
+
+### Defining View Collections
+
+Use `defineView()` for a read-only collection backed by a SQL query. PocketBase derives the
+collection's fields by running the query, so the Zod schema describes the row shape for TypeScript
+only:
+
+```typescript
+import { z } from "zod";
+import { baseSchema, defineView, sql } from "pocketbase-zod-schema/schema";
+
+export const ProductStatsSchema = z
+  .object({
+    vendor: z.string(),
+    productCount: z.number(),
+  })
+  .extend(baseSchema);
+
+export default defineView({
+  collectionName: "ProductStats",
+  schema: ProductStatsSchema,
+  viewQuery: sql`
+    SELECT p.vendor AS id,
+           p.vendor AS vendor,
+           COUNT(*) AS productCount
+      FROM products p
+     GROUP BY p.vendor
+  `,
+  permissions: {
+    listRule: "vendor.owner = @request.auth.id",
+    viewRule: "vendor.owner = @request.auth.id",
+  },
+});
+```
+
+- Views are read-only: `defineView()` accepts only `listRule` and `viewRule`, and rejects indexes.
+- The outermost `SELECT` must expose a unique `id` column.
+- The generated migration contains the query and **no** `fields`/`indexes` array.
+- Editing the SQL produces an in-place update that keeps the collection id stable; re-indenting it
+  produces no migration at all.
+- Deleting a view is not a destructive change — a view stores no data.
+
+`defineCollection({ type: "view", viewQuery })` is equivalent, but `defineView()` turns those
+constraints into compile errors instead of apply-time failures.
 
 ### Defining Permissions
 
@@ -475,7 +530,22 @@ const PostSchemaAlt = withPermissions(
 |----------|-------------|
 | `"public"` | All operations are public (no auth required) |
 | `"authenticated"` | All operations require authentication |
-| `"owner-only"` | Only the owner can perform operations |
+| `"owner-only"` | Only the owner can perform operations (`ownerField`, default `"User"`) |
+| `"admin-only"` | Requires `@request.auth.<roleField> = "admin"` (`roleField`, default `"role"`) |
+| `"read-public"` | Public read, authenticated write |
+| `"custom"` | No base rules — `customRules` supplies everything |
+
+Two more have no template name; call them and pass the result as `permissions`:
+
+```typescript
+import { PermissionTemplates } from "pocketbase-zod-schema/schema";
+
+PermissionTemplates.locked();                 // every rule null (superusers only)
+PermissionTemplates.readOnlyAuthenticated();  // authenticated read, writes locked
+```
+
+Rule values: `null` = superusers only, `""` = public, any other string = a PocketBase filter
+expression. `manageRule` applies to auth collections only.
 
 #### Template with Custom Overrides
 
@@ -568,6 +638,65 @@ npx pocketbase-migrate generate-types
 
 # Force generation even with destructive changes
 npx pocketbase-migrate generate --force
+
+# Round-trip up() and down() before writing; refuse a migration that doesn't roll back
+npx pocketbase-migrate generate --verify
+
+# Restrict the diff to matching collection or field names (regex supported)
+npx pocketbase-migrate generate Posts Comments
+```
+
+### `generate` Command
+
+```bash
+pocketbase-migrate generate [filters...] [options]
+
+Options:
+  -o, --output <directory>  Output directory for migration files
+  -f, --force               Force generation even with destructive changes or duplicates
+  --dry-run                 Show what would be generated without writing files
+  --schema-dir <directory>  Directory containing Zod schema files
+  --verify                  Execute up() and down() before writing
+  --no-verify               Skip verification even when enabled in the config file
+```
+
+One file is written per collection operation.
+
+### `status` Command
+
+```bash
+pocketbase-migrate status [options]
+
+Options:
+  --schema-dir <directory>  Directory containing Zod schema files
+  --json                    Output status as JSON
+  --verify                  Compare disk against PocketBase's _migrations table; exit non-zero on drift
+  --pb-data <path>          PocketBase data directory or data.db file
+```
+
+`--verify` needs Node >= 22.5 (`node:sqlite`).
+
+### `lint` Command
+
+```bash
+pocketbase-migrate lint [files...] [options]
+
+Options:
+  -o, --output <directory>  Directory containing migration files
+  --no-execute              Static checks only
+```
+
+Catches JavaScript that runs in Node but not in goja: `require`, `process`, `fetch`, `setTimeout`,
+`async`/`await`, `import`/`export`, class fields. Exits non-zero on any error-severity finding.
+
+### Global Options
+
+```
+  -c, --config <path>   Configuration file path
+  -v, --version         Print the version   ← -v is version, not verbose
+      --verbose         Enable verbose logging
+      --quiet           Suppress non-essential output
+      --no-color        Disable colored output
 ```
 
 ### `generate-types` Command
@@ -578,10 +707,8 @@ Generate type-safe TypeScript definitions from your Zod schemas.
 pocketbase-migrate generate-types [options]
 
 Options:
-  -c, --config <path>        Configuration file path
   -o, --output <path>        Output file path (default: pocketbase-types.ts)
   --schema-dir <directory>   Directory containing Zod schema files
-  -v, --verbose              Enable verbose logging
 ```
 
 **What it generates:**
@@ -648,23 +775,41 @@ export default {
   schema: {
     // Directory containing your Zod schema files
     directory: "./src/schema",
-    
-    // Files to exclude from schema discovery
+
+    // Files to exclude from schema discovery (replaces the default list)
     exclude: ["*.test.ts", "*.spec.ts", "base.ts", "index.ts"],
   },
   migrations: {
-    // Directory to output migration files
+    // Directory to output migration files, and to reconstruct state from
     directory: "./pocketbase/pb_migrations",
+
+    // Round-trip up()/down() before writing a migration (default: false)
+    verify: false,
+
+    // PocketBase data directory, for reading the _migrations table.
+    // "" means the pb_data directory next to the migrations directory.
+    dataDirectory: "",
   },
   diff: {
     // Warn when collections or fields would be deleted
     warnOnDelete: true,
-    
+
     // Require --force flag for destructive changes
     requireForceForDestructive: true,
   },
+  typeGen: {
+    // Default output for `generate-types`
+    outPath: "pocketbase-types.ts",
+  },
 };
 ```
+
+There is no snapshot file to configure. The current database state is reconstructed by executing
+the migration files: the newest `*_collections_snapshot.js` plus everything after it.
+
+Environment overrides: `MIGRATION_SCHEMA_DIR`, `MIGRATION_SCHEMA_EXCLUDE`, `MIGRATION_OUTPUT_DIR`,
+`MIGRATION_VERIFY`, `MIGRATION_DATA_DIR`, `MIGRATION_REQUIRE_FORCE`. Precedence is
+CLI > environment > config file > defaults.
 
 ---
 
@@ -677,7 +822,7 @@ import {
   parseSchemaFiles,
   compare,
   generate,
-  loadSnapshotIfExists,
+  loadSnapshotWithMigrations,
 } from "pocketbase-zod-schema/migration";
 
 async function generateMigration() {
@@ -687,25 +832,30 @@ async function generateMigration() {
   // Parse all schema files
   const currentSchema = await parseSchemaFiles(schemaDir);
 
-  // Load the last known state from existing migrations
-  const previousSnapshot = loadSnapshotIfExists({ 
-    migrationsPath: migrationsDir 
+  // Reconstruct the current database state by executing the existing migrations.
+  // Returns null when there is nothing to replay; throws SnapshotError if a
+  // migration cannot be executed.
+  const previousSnapshot = loadSnapshotWithMigrations({
+    migrationsPath: migrationsDir,
   });
 
   // Compare schemas and detect changes
   const diff = compare(currentSchema, previousSnapshot);
 
-  // Generate migration file
-  if (diff.collectionsToCreate.length > 0 || 
-      diff.collectionsToModify.length > 0 || 
-      diff.collectionsToDelete.length > 0) {
-    const migrationPath = generate(diff, migrationsDir);
-    console.log(`Migration created: ${migrationPath}`);
-  } else {
-    console.log("No changes detected");
-  }
+  // Write one migration file per collection operation; returns the paths written
+  const paths = generate(diff, migrationsDir);
+
+  console.log(paths.length ? `Migrations created:\n${paths.join("\n")}` : "No changes detected");
 }
 ```
+
+> Use `loadSnapshotWithMigrations`, not `loadSnapshotIfExists`. The latter executes **only** the
+> newest snapshot file and ignores every migration after it, so it is almost never the current
+> state.
+
+The execution engine, round-trip verification and the goja lint are also available directly from
+`pocketbase-zod-schema/migration/engine` — see the
+[Execution Engine guide](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/EXECUTION_ENGINE.md).
 
 ---
 
@@ -826,6 +976,23 @@ export const CommentCollection = defineCollection({
 ```
 
 ---
+
+## Documentation
+
+Full guides live in the repository:
+
+- [API Reference](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/API.md)
+- [Execution Engine](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/EXECUTION_ENGINE.md)
+- [Configuration](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/CONFIGURATION.md)
+- [Migration Guide](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/MIGRATION_GUIDE.md)
+- [Type Mapping](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/TYPE_MAPPING.md)
+- [View Collections](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/VIEW_COLLECTIONS.md)
+- [Naming Conventions](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/NAMING_CONVENTIONS.md)
+
+## Requirements
+
+Node.js 20 or higher. `status --verify`, which reads PocketBase's `_migrations` table, additionally
+requires Node 22.5+ for `node:sqlite`.
 
 ## License
 

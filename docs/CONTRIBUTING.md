@@ -8,6 +8,7 @@ Thank you for your interest in contributing to PocketBase Zod Migration! This do
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Project Structure](#project-structure)
+- [Architecture Notes for Contributors](#architecture-notes-for-contributors)
 - [Development Workflow](#development-workflow)
 - [Testing](#testing)
 - [Documentation](#documentation)
@@ -30,8 +31,10 @@ This project adheres to a code of conduct that we expect all contributors to fol
 
 ### Prerequisites
 
-- Node.js 18 or higher
-- Yarn 4.8.1 (package manager)
+- **Node.js 20 or higher** (the package declares `engines.node >= 20`; CI runs 20 and 22). Reading
+  PocketBase's `_migrations` table uses `node:sqlite` and needs **Node >= 22.5** — tests that
+  touch it skip on older runtimes.
+- Yarn 4.8.1, via Corepack (`corepack enable`)
 - Git
 - TypeScript knowledge
 - Familiarity with PocketBase and Zod
@@ -46,48 +49,113 @@ This project adheres to a code of conduct that we expect all contributors to fol
 
 2. **Install Dependencies**
    ```bash
-   yarn install
+   corepack enable
+   yarn install --immutable
    ```
 
-3. **Build the Project**
+3. **Build, test, check**
    ```bash
    yarn build
-   ```
-
-4. **Run Tests**
-   ```bash
    yarn test
+   yarn typecheck
+   yarn lint
    ```
 
-5. **Start Development**
-   ```bash
-   yarn dev
-   ```
+`yarn` at the repo root may prompt Corepack to download Yarn 4. The binaries in `node_modules/.bin/`
+(`tsc`, `vitest`, `eslint`, `tsup`) can be invoked directly to avoid that.
 
 ## Project Structure
 
+This is a Yarn 4 workspace monorepo. The publishable library is `package/`; the repo root is a
+demo/host workspace that consumes it.
+
 ```
 pocketbase-zod-schema/
-├── src/                    # Source code
-│   ├── cli/               # CLI commands and utilities
-│   ├── migration/         # Core migration engine
-│   ├── schema/            # Schema helpers and utilities
-│   ├── mutator/           # Data mutators (optional)
-│   └── types/             # Type generation (optional)
-├── dist/                  # Compiled output
-├── docs/                  # Documentation
-├── scripts/               # Build and utility scripts
-├── __tests__/             # Test files
-└── examples/              # Usage examples
+├── package/                    # The published library (pocketbase-zod-schema)
+│   └── src/
+│       ├── cli/                # CLI entry point, commands, config, logging
+│       │   └── commands/       # generate, status, generate-types, lint
+│       ├── migration/          # The pipeline
+│       │   ├── analyzer/       # Zod schemas -> SchemaDefinition
+│       │   ├── diff/           # SchemaDefinition vs. snapshot -> SchemaDiff
+│       │   ├── generator/      # SchemaDiff -> migration files
+│       │   ├── engine/         # node:vm simulation of PocketBase's JSVM
+│       │   ├── utils/          # pluralize, type mapping, relation detection, ids
+│       │   ├── snapshot.ts     # state reconstruction entry point
+│       │   ├── validation.ts   # destructive-change detection used by the CLI
+│       │   └── errors.ts       # error classes
+│       ├── schema/             # defineCollection, defineView, field helpers
+│       │                       #  ...and the example schemas the host workspace uses
+│       ├── type-gen/           # generate-types implementation
+│       ├── mutator/            # data mutation helpers
+│       └── utils/              # permissions and templates
+├── pocketbase/pb_migrations/   # Migrations generated from package/src/schema
+├── tests/e2e/                  # End-to-end suite driving a real PocketBase binary
+├── docs/                       # Documentation
+└── scripts/                    # PocketBase download / start / stop
 ```
 
-### Key Modules
+Tests live in `__tests__/` directories next to the code they cover. There is no top-level `src/`
+and no `examples/` directory — `package/src/schema/*.ts` doubles as the library's example schemas
+*and* the schema directory `pocketbase-migrate.config.js` points at.
 
-- **CLI (`src/cli/`)**: Command-line interface and utilities
-- **Migration (`src/migration/`)**: Core migration generation logic
-- **Schema (`src/schema/`)**: Schema utilities and permission templates
-- **Mutator (`src/mutator/`)**: Optional data manipulation utilities
-- **Types (`src/types/`)**: Optional TypeScript type generation
+### Commands: which workspace
+
+Run library commands from `package/`, host commands from the repo root. The root `package.json`
+proxies the common ones (`yarn test`, `yarn build`, `yarn typecheck`, `yarn lint`) to the
+workspace.
+
+```bash
+# library (cd package/)
+yarn test                              # vitest run
+yarn test:watch
+yarn test:property                     # property-based tests only
+yarn test:coverage
+yarn typecheck                         # tsc --noEmit
+yarn lint                              # eslint src --fix
+yarn build                             # tsup (esm + cjs + dts)
+vitest run src/migration/__tests__/integration/view-collection.test.ts   # single file
+vitest run -t "should parse an in-place view query update"              # single test
+
+# host (repo root)
+yarn db:generate                       # schemas -> migration files
+yarn db:status                         # preview changes without writing
+yarn db:typegen                        # regenerate pocketbase-types.ts
+yarn db:download && yarn db:start      # fetch + run PocketBase
+yarn test:e2e                          # drives a real PocketBase binary; slow
+```
+
+## Architecture Notes for Contributors
+
+Three invariants matter more than anything else here.
+
+### There is no snapshot file
+
+"Current database state" means *the state produced by executing the migration files*.
+`snapshot.ts:loadSnapshotWithMigrations()` plans a file list (newest `*_collections_snapshot.js`
+plus everything after it) and runs each `up()` in a `node:vm` sandbox emulating PocketBase's goja
+JSVM. There is no static/regex reader — a migration the engine cannot execute is a hard error, not
+a warning. See [EXECUTION_ENGINE.md](./EXECUTION_ENGINE.md).
+
+### Anything the generator writes, the engine must read back
+
+Otherwise `db:generate` emits the same migration forever, because the diff never sees the change
+land. **When you add a new emitted construct, add a round-trip test** alongside
+`__tests__/integration/generated-migration-replay.test.ts` and
+`generate-no-additional-migration.test.ts`.
+
+### All collection metadata rides in the Zod description
+
+There is no registry. `defineCollection()` serializes `{collectionName, type, viewQuery,
+permissions, indexes}` into the schema's `.describe()` string as JSON; field helpers and
+`RelationField`/`RelationsField` do the same per field under `__pocketbase_field__` and
+`__pocketbase_relation__`. The analyzer's `extractors.ts` parses it back out. Consequence:
+`defineCollection` *overwrites* the description, so it must wrap the schema, not the reverse.
+
+### Two destructive-change implementations
+
+`diff/destructiveness.ts` (used by `DiffEngine`) and `migration/validation.ts` (used by the CLI).
+A change to destructive-change policy usually needs both.
 
 ## Development Workflow
 
@@ -147,77 +215,65 @@ test(migration): add property tests for diff engine
 
 ### Error Handling
 
-- Use custom error classes from `src/migration/errors.ts`
+- Use the custom error classes from `package/src/migration/errors.ts`
 - Provide actionable error messages
-- Include context information in error messages
-- Handle edge cases gracefully
+- Include context information in error messages (each class has a `getDetailedMessage()`)
+- A state reconstruction you cannot trust is worse than an error — do not swallow an execution
+  failure with a warning
 
 ## Testing
 
 ### Test Structure
 
-- **Unit Tests**: Test individual functions and classes
-- **Integration Tests**: Test component interactions
-- **Property Tests**: Use fast-check for property-based testing
-- **CLI Tests**: Test command-line interface functionality
+- **Unit tests**: individual functions and classes, in `__tests__/` next to the code
+- **Integration tests**: `package/src/migration/__tests__/integration/` — the full
+  schema → diff → generate → replay loop
+- **Property tests**: fast-check, run with `yarn test:property`
+- **E2E**: `tests/e2e/`, drives a real PocketBase binary
 
 ### Running Tests
 
 ```bash
-# Run all tests
-yarn test
-
-# Run tests in watch mode
+# from package/
+yarn test                 # all unit + integration tests
 yarn test:watch
-
-# Run tests with coverage
 yarn test:coverage
+yarn test:property        # property-based tests only
 
-# Run only property tests
-yarn test:property
+vitest run src/migration/__tests__/integration/view-collection.test.ts   # single file
+vitest run -t "should parse an in-place view query update"              # single test by name
+
+# from the repo root
+yarn test:e2e             # slow: downloads PocketBase, fileParallelism off
+yarn test:e2e:verbose
 ```
 
-### Writing Tests
+### Test Style
 
-1. **Unit Tests**
-   ```typescript
-   import { describe, it, expect } from 'vitest';
-   import { SchemaAnalyzer } from '../analyzer.js';
+**No vitest snapshots anywhere.** Tests build a `SchemaDefinition`, run `compare()` → `generate()`
+into an `os.tmpdir()` directory, then assert with `toContain` or by parsing the output and
+comparing structurally.
 
-   describe('SchemaAnalyzer', () => {
-     it('should parse valid schema files', () => {
-       const analyzer = new SchemaAnalyzer();
-       // Test implementation
-     });
-   });
-   ```
+Two helpers matter, and mixing them up is the usual mistake
+(`package/src/migration/__tests__/helpers/`):
 
-2. **Property Tests**
-   ```typescript
-   import { describe, it } from 'vitest';
-   import fc from 'fast-check';
+| Helper | Use it to assert on | Never use it to |
+| --- | --- | --- |
+| `migration-executor.ts` | what a migration **does** — execute it, then read the resulting state and a before/after diff | — |
+| `migration-parser.ts` | what the generator **wrote** — emitted field literals, operation calls, closure shapes | reconstruct state |
 
-   describe('Migration Generator Properties', () => {
-     it('should generate valid migration files for any schema diff', () => {
-       fc.assert(fc.property(
-         fc.record({
-           // Property test generators
-         }),
-         (schemaDiff) => {
-           // Property test implementation
-         }
-       ));
-     });
-   });
-   ```
+`__tests__/fixtures/reference-migrations/` holds real PocketBase-authored migrations used as ground
+truth. Regenerate them from an actual PocketBase instance rather than hand-writing them.
 
 ### Test Guidelines
 
-- Write tests for new functionality
-- Maintain or improve test coverage
+- Write tests for new functionality, and cover both success and error cases
+- **New emitted construct → round-trip test.** Anything the generator writes must replay through
+  `loadSnapshotWithMigrations` and reproduce the state it was generated for, with a zero follow-up
+  diff. Without one, a regression shows up as `db:generate` looping forever instead of as a test
+  failure.
 - Use descriptive test names
-- Test both success and error cases
-- Mock external dependencies appropriately
+- Maintain or improve coverage
 
 ## Documentation
 
@@ -231,37 +287,49 @@ yarn test:property
 ```typescript
 /**
  * Generates PocketBase migrations from schema differences.
- * 
+ *
+ * One file is written per collection operation.
+ *
  * @param diff - The schema differences to generate migrations for
- * @param outputDir - Directory to write migration files
- * @returns Path to the generated migration file
- * 
+ * @param config - Output directory, or a MigrationGeneratorConfig
+ * @returns Paths of the migration files written; empty when the diff is empty
+ *
  * @throws {MigrationGenerationError} When migration generation fails
- * 
+ *
  * @example
  * ```typescript
- * const generator = new MigrationGenerator();
- * const migrationPath = generator.generate(diff, './migrations');
+ * const paths = generate(diff, "./pocketbase/pb_migrations");
  * ```
  */
-public generate(diff: SchemaDiff, outputDir: string): string {
+export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | string): string[] {
   // Implementation
 }
 ```
 
-### README Updates
+### Documentation Updates
 
-When adding new features:
-- Update the feature list
-- Add usage examples
-- Update API reference
-- Add troubleshooting information if needed
+When adding a feature, update whatever it touches:
+
+| You changed | Also update |
+| --- | --- |
+| A CLI command or flag | [API.md](./API.md) CLI section, [CONFIGURATION.md](./CONFIGURATION.md), both READMEs |
+| A config key | [CONFIGURATION.md](./CONFIGURATION.md), the `MigrationConfig` type in [API.md](./API.md) |
+| An exported function's signature | [API.md](./API.md) |
+| A Zod → PocketBase mapping rule | [TYPE_MAPPING.md](./TYPE_MAPPING.md) |
+| Engine behaviour or API surface | [EXECUTION_ENGINE.md](./EXECUTION_ENGINE.md) |
+| A field helper or `defineCollection` option | [TYPE_MAPPING.md](./TYPE_MAPPING.md), `package/README.md` |
+| Anything breaking | The upgrade notes in [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) |
+
+`package/README.md` is what npm shows, so keep it self-contained; the root `README.md` also covers
+working in this repo.
 
 ### Changelog
 
-- Update `CHANGELOG.md` with your changes
-- Follow the existing format
-- Include breaking changes in the appropriate section
+**Do not hand-edit `package/CHANGELOG.md`.** Release Please generates it from conventional commits
+and will conflict with manual edits. Put the user-visible summary in your commit message instead —
+that is what ends up in the changelog. For a breaking change use `feat!:`/`fix!:` or a
+`BREAKING CHANGE:` footer, and add an upgrade note to
+[MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md#version-upgrade-notes).
 
 ## Submitting Changes
 
@@ -279,10 +347,9 @@ When adding new features:
 
 3. **Test Your Changes**
    ```bash
-   yarn test
-   yarn typecheck
-   yarn lint
+   yarn precommit        # lint + typecheck + test
    yarn build
+   yarn test:e2e         # if you touched the generator or the engine
    ```
 
 4. **Commit Your Changes**
@@ -322,17 +389,19 @@ Brief description of changes made.
 - [ ] Updated existing tests as needed
 
 ## Documentation
-- [ ] Updated README.md
-- [ ] Updated API documentation
-- [ ] Updated CHANGELOG.md
+- [ ] Updated the docs the change touches (see the table in CONTRIBUTING.md)
+- [ ] Upgrade note added to MIGRATION_GUIDE.md if this is breaking
 
 ## Checklist
 - [ ] Code follows project style guidelines
 - [ ] Self-review of code completed
 - [ ] Tests added/updated and passing
+- [ ] Round-trip test added if the generator emits a new construct
 - [ ] Documentation updated
 - [ ] No breaking changes (or breaking changes documented)
 ```
+
+CHANGELOG.md is generated by Release Please — do not edit it in a PR.
 
 ## Release Process
 
@@ -361,14 +430,8 @@ This project follows [Semantic Versioning](https://semver.org/):
 5. **Automatic Release**: Release Please creates release PR automatically
 6. **Merge Release PR**: Merging the release PR triggers NPM publishing
 
-### Manual Release (if needed)
-
-If manual intervention is required:
-
-```bash
-# Trigger Release Please manually
-gh workflow run release-please.yml
-```
+Details, including the emergency manual path, are in [RELEASE.md](./RELEASE.md). The workflow file
+is `.github/workflows/release.yml`.
 
 ## Getting Help
 
@@ -394,9 +457,6 @@ For security vulnerabilities, please email the maintainers directly rather than 
 
 ## Recognition
 
-Contributors will be recognized in:
-- `CONTRIBUTORS.md` file
-- Release notes for significant contributions
-- GitHub contributor statistics
+Contributors are recognized in release notes and GitHub's contributor statistics.
 
 Thank you for contributing to PocketBase Zod Migration! 🎉

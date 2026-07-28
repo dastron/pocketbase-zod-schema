@@ -19,7 +19,25 @@ Contains manually created PocketBase migrations copied from `pocketbase/pb_migra
 - `1764626004_updated_edit_collection_add_field.js` - Update migration adding a field
 - `1764626024_created_edit_collection_add_index.js` - Initial migration for index addition test
 - `1764626069_updated_edit_collection_add_index.js` - Update migration adding an index
+- `1764700000_created_create_new_collection_with_null_permissions.js` - Collection with every rule `null` (superusers only)
+- `1764700001_created_test_auth_users.js` - Auth collection with PocketBase's injected system fields
 - `1769500000_created_view_collection.js` - Read-only view collection backed by a SQL query (captured from PocketBase 0.35.0's automigrate output; note the derived `fields` array with regenerated `_clone_*` ids, which is why the generator never emits fields for a view)
+
+### dynamic-migrations/
+
+Hand-written migrations that only the execution engine can read: their effect does not exist until
+the code has run. Used by `engine/__tests__/dynamic-migrations.test.ts`, and by the down-verification
+suite (two of them have a deliberately no-op `down()`, as the ground truth that verification detects
+a rollback that does not roll back).
+
+- `1800000001_loop_add_fields.js` - Fields added in a `for` loop
+- `1800000002_foreach_field_defs.js` - Fields added by iterating a definition array
+- `1800000003_helper_function.js` - Field construction behind a helper function
+- `1800000004_conditional_add.js` - Field added inside a conditional
+- `1800000005_variable_indirection.js` - Collection reached through a variable
+- `1800000006_remove_by_id.js` - `fields.removeById()`
+- `1800000007_computed_unmarshal.js` - `unmarshal()` with a computed payload
+- `1800000008_bulk_collections.js` - Several collections created in one migration
 
 ### schemas/
 
@@ -36,7 +54,11 @@ Contains Zod schema definitions that correspond to the reference migrations. The
 - `edit-collection-add-field-after.ts` - Schema for collection after adding a text field
 - `edit-collection-add-index-before.ts` - Schema for collection before adding an index (only base fields)
 - `edit-collection-add-index-after.ts` - Schema for collection after adding a number field and index
+- `create-collection-with-null-permissions.ts` - Schema with every rule `null` (superusers only)
+- `create-auth-collection-with-manage-rule.ts` - Auth collection exercising `manageRule`, which is only emitted for this type
 - `create-view-collection.ts` - Schema for a read-only view collection (no fields, no indexes, SQL query + read rules)
+- `special-characters-schema.ts` - Field names and rule expressions needing escaping
+- `unicode-schema.ts` - Non-ASCII collection, field and value names
 - `index.ts` - Exports all schema fixtures for easy import
 
 ### snapshots/

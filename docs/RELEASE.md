@@ -157,63 +157,77 @@ git commit -m "feat(api)!: redesign migration generator API
 BREAKING CHANGE: The MigrationGenerator class now requires a config object in the constructor."
 ```
 
+> **Below 1.0.0 this still goes straight to `1.0.0`.** `release-please-config.json` does not set
+> `bump-minor-pre-major`, so a breaking change on a `0.x` version bumps the major rather than the
+> minor. If you want `0.7.2 → 0.8.0` for a breaking change instead, add
+> `"bump-minor-pre-major": true` to the package entry in `release-please-config.json` before
+> merging it.
+
 ## Changelog Generation
 
 Release Please automatically generates changelog entries from commits:
 
 ### Included in Changelog
 
-- `feat:` → Features section
-- `fix:` → Bug Fixes section
-- `docs:` → Documentation section
-- `perf:` → Performance Improvements section
-- `refactor:` → Code Refactoring section
-- `test:` → Tests section
-- `build:` → Build System section
-- `ci:` → Continuous Integration section
+Configured in `release-please-config.json` under `changelog-sections`:
+
+- `feat:` → Features
+- `fix:` → Bug Fixes
+- `docs:` → Documentation
+- `style:` → Styles
+- `refactor:` → Code Refactoring
+- `perf:` → Performance Improvements
+- `test:` → Tests
+- `build:` → Build System
+- `ci:` → Continuous Integration
 
 ### Excluded from Changelog
 
-- `chore:` commits (hidden by default)
-- `style:` commits (unless configured otherwise)
+- `chore:` commits — the only type marked `hidden: true`
 
 ## NPM Publishing
 
-Publishing to NPM is fully automated:
+Publishing is automated by `.github/workflows/release.yml`:
 
 1. Release PR is merged to `main`
-2. GitHub Actions workflow runs
-3. Tests are executed
-4. Package is built
-5. Package is published to NPM with `--access public`
+2. Release Please creates the GitHub release and tag
+3. The publish job checks out the tag, installs, and runs tests, typecheck and build
+4. npm is upgraded to a version that supports OIDC
+5. `npm publish --access public` runs in `package/`
 
-### NPM Token Setup
+### Authentication: OIDC trusted publishing
 
-For maintainers, ensure `NPM_TOKEN` secret is configured in GitHub:
+The workflow authenticates to npm with **OIDC trusted publishing**, not a token. It declares
+`permissions: id-token: write` and needs npm 11.5.1+ (hence the `npm install -g npm@latest` step,
+and Node 22 — npm 12+ requires Node >= 22.22.2).
 
-1. Generate NPM token: https://www.npmjs.com/settings/tokens
-2. Add to GitHub secrets: Settings → Secrets → Actions → New repository secret
-3. Name: `NPM_TOKEN`
-4. Value: Your NPM token
+There is **no `NPM_TOKEN` secret in the publish path.** Configure the package as a trusted publisher
+on npmjs.com instead: package settings → Publishing access → GitHub Actions, pointing at this
+repository and `release.yml`.
 
 ## Manual Release (Emergency)
 
-If automated release fails, you can manually release:
+Only if CI publishing is blocked. The root workspace is private, so `yarn npm publish` at the root
+does nothing useful — publish from the package workspace:
 
 ```bash
-# Ensure you're on main and up to date
+# Ensure you're on main, at the released tag, and up to date
 git checkout main
 git pull origin main
 
-# Run tests
+# Verify before publishing
 yarn test
-
-# Build package
+yarn typecheck
 yarn build
 
-# Publish to NPM
-yarn npm publish --access public
+# Publish (from the package workspace)
+cd package
+npm publish --access public
 ```
+
+`yarn publish:npm` from the repo root is equivalent — it proxies to the same command in the
+workspace. A manual publish needs a local npm login (`npm login`) or an `NPM_TOKEN` in your
+environment, because OIDC only works inside GitHub Actions.
 
 ## Troubleshooting
 
@@ -242,10 +256,11 @@ yarn npm publish --access public
 **Issue:** Package failed to publish to NPM.
 
 **Solutions:**
-- Verify `NPM_TOKEN` secret is configured correctly
-- Check NPM token has publish permissions
-- Ensure package name is available on NPM
-- Review GitHub Actions logs for specific error
+- Verify the package's trusted-publisher configuration on npmjs.com names this repository and
+  `release.yml`
+- Confirm the job still declares `permissions: id-token: write` — OIDC fails without it
+- Check the `npm --version` step printed 11.5.1 or newer
+- Review GitHub Actions logs for the specific error
 
 ### Changelog Missing Commits
 

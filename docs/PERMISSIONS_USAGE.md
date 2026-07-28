@@ -1,6 +1,19 @@
 # Permission Schema Usage Guide
 
-This guide demonstrates how to use the permission schema exports from the `@project/shared` package.
+How to use the permission exports from `pocketbase-zod-schema/schema`.
+
+> `withPermissions()` is the older API and still supported. For new code, pass `permissions`
+> directly to `defineCollection()` — it accepts the same `PermissionSchema` and
+> `PermissionTemplateConfig` shapes shown here, and keeps the collection name, schema, permissions
+> and indexes in one place. Every example below has a `defineCollection()` equivalent:
+>
+> ```typescript
+> export default defineCollection({
+>   collectionName: "posts",
+>   schema: PostSchema,
+>   permissions: { template: "owner-only", ownerField: "author" },
+> });
+> ```
 
 ## Importing
 
@@ -14,7 +27,7 @@ import {
   type APIRuleType,
   type RuleExpression,
   type PermissionTemplate,
-} from "@project/shared/schema";
+} from "pocketbase-zod-schema/schema";
 ```
 
 ## Using Permission Templates
@@ -23,7 +36,7 @@ import {
 
 ```typescript
 import { z } from "zod";
-import { withPermissions } from "@project/shared/schema";
+import { withPermissions } from "pocketbase-zod-schema/schema";
 
 const PublicPostSchema = withPermissions(
   z.object({
@@ -132,7 +145,7 @@ const HybridPostSchema = withPermissions(
 ## Using Permission Templates Directly
 
 ```typescript
-import { PermissionTemplates } from "@project/shared/schema";
+import { PermissionTemplates } from "pocketbase-zod-schema/schema";
 
 // Get permission rules without attaching to a schema
 const publicRules = PermissionTemplates.public();
@@ -140,12 +153,18 @@ const authRules = PermissionTemplates.authenticated();
 const ownerRules = PermissionTemplates.ownerOnly("User");
 const adminRules = PermissionTemplates.adminOnly("role");
 const readPublicRules = PermissionTemplates.readPublic();
+const lockedRules = PermissionTemplates.locked();                 // every rule null
+const readOnlyRules = PermissionTemplates.readOnlyAuthenticated(); // authed read, writes null
 ```
+
+Note the function names are camelCase (`ownerOnly`) while the `template:` strings are kebab-case
+(`"owner-only"`). `locked()` and `readOnlyAuthenticated()` have no `template:` equivalent — call
+them directly and pass the result as `permissions`.
 
 ## Resolving Templates Programmatically
 
 ```typescript
-import { resolveTemplate } from "@project/shared/schema";
+import { resolveTemplate } from "pocketbase-zod-schema/schema";
 
 const config = {
   template: "owner-only" as const,
@@ -211,10 +230,15 @@ interface PermissionTemplateConfig {
 Once you've defined your schemas with permissions, run the migration generator:
 
 ```bash
-yarn migrate:generate
+npx pocketbase-migrate generate
 ```
 
-The generated migrations will include the permission rules, which will be applied to your PocketBase collections.
+The generated migrations include the permission rules, which are applied to your PocketBase
+collections when the migration runs.
+
+`manageRule` is only emitted for `auth` collections. View collections accept only `listRule` and
+`viewRule` — every write rule on a view is `null`, because PocketBase rejects writes to a view
+outright.
 
 ## Best Practices
 

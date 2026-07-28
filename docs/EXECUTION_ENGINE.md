@@ -437,6 +437,4 @@ execute.
   simulation of the same files. Both sides start from the collections a
   freshly-initialized instance has, so a simulation that drifts from
   reality — or a migration PocketBase refuses to apply — fails the e2e
-  workflow. This is what keeps the caveats below honest.
-
-See `EXECUTION_ENGINE_ROADMAP.md` for planned work.
+  workflow. This is what keeps the [caveats](#caveats) above honest.
