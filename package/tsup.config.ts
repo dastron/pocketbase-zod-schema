@@ -2,26 +2,12 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
   entry: {
-    // Main entry points
+    // Public entry points
     index: 'src/index.ts',
     server: 'src/server.ts',
-    schema: 'src/schema.ts',
-    enums: 'src/enums.ts',
-    mutator: 'src/mutator.ts',
 
-    // CLI entry points
+    // CLI binary (wired via package.json "bin", not "exports")
     'cli/migrate': 'src/cli/migrate.ts',
-    'cli/index': 'src/cli/index.ts',
-    'cli/utils/index': 'src/cli/utils/index.ts',
-
-    // Migration utilities - granular exports for tree-shaking
-    'migration/index': 'src/migration/index.ts',
-    'migration/analyzer': 'src/migration/analyzer/index.ts',
-    'migration/diff': 'src/migration/diff/index.ts',
-    'migration/engine': 'src/migration/engine/index.ts',
-    'migration/generator': 'src/migration/generator/index.ts',
-    'migration/snapshot': 'src/migration/snapshot.ts',
-    'migration/utils/index': 'src/migration/utils/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,

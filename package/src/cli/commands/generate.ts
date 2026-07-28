@@ -16,7 +16,7 @@ import {
 import {
   CollectionStore,
   compare,
-  detectDestructiveChangesValidation as detectDestructiveChanges,
+  detectDestructiveChanges,
   filterDiff,
   formatDestructiveChanges,
   formatGojaLintFinding,
@@ -24,7 +24,7 @@ import {
   parseSchemaFiles,
   planMigrations,
   replayMigrationsDirectory,
-  requiresForceFlagValidation as requiresForceFlag,
+  requiresForceFlag,
   summarizeDestructiveChanges,
   verifyMigrationSources,
   writePlannedMigrations,
@@ -273,7 +273,6 @@ export async function executeGenerate(filters: string[], options: any): Promise<
     logInfo("Loading previous snapshot...");
     const previousSnapshot = loadSnapshotWithMigrations({
       migrationsPath: migrationsDir,
-      workspaceRoot: process.cwd(),
     });
 
     if (!previousSnapshot) {
@@ -385,7 +384,7 @@ export async function executeGenerate(filters: string[], options: any): Promise<
       logInfo("Suggestions:");
       console.log("  • Make sure your schema files are valid Zod schemas");
       console.log('  • Run "yarn build" in the shared workspace to compile TypeScript files');
-      console.log('  • Check that schema files export schemas ending with "Schema" or "InputSchema"');
+      console.log('  • Check that each schema file exports a defineCollection()/defineView() result (default export preferred)');
     } else if (error instanceof SnapshotError) {
       logError("Snapshot Error");
       console.error();

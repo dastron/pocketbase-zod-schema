@@ -3,13 +3,14 @@ import { extractRelationMetadata } from "../../schema/base";
 import { extractFieldMetadata } from "../../schema/fields";
 import type { PermissionSchema } from "../../utils/permissions";
 import { PermissionAnalyzer } from "../permission-analyzer";
+import type { PocketBaseFieldType } from "../../schema/fields";
 import type { CollectionSchema, FieldDefinition } from "../types";
-import { getMaxSelect, getMinSelect, isRelationField, resolveTargetCollection } from "../utils/relation-detector";
 import {
   extractFieldOptions,
   filterSupportedFieldOptions,
   isFieldRequired,
   mapZodTypeToPocketBase,
+  POCKETBASE_FIELD_TYPES,
   unwrapZodType,
 } from "../utils/type-mapper";
 import { validateViewQuery } from "../../schema/view";
@@ -23,25 +24,17 @@ import { generateFieldId } from "../utils/collection-id-generator.js";
 import { getAuthSystemFields } from "../generator/utils";
 
 /**
- * Detects if a collection is an auth collection
- * Auth collections have email and password fields
+ * Builds a field definition from a Zod type.
  *
- * @param fields - Array of field definitions
- * @returns True if the collection is an auth collection
- */
-export function isAuthCollection(fields: Array<{ name: string; zodType: z.ZodTypeAny }>): boolean {
-  const fieldNames = fields.map((f) => f.name.toLowerCase());
-
-  // Auth collections must have both email and password fields
-  const hasEmail = fieldNames.includes("email");
-  const hasPassword = fieldNames.includes("password");
-
-  return hasEmail && hasPassword;
-}
-
-/**
- * Extracts validation constraints from Zod type
- * Includes min, max, required, unique, and other options
+ * Precedence: explicit `__pocketbase_field__` metadata (strong contract from
+ * the field helpers), then `__pocketbase_relation__` metadata (RelationField/
+ * RelationsField), then the loose structural mapping of plain Zod types.
+ * Field names carry no meaning — there is no name-based inference.
+ *
+ * Field ids are never diffed: the diff matches fields by name and every
+ * mutation the generator emits addresses fields by name (getByName /
+ * removeByName). The id's type prefix is therefore purely cosmetic and hashes
+ * the settled type.
  *
  * @param fieldName - The field name
  * @param zodType - The Zod type
@@ -53,6 +46,13 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
   const fieldMetadata = extractFieldMetadata(unwrappedType.description ?? zodType.description);
 
   if (fieldMetadata) {
+    // A malformed strong contract is an error, not a fallthrough to guessing
+    if (!fieldMetadata.type || !POCKETBASE_FIELD_TYPES.includes(fieldMetadata.type as PocketBaseFieldType)) {
+      throw new Error(
+        `Field "${fieldName}" carries __pocketbase_field__ metadata with unknown type "${fieldMetadata.type}". ` +
+          `Use one of: ${POCKETBASE_FIELD_TYPES.join(", ")}.`
+      );
+    }
     // Use explicit metadata from field helpers
     // For number fields, default to required: false unless explicitly set
     // (because required: true in PocketBase means non-zero, which is often not desired)
@@ -106,8 +106,31 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     return fieldDef;
   }
 
-  // Fall back to existing type inference logic
-  const fieldType = mapZodTypeToPocketBase(zodType, fieldName);
+  // Explicit relation metadata (from RelationField()/RelationsField() helpers)
+  const relationMetadata = extractRelationMetadata(unwrappedType.description ?? zodType.description);
+
+  if (relationMetadata) {
+    return {
+      name: fieldName,
+      id: generateFieldId("relation", fieldName),
+      type: "relation",
+      required: isFieldRequired(zodType),
+      // Zod validators on the field (array min/max etc.) are already captured
+      // in the relation metadata; the field itself carries no options
+      options: undefined,
+      zodType: zodType,
+      relation: {
+        collection: relationMetadata.collection,
+        maxSelect: relationMetadata.maxSelect,
+        minSelect: relationMetadata.minSelect,
+        cascadeDelete: relationMetadata.cascadeDelete,
+        displayFields: relationMetadata.displayFields,
+      },
+    };
+  }
+
+  // Loose structural contract: map plain Zod types by structure only
+  const fieldType = mapZodTypeToPocketBase(zodType);
   const required = isFieldRequired(zodType);
   const options = extractFieldOptions(zodType);
 
@@ -119,48 +142,6 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     options,
     zodType: zodType,
   };
-
-  // Check for explicit relation metadata first (from relation() or relations() helpers)
-  const relationMetadata = extractRelationMetadata(unwrappedType.description ?? zodType.description);
-
-  if (relationMetadata) {
-    // Explicit relation definition found
-    fieldDef.type = "relation";
-    fieldDef.relation = {
-      collection: relationMetadata.collection,
-      maxSelect: relationMetadata.maxSelect,
-      minSelect: relationMetadata.minSelect,
-      cascadeDelete: relationMetadata.cascadeDelete,
-      displayFields: relationMetadata.displayFields,
-    };
-
-    // Clear out string-specific options that don't apply to relation fields
-    fieldDef.options = undefined;
-  }
-  // Fall back to naming convention detection for backward compatibility
-  else if (isRelationField(fieldName, zodType)) {
-    // Override type to 'relation' for relation fields
-    fieldDef.type = "relation";
-
-    const targetCollection = resolveTargetCollection(fieldName);
-    const maxSelect = getMaxSelect(fieldName, zodType);
-    const minSelect = getMinSelect(fieldName, zodType);
-
-    fieldDef.relation = {
-      collection: targetCollection,
-      maxSelect,
-      minSelect,
-      cascadeDelete: false, // Default to false, can be configured later
-      displayFields: null,
-    };
-
-    // Clear out string-specific options that don't apply to relation fields
-    // Options like 'min', 'max', 'pattern' are from string validation and don't apply to relations
-    if (fieldDef.options) {
-      const { min: _min, max: _max, pattern: _pattern, ...relationSafeOptions } = fieldDef.options;
-      fieldDef.options = Object.keys(relationSafeOptions).length ? relationSafeOptions : undefined;
-    }
-  }
 
   // Special handling for autodate fields
   if (fieldDef.type === "autodate") {
@@ -177,8 +158,7 @@ export function buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): 
     delete fieldDef.options.max;
   }
 
-  // Zod validators are richer than PocketBase's option set, and the type is
-  // only settled here (relation detection above can still change it), so the
+  // Zod validators are richer than PocketBase's option set, so the
   // unsupported leftovers are dropped last
   fieldDef.options = filterSupportedFieldOptions(fieldDef.type, fieldDef.options);
 
@@ -231,10 +211,10 @@ export function convertZodSchemaToCollectionSchema(
   // Extract field definitions from Zod schema
   const rawFields = extractFieldDefinitions(zodSchema);
 
-  // Determine collection type (auth, view or base)
-  // Prefer explicit type from metadata, fall back to field detection
+  // Determine collection type: explicit metadata only, defaulting to "base".
+  // Auth collections must declare type: "auth" in defineCollection().
   const explicitType = extractCollectionTypeFromSchema(zodSchema);
-  const collectionType = explicitType ?? (isAuthCollection(rawFields) ? "auth" : "base");
+  const collectionType = explicitType ?? "base";
   const isView = collectionType === "view";
 
   // View collections are backed by SQL - the query is required

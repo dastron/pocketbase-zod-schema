@@ -6,44 +6,51 @@
  */
 
 import * as fs from "fs";
-import { z } from "zod";
 import { SchemaParsingError } from "../errors";
 import type { CollectionSchema, SchemaDefinition } from "../types";
 import { mergeConfig, resolveSchemaDir, type SchemaAnalyzerConfig } from "./config";
 import { convertZodSchemaToCollectionSchema } from "./converter";
-import {
-  extractCollectionNameFromSchema,
-  extractSchemaDefinitions,
-  getCollectionNameFromFile,
-  selectSchemaForCollection,
-} from "./extractors";
+import { selectCollectionSchema } from "./extractors";
 import { discoverSchemaFiles, importSchemaModule } from "./loader";
 
-// Export everything from submodules
-export * from "./config";
-export * from "./converter";
-export * from "./extractors";
-export * from "./loader";
+// Curated submodule surface — config internals (mergeConfig, DEFAULT_CONFIG,
+// resolveSchemaDir) stay module-private
+export { type SchemaAnalyzerConfig } from "./config";
+export { buildFieldDefinition, convertZodSchemaToCollectionSchema } from "./converter";
+export {
+  extractCollectionNameFromSchema,
+  extractCollectionTypeFromSchema,
+  extractFieldDefinitions,
+  extractIndexes,
+  extractViewQueryFromSchema,
+  selectCollectionSchema,
+  type CollectionSchemaExport,
+} from "./extractors";
+export { discoverSchemaFiles, importSchemaModule } from "./loader";
 
 /**
- * Builds a complete SchemaDefinition from schema files
+ * Parses schema files and returns a SchemaDefinition
  * Main entry point for the Schema Analyzer
  *
- * @param config - Schema analyzer configuration or path to schema directory
+ * A file contributes a collection iff one of its exports is a Zod object
+ * whose description carries collection metadata (what defineCollection()/
+ * defineView() produce). Files without such an export are skipped with a
+ * warning; a file with more than one, or two files declaring the same
+ * collection name, are errors.
+ *
+ * @param config - Schema analyzer configuration
  * @returns Complete SchemaDefinition with all collections
  */
-export async function buildSchemaDefinition(config: SchemaAnalyzerConfig | string): Promise<SchemaDefinition> {
-  // Support legacy string-only parameter
-  const normalizedConfig: SchemaAnalyzerConfig = typeof config === "string" ? { schemaDir: config } : config;
-
-  const mergedConfig = mergeConfig(normalizedConfig);
+export async function parseSchemaFiles(config: SchemaAnalyzerConfig): Promise<SchemaDefinition> {
+  const mergedConfig = mergeConfig(config);
   const collections = new Map<string, CollectionSchema>();
+  const collectionSources = new Map<string, string>();
 
   // Discover schema files
-  const schemaFiles = discoverSchemaFiles(normalizedConfig);
+  const schemaFiles = discoverSchemaFiles(config);
 
   if (schemaFiles.length === 0) {
-    const schemaDir = resolveSchemaDir(normalizedConfig);
+    const schemaDir = resolveSchemaDir(config);
     throw new SchemaParsingError(
       `No schema files found in ${schemaDir}. Make sure you have schema files in the directory.`,
       schemaDir
@@ -56,8 +63,8 @@ export async function buildSchemaDefinition(config: SchemaAnalyzerConfig | strin
       let importPath = filePath;
 
       // Apply path transformation if provided (for monorepo setups)
-      if (normalizedConfig.pathTransformer) {
-        importPath = normalizedConfig.pathTransformer(filePath);
+      if (config.pathTransformer) {
+        importPath = config.pathTransformer(filePath);
       } else if (mergedConfig.useCompiledFiles) {
         // Default transformation: convert /src/ to /dist/ for compiled files
         // This is a common pattern but can be overridden with pathTransformer
@@ -73,28 +80,38 @@ export async function buildSchemaDefinition(config: SchemaAnalyzerConfig | strin
       }
 
       // Import the module
-      const module = await importSchemaModule(importPath, normalizedConfig);
+      const module = await importSchemaModule(importPath, config);
 
-      // Extract schema definitions
-      const schemas = extractSchemaDefinitions(module, mergedConfig.schemaPatterns);
+      // Find the export carrying collection metadata
+      const collectionExport = selectCollectionSchema(module);
 
-      // Select the appropriate schema
-      const zodSchema = selectSchemaForCollection(schemas);
-
-      if (!zodSchema) {
-        console.warn(`No valid schema found in ${filePath}, skipping...`);
+      if (!collectionExport) {
+        console.warn(
+          `${filePath}: no export carries collection metadata (use defineCollection()/defineView()); skipping. ` +
+            `If this file previously produced a collection, the diff may now propose deleting it.`
+        );
         continue;
       }
 
-      // Get collection name - prefer metadata from defineCollection(), fall back to filename
-      const collectionNameFromSchema = extractCollectionNameFromSchema(zodSchema);
-      const collectionName = collectionNameFromSchema ?? getCollectionNameFromFile(filePath);
+      const { collectionName, schema } = collectionExport;
+
+      // Two files declaring the same collection would silently overwrite each
+      // other in the map — surface it instead
+      const existingSource = collectionSources.get(collectionName);
+      if (existingSource) {
+        throw new SchemaParsingError(
+          `Collection "${collectionName}" is declared in both ${existingSource} and ${filePath}. ` +
+            `Collection names must be unique across schema files.`,
+          filePath
+        );
+      }
 
       // Convert to CollectionSchema
-      const collectionSchema = convertZodSchemaToCollectionSchema(collectionName, zodSchema);
+      const collectionSchema = convertZodSchemaToCollectionSchema(collectionName, schema);
 
       // Add to collections map
       collections.set(collectionName, collectionSchema);
+      collectionSources.set(collectionName, filePath);
     } catch (error) {
       // If it's already a SchemaParsingError, re-throw it
       if (error instanceof SchemaParsingError) {
@@ -111,50 +128,4 @@ export async function buildSchemaDefinition(config: SchemaAnalyzerConfig | strin
   }
 
   return { collections };
-}
-
-/**
- * Parses schema files and returns SchemaDefinition
- * Alias for buildSchemaDefinition for better semantic clarity
- *
- * @param config - Schema analyzer configuration or path to schema directory
- * @returns Complete SchemaDefinition with all collections
- */
-export async function parseSchemaFiles(config: SchemaAnalyzerConfig | string): Promise<SchemaDefinition> {
-  return buildSchemaDefinition(config);
-}
-
-/**
- * Creates a SchemaAnalyzer instance with the given configuration
- * Provides an object-oriented interface for schema analysis
- */
-export class SchemaAnalyzer {
-  private config: Required<Omit<SchemaAnalyzerConfig, "pathTransformer">> & {
-    pathTransformer?: (sourcePath: string) => string;
-  };
-
-  constructor(config: SchemaAnalyzerConfig) {
-    this.config = mergeConfig(config);
-  }
-
-  /**
-   * Discovers schema files in the configured directory
-   */
-  discoverSchemaFiles(): string[] {
-    return discoverSchemaFiles(this.config);
-  }
-
-  /**
-   * Parses all schema files and returns a SchemaDefinition
-   */
-  async parseSchemaFiles(): Promise<SchemaDefinition> {
-    return buildSchemaDefinition(this.config);
-  }
-
-  /**
-   * Converts a single Zod schema to a CollectionSchema
-   */
-  convertZodSchemaToCollectionSchema(name: string, schema: z.ZodObject<any>): CollectionSchema {
-    return convertZodSchemaToCollectionSchema(name, schema);
-  }
 }

@@ -1,6 +1,6 @@
 
 import { describe, expect, it } from "vitest";
-import { aggregateChanges } from "../diff";
+import { compare } from "../diff";
 import type { SchemaDefinition, CollectionSchema } from "../types";
 
 describe("Rename Detection Heuristic", () => {
@@ -36,7 +36,7 @@ describe("Rename Detection Heuristic", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     expect(diff.collectionsToModify).toHaveLength(1);
     const mod = diff.collectionsToModify[0];
@@ -87,7 +87,7 @@ describe("Rename Detection Heuristic", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     const mod = diff.collectionsToModify[0];
     // Should be add + remove
@@ -140,7 +140,7 @@ describe("Rename Detection Heuristic", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     const mod = diff.collectionsToModify[0];
     expect(mod.fieldsToModify).toHaveLength(1);
@@ -199,7 +199,7 @@ describe("Rename Detection Heuristic", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     const mod = diff.collectionsToModify[0];
     // Should be add + remove because target differs
@@ -242,7 +242,7 @@ describe("Rename Detection Heuristic", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
     const mod = diff.collectionsToModify[0];
 
     // Ambiguous -> Fallback to add/remove

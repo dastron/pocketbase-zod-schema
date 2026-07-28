@@ -152,9 +152,9 @@ Triggered by:
 
 Example:
 ```bash
-git commit -m "feat(api)!: redesign migration generator API
+git commit -m "feat(api)!: redesign schema analyzer API
 
-BREAKING CHANGE: The MigrationGenerator class now requires a config object in the constructor."
+BREAKING CHANGE: parseSchemaFiles now takes a config object instead of a schema directory string."
 ```
 
 > **Below 1.0.0 this still goes straight to `1.0.0`.** `release-please-config.json` does not set

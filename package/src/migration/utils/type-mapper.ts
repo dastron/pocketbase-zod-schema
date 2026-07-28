@@ -14,12 +14,7 @@
  */
 
 import { z } from "zod";
-import type { PocketBaseFieldType } from "../types";
-import { extractFieldMetadata, FIELD_METADATA_KEY } from "../../schema/fields";
-
-// Re-export extractFieldMetadata from fields.ts for backward compatibility
-export { extractFieldMetadata, FIELD_METADATA_KEY };
-export type { FieldMetadata } from "../../schema/fields";
+import { extractFieldMetadata, type PocketBaseFieldType } from "../../schema/fields";
 
 /**
  * All supported PocketBase field types
@@ -117,8 +112,8 @@ export const FIELD_TYPE_INFO: Record<PocketBaseFieldType, FieldTypeInfo> = {
   },
   relation: {
     type: "relation",
-    description: "Reference to another collection",
-    zodTypes: ["ZodString", "ZodArray<ZodString>"],
+    description: "Reference to another collection (explicit RelationField()/RelationsField() metadata only)",
+    zodTypes: ["RelationField()", "RelationsField()"],
     supportsMultiple: true,
   },
   file: {
@@ -130,7 +125,7 @@ export const FIELD_TYPE_INFO: Record<PocketBaseFieldType, FieldTypeInfo> = {
   json: {
     type: "json",
     description: "JSON data field",
-    zodTypes: ["ZodRecord", "ZodObject", "ZodArray"],
+    zodTypes: ["ZodRecord", "ZodObject", "ZodArray", "ZodArray<ZodString>"],
     supportsMultiple: false,
   },
   geoPoint: {
@@ -208,21 +203,19 @@ export function mapZodEnumType(_zodType: z.ZodEnum<any>): PocketBaseFieldType {
 
 /**
  * Maps Zod array types to appropriate PocketBase types
- * Arrays of strings could be relations or file fields depending on context
+ *
+ * A bare array of strings maps to `json` — PocketBase has no plain
+ * string-array type. Relations and multi-selects must be declared explicitly
+ * with RelationsField() or SelectField(values, { maxSelect }).
  */
-export function mapZodArrayType(zodType: z.ZodArray<any>, _fieldName: string): PocketBaseFieldType {
+export function mapZodArrayType(zodType: z.ZodArray<any>): PocketBaseFieldType {
   const elementType = zodType.element as z.ZodTypeAny;
 
   if (elementType instanceof z.ZodFile) {
     return "file";
   }
 
-  // Array of strings - could be relation (will be determined by relation detector)
-  if (elementType instanceof z.ZodString) {
-    return "relation";
-  }
-
-  // Default to JSON for other array types
+  // Default to JSON for all other array types (including arrays of strings)
   return "json";
 }
 
@@ -243,7 +236,7 @@ export function mapZodRecordType(_zodType: z.ZodRecord | z.ZodObject<any>): Pock
 /**
  * Main type mapping function that determines PocketBase field type from Zod type
  */
-export function mapZodTypeToPocketBase(zodType: z.ZodTypeAny, fieldName: string): PocketBaseFieldType {
+export function mapZodTypeToPocketBase(zodType: z.ZodTypeAny): PocketBaseFieldType {
   const unwrappedType = unwrapZodType(zodType);
 
   // Check for metadata first (explicit type overrides)
@@ -268,7 +261,7 @@ export function mapZodTypeToPocketBase(zodType: z.ZodTypeAny, fieldName: string)
   } else if (unwrappedType instanceof z.ZodEnum) {
     type = mapZodEnumType(unwrappedType);
   } else if (unwrappedType instanceof z.ZodArray) {
-    type = mapZodArrayType(unwrappedType, fieldName);
+    type = mapZodArrayType(unwrappedType);
   } else if (unwrappedType instanceof z.ZodDate) {
     type = mapZodDateType(unwrappedType);
   } else if (unwrappedType instanceof z.ZodRecord || unwrappedType instanceof z.ZodObject) {
@@ -749,8 +742,8 @@ export interface FieldTypeResult {
 /**
  * Comprehensive type mapping that returns full field information
  */
-export function getFieldTypeInfo(zodType: z.ZodTypeAny, fieldName: string): FieldTypeResult {
-  const type = mapZodTypeToPocketBase(zodType, fieldName);
+export function getFieldTypeInfo(zodType: z.ZodTypeAny): FieldTypeResult {
+  const type = mapZodTypeToPocketBase(zodType);
   const isMultiple = isArrayType(zodType);
   const options = extractComprehensiveFieldOptions(zodType);
 

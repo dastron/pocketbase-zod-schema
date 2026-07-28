@@ -1,19 +1,4 @@
-import * as path from "path";
 import { z } from "zod";
-import { toCollectionName } from "../utils/pluralize";
-
-/**
- * Gets the collection name from a schema file path
- * Converts the filename (without extension) to a pluralized collection name
- *
- * @param filePath - Path to the schema file (with or without extension)
- * @returns The collection name
- */
-export function getCollectionNameFromFile(filePath: string): string {
-  // Remove both .ts and .js extensions if present
-  const filename = path.basename(filePath).replace(/\.(ts|js)$/, "");
-  return toCollectionName(filename);
-}
 
 /**
  * Extracts the collection name from a Zod schema's metadata
@@ -90,88 +75,67 @@ export function extractViewQueryFromSchema(zodSchema: z.ZodTypeAny): string | nu
 }
 
 /**
- * Extracts Zod schema definitions from a module
- *
- * Detection priority (highest to lowest):
- * 1. Default export - recommended pattern for clarity and explicitness
- * 2. Named exports ending with "Collection" - contains metadata (indexes, permissions)
- * 3. Named exports ending with "Schema" - basic schema definitions
- * 4. Named exports ending with "InputSchema" - form input schemas
- *
- * @param module - The imported schema module
- * @param patterns - Schema name patterns to look for (default: ['Schema', 'InputSchema', 'Collection'])
- * @returns Object containing found schemas
- *
- * @example
- * // Recommended: Use default export
- * const UserCollection = defineCollection({ ... });
- * export default UserCollection;
- *
- * @example
- * // Also supported: Named export with pattern
- * export const UserCollection = defineCollection({ ... });
+ * A collection schema found in a module's exports
  */
-export function extractSchemaDefinitions(
-  module: any,
-  patterns: string[] = ["Schema", "InputSchema", "Collection"]
-): { inputSchema?: z.ZodObject<any>; schema?: z.ZodObject<any> } {
-  const result: { inputSchema?: z.ZodObject<any>; schema?: z.ZodObject<any> } = {};
-
-  // Priority 1: Check for default export (highest priority, most explicit)
-  // This allows each file to have one clear schema definition
-  if (module.default instanceof z.ZodObject) {
-    // Default export is always the primary schema
-    result.schema = module.default as z.ZodObject<any>;
-    // If we have a default export, we can return early as it takes precedence
-    // But we still check for InputSchema for backward compatibility
-  }
-
-  // Priority 2: Look for named exports matching patterns (for backward compatibility)
-  for (const [key, value] of Object.entries(module)) {
-    // Skip default export as we already handled it
-    if (key === "default") continue;
-
-    // Check if it's a Zod schema
-    if (value instanceof z.ZodObject) {
-      // Check for InputSchema pattern (used for form validation)
-      if (patterns.includes("InputSchema") && key.endsWith("InputSchema")) {
-        result.inputSchema = value as z.ZodObject<any>;
-      } else if (!result.schema) {
-        // Only set schema if we haven't found one via default export
-        if (patterns.includes("Collection") && key.endsWith("Collection")) {
-          // Prefer Collection over Schema as it has metadata (indexes, permissions)
-          result.schema = value as z.ZodObject<any>;
-        } else if (patterns.includes("Schema") && key.endsWith("Schema") && !key.endsWith("InputSchema")) {
-          result.schema = value as z.ZodObject<any>;
-        }
-      }
-    }
-  }
-
-  return result;
+export interface CollectionSchemaExport {
+  /** The Zod object schema carrying the collection metadata */
+  schema: z.ZodObject<any>;
+  /** The export the schema was found under ("default" or the named export) */
+  exportName: string;
+  /** The collection name declared in the metadata */
+  collectionName: string;
 }
 
 /**
- * Identifies whether to use InputSchema or Schema pattern
- * Prefers Schema over InputSchema as it includes base fields
+ * Selects the collection schema from a module's exports.
  *
- * @param schemas - Object containing inputSchema and/or schema
- * @returns The schema to use for collection definition
+ * A Zod object export is a collection iff its description carries collection
+ * metadata (a JSON `collectionName`), which is what defineCollection()/
+ * defineView() produce. Export names carry no meaning; a default export is
+ * reported as "default" but wins no precedence — candidates are deduplicated
+ * by object reference, so `export default X; export { X }` counts once.
+ *
+ * @param module - The imported schema module
+ * @returns The single collection export, or null when the module declares none
+ * @throws Error when the module exports more than one distinct collection
  */
-export function selectSchemaForCollection(schemas: {
-  inputSchema?: z.ZodObject<any>;
-  schema?: z.ZodObject<any>;
-}): z.ZodObject<any> | null {
-  // Prefer the full Schema over InputSchema as it includes base fields
-  if (schemas.schema) {
-    return schemas.schema;
+export function selectCollectionSchema(module: any): CollectionSchemaExport | null {
+  const seen = new Set<z.ZodObject<any>>();
+  const candidates: CollectionSchemaExport[] = [];
+
+  const consider = (exportName: string, value: unknown) => {
+    if (!(value instanceof z.ZodObject) || seen.has(value)) {
+      return;
+    }
+
+    const collectionName = extractCollectionNameFromSchema(value);
+    if (!collectionName) {
+      return;
+    }
+
+    seen.add(value);
+    candidates.push({ schema: value, exportName, collectionName });
+  };
+
+  consider("default", module.default);
+  for (const [key, value] of Object.entries(module)) {
+    if (key !== "default") {
+      consider(key, value);
+    }
   }
 
-  if (schemas.inputSchema) {
-    return schemas.inputSchema;
+  if (candidates.length === 0) {
+    return null;
   }
 
-  return null;
+  if (candidates.length > 1) {
+    const names = candidates.map((c) => `${c.exportName} (${c.collectionName})`).join(", ");
+    throw new Error(
+      `Multiple collection schemas exported from one file: ${names}. ` + `Define one collection per file.`
+    );
+  }
+
+  return candidates[0];
 }
 
 /**
@@ -192,11 +156,8 @@ export function extractFieldDefinitions(
   // Base schema fields to exclude (these are system fields in PocketBase)
   const baseFields = ["id", "collectionId", "collectionName", "created", "updated", "expand"];
 
-  // Additional fields to exclude (image file handling fields)
-  const defaultExcludeFields = ["thumbnailURL", "imageFiles"];
-
   // Combine all exclusions
-  const allExclusions = new Set([...baseFields, ...defaultExcludeFields, ...(excludeFields || [])]);
+  const allExclusions = new Set([...baseFields, ...(excludeFields || [])]);
 
   for (const [fieldName, zodType] of Object.entries(shape)) {
     // Skip excluded fields

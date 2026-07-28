@@ -411,7 +411,7 @@ export function getSampleConfig(format: "json" | "js"): string {
 
   return `/**
  * PocketBase Zod Migration Configuration
- * @type {import('pocketbase-zod-schema/cli').MigrationConfig}
+ * @type {import('pocketbase-zod-schema/server').MigrationConfig}
  */
 export default {
   schema: {

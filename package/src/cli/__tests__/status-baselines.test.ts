@@ -111,7 +111,7 @@ describe("status baselines", () => {
     const lookup = appliedSnapshotOnly();
     expect(lookup.plan.pending).toEqual([PENDING_FILE]);
 
-    const { previousSnapshot } = loadStatusBaselines(currentSchema, migrationsDir, workdir, lookup);
+    const { previousSnapshot } = loadStatusBaselines(currentSchema, migrationsDir, lookup);
 
     // `posts` already has a migration file, so there is nothing to generate —
     // the same answer `generate` gives
@@ -122,7 +122,7 @@ describe("status baselines", () => {
   });
 
   it("reports what the pending files still owe the database separately", () => {
-    const { appliedDiff } = loadStatusBaselines(schemaOnDisk(), migrationsDir, workdir, appliedSnapshotOnly());
+    const { appliedDiff } = loadStatusBaselines(schemaOnDisk(), migrationsDir, appliedSnapshotOnly());
 
     expect(appliedDiff).not.toBeNull();
     expect(appliedDiff!.collectionsToCreate.map((c) => c.name)).toEqual(["posts"]);
@@ -138,12 +138,7 @@ describe("status baselines", () => {
       )
     );
 
-    const { previousSnapshot, appliedDiff } = loadStatusBaselines(
-      currentSchema,
-      migrationsDir,
-      workdir,
-      appliedSnapshotOnly()
-    );
+    const { previousSnapshot, appliedDiff } = loadStatusBaselines(currentSchema, migrationsDir, appliedSnapshotOnly());
 
     expect(compare(currentSchema, previousSnapshot).collectionsToCreate.map((c) => c.name)).toEqual(["comments"]);
     // The database is behind on both: the pending file and the unwritten one
@@ -159,12 +154,12 @@ describe("status baselines", () => {
     };
     expect(lookup.plan.inSync).toBe(true);
 
-    const { appliedDiff } = loadStatusBaselines(schemaOnDisk(), migrationsDir, workdir, lookup);
+    const { appliedDiff } = loadStatusBaselines(schemaOnDisk(), migrationsDir, lookup);
     expect(appliedDiff).toBeNull();
   });
 
   it("uses the disk baseline when no database was read", () => {
-    const { previousSnapshot, appliedDiff } = loadStatusBaselines(schemaOnDisk(), migrationsDir, workdir, null);
+    const { previousSnapshot, appliedDiff } = loadStatusBaselines(schemaOnDisk(), migrationsDir, null);
 
     expect(appliedDiff).toBeNull();
     expect(previousSnapshot?.collections.has("posts")).toBe(true);

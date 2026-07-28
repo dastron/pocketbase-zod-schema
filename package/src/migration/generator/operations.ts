@@ -1,5 +1,5 @@
 import type { CollectionOperation, SchemaDiff } from "../types";
-import { sortCollectionsByDependency } from "../utils";
+import { sortCollectionsByDependency } from "../utils/dependency-sorter";
 import { type MigrationGeneratorConfig } from "./config";
 import { generateTimestamp } from "./utils";
 

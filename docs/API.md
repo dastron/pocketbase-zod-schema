@@ -3,7 +3,7 @@
 API documentation for `pocketbase-zod-schema`.
 
 Everything here is verified against the source in `package/src/`. Where a function's behaviour is
-subtle (`loadSnapshotIfExists` vs `loadSnapshotWithMigrations`, `generate()`'s return type), the
+subtle (`loadSnapshotWithMigrations` vs. replaying a single file, `generate()`'s return type), the
 subtlety is called out rather than smoothed over.
 
 ## Table of Contents
@@ -17,29 +17,26 @@ subtlety is called out rather than smoothed over.
 - [CLI Commands](#cli-commands)
 - [Type Definitions](#type-definitions)
 - [Error Classes](#error-classes)
-- [Utility Functions](#utility-functions)
 - [Examples](#examples)
 
 ## Entry Points
 
 The package is split so the schema half stays browser-safe and the migration half (which needs
-`fs`, `path`, `node:vm`) is Node-only.
+`fs`, `path`, `node:vm`) is Node-only. There are exactly two import paths, plus the CLI binary.
 
 | Import path | Contents | Environment |
 | --- | --- | --- |
-| `pocketbase-zod-schema` | enums, mutator, schema helpers | browser-safe |
-| `pocketbase-zod-schema/schema` | `defineCollection`, `defineView`, field helpers, permissions | browser-safe |
-| `pocketbase-zod-schema/enums` | shared enums | browser-safe |
-| `pocketbase-zod-schema/mutator` | data mutation helpers | browser-safe |
-| `pocketbase-zod-schema/server` | everything above plus `migration/*` and CLI utilities | Node only |
-| `pocketbase-zod-schema/migration` | analyzer, diff, generator, snapshot, engine, errors | Node only |
-| `pocketbase-zod-schema/migration/analyzer` | schema parsing only | Node only |
-| `pocketbase-zod-schema/migration/diff` | diffing only | Node only |
-| `pocketbase-zod-schema/migration/generator` | generation only | Node only |
-| `pocketbase-zod-schema/migration/snapshot` | state reconstruction only | Node only |
-| `pocketbase-zod-schema/migration/engine` | the JSVM simulation | Node only |
-| `pocketbase-zod-schema/migration/utils` | pluralize, type mapping, relation detection | Node only |
-| `pocketbase-zod-schema/cli` | `loadConfig`, loggers, `generateMigration`, `getMigrationStatus` | Node only |
+| `pocketbase-zod-schema` | `defineCollection`, `defineView`, field helpers, permission templates, metadata accessors, and their types | browser-safe |
+| `pocketbase-zod-schema/server` | Everything above, plus the migration pipeline (analyzer, snapshot, diff, destructive-change detection, generator, execution engine, errors) and the programmatic CLI API | Node only |
+
+The `pocketbase-migrate` CLI binary (`dist/cli/migrate.js`) is wired through `package.json`'s `bin`
+field, not through `exports` — it isn't an import path. Install the package and run
+`pocketbase-migrate` (or `npx pocketbase-migrate`).
+
+Every other subpath that used to exist is gone: `/schema`, `/enums`, `/mutator`, `/migration`,
+`/migration/analyzer`, `/migration/diff`, `/migration/engine`, `/migration/generator`,
+`/migration/snapshot`, `/migration/utils`, `/cli`, `/cli/utils`. Rewrite any import from one of
+these to `pocketbase-zod-schema` or `pocketbase-zod-schema/server`.
 
 ## Schema Definition
 
@@ -52,7 +49,7 @@ metadata.
 
 ```typescript
 import { z } from "zod";
-import { defineCollection, TextField, RelationField } from "pocketbase-zod-schema/schema";
+import { defineCollection, TextField, RelationField } from "pocketbase-zod-schema";
 
 export default defineCollection({
   collectionName: "posts",
@@ -73,11 +70,13 @@ export default defineCollection({
 | `schema` | `z.ZodObject<any>` (required) | The Zod shape |
 | `permissions` | `PermissionTemplateConfig \| PermissionSchema` | Template or explicit rules |
 | `indexes` | `string[]` | Raw `CREATE INDEX` statements |
-| `type` | `"base" \| "auth" \| "view"` | Auto-detected when omitted |
+| `type` | `"base" \| "auth" \| "view"` | Defaults to `"base"`; auth requires explicit `type: "auth"` |
 | `viewQuery` | `string` | Required when `type: "view"`; ignored (with a warning) otherwise |
 
-When `type` is omitted, a collection is detected as `auth` only if its fields include **both**
-`email` and `password` (case-insensitive); otherwise it is `base`.
+`type` is never inferred from fields — a collection with `email` and `password` fields does **not**
+become `type: "auth"` on its own; set `type: "auth"` explicitly. Unknown keys in `CollectionConfig`
+are TypeScript excess-property errors — there is no `[key: string]: unknown` escape hatch, so a
+mistyped option name fails to compile instead of silently doing nothing.
 
 ### `defineView(config: ViewCollectionConfig): z.ZodObject<any>`
 
@@ -87,7 +86,7 @@ compile time instead of failing when PocketBase applies the migration.
 
 ```typescript
 import { z } from "zod";
-import { baseSchema, defineView, sql } from "pocketbase-zod-schema/schema";
+import { baseSchema, defineView, sql } from "pocketbase-zod-schema";
 
 export default defineView({
   collectionName: "ProjectStats",
@@ -121,13 +120,13 @@ The de-indentation half of `sql`, exported for reading a query back out of a mig
 
 Throws when a view collection has a missing or non-string query.
 
-### Base schema fragments
+### Base schema fields
 
-These are **plain objects of Zod fields**, not `ZodObject`s. Spread them or pass them to
+`baseSchema` is a **plain object of Zod fields**, not a `ZodObject`. Spread it or pass it to
 `.extend()`; `baseSchema.extend(...)` is not a thing.
 
 ```typescript
-import { baseSchema, baseImageFileSchema } from "pocketbase-zod-schema/schema";
+import { baseSchema } from "pocketbase-zod-schema";
 
 const PostSchema = z.object({ title: z.string() }).extend(baseSchema);
 // or
@@ -137,24 +136,12 @@ const PostSchema = z.object({ ...baseSchema, title: z.string() });
 | Export | Fields |
 | --- | --- |
 | `baseSchema` | `id`, `collectionId`, `collectionName`, `expand`, `created`, `updated` |
-| `baseSchemaWithTimestamps` | `baseSchema` (the timestamps are already in it) |
-| `baseImageFileSchema` | `baseSchema` plus `thumbnailURL`, `imageFiles` |
-| `inputImageFileSchema` | `imageFiles: z.array(z.instanceof(File))` — form input |
-| `omitImageFilesSchema` | `{ imageFiles: true }`, for `.omit()` |
-
-### `withPermissions<T>(schema: T, permissions: PermissionSchema | PermissionTemplateConfig): T`
-
-Attaches API rules to a schema without `defineCollection()`. Kept for backward compatibility.
-
-### `withIndexes<T>(schema: T, indexes: string[]): T`
-
-Attaches index statements to a schema. Kept for backward compatibility.
 
 ## Field Helpers
 
-All are exported from `pocketbase-zod-schema/schema`. They return ordinary Zod types with
-PocketBase metadata in the description, so `.optional()`, `.nullable()` and `z.infer` behave
-normally. Full option tables are in [TYPE_MAPPING.md](./TYPE_MAPPING.md).
+All are exported from `pocketbase-zod-schema`. They return ordinary Zod types with PocketBase
+metadata in the description, so `.optional()`, `.nullable()` and `z.infer` behave normally. Full
+option tables are in [TYPE_MAPPING.md](./TYPE_MAPPING.md).
 
 | Helper | PocketBase type | Returns |
 | --- | --- | --- |
@@ -166,9 +153,7 @@ normally. Full option tables are in [TYPE_MAPPING.md](./TYPE_MAPPING.md).
 | `EditorField()` | `editor` | `z.ZodString` |
 | `DateField(options?)` | `date` | `z.ZodString` |
 | `AutodateField(options?)` | `autodate` | `z.ZodString` |
-| `SelectField(values, options?)` | `select` | enum, or array of enum when `maxSelect > 1` |
-| `SingleSelectField(values)` | `select` | enum (`maxSelect: 1`) |
-| `MultiSelectField(values, options?)` | `select` | array of enum |
+| `SelectField(values, options?)` | `select` | `EnumFromArray<T>` (no options, or `maxSelect: 1`); `z.ZodArray<EnumFromArray<T>>` (`maxSelect: N > 1`) |
 | `FileField(options?)` | `file` | `z.ZodType<string, File \| string>` |
 | `FilesField(options?)` | `file` | `z.ZodType<string[], (File \| string)[]>` |
 | `JSONField(schema?, options?)` | `json` | the passed schema, or `z.ZodRecord<z.ZodString, z.ZodAny>` |
@@ -178,6 +163,13 @@ normally. Full option tables are in [TYPE_MAPPING.md](./TYPE_MAPPING.md).
 
 `RelationConfig`: `collection` (required), `cascadeDelete?`, `displayFields?`.
 `RelationsConfig` adds `minSelect?` (default `0`) and `maxSelect?` (default `999`).
+
+**`SelectField` is folded**: `SingleSelectField`/`MultiSelectField` no longer exist.
+`SelectField(values)` or `SelectField(values, { maxSelect: 1 })` resolves to `EnumFromArray<T>` (a
+`z.ZodEnum`); `SelectField(values, { maxSelect: N })` with a literal `N > 1` resolves to
+`z.ZodArray<EnumFromArray<T>>`. The overloads only resolve on a **literal** `maxSelect` — a widened
+`number` variable (`const n: number = 1`) always resolves to the array overload, even when its
+runtime value is `1`.
 
 `JSONFieldOptions`: `maxSize?` — a `ByteSize` (bytes as a number, or `"200K"`/`"5M"`/`"1G"`),
 normalized to bytes in the emitted migration. PocketBase caps a `json` field at 1MB when this is
@@ -221,39 +213,56 @@ function names above:
 `PermissionTemplates.locked()` and `readOnlyAuthenticated()` have no template-name equivalent —
 call them directly.
 
-### Other helpers
-
-- `isTemplateConfig(config)` / `isPermissionSchema(config)` — discriminators
-- `createPermissions(partial)` / `mergePermissions(...partials)`
-- `validatePermissionConfig(config)` / `validateRuleExpression(expression)` → `PermissionValidationResult`
-
 ## Migration Pipeline
 
 The flow is **Zod schemas → analyzer → `SchemaDefinition` → diff → filter → generator → one `.js`
-file per collection operation**. `package/src/cli/commands/generate.ts` runs it end to end.
+file per collection operation**. `package/src/cli/commands/generate.ts` runs it end to end. The
+whole pipeline is a set of plain functions — there are no `SchemaAnalyzer`, `DiffEngine`,
+`MigrationGenerator` or `SnapshotManager` classes; the functional API is the API.
 
 ### Analyzer
 
 ```typescript
-import { parseSchemaFiles, SchemaAnalyzer } from "pocketbase-zod-schema/migration";
+import { parseSchemaFiles } from "pocketbase-zod-schema/server";
 ```
 
-- `parseSchemaFiles(schemaDir: string): Promise<SchemaDefinition>` — parse every schema file in a
-  directory. Throws `SchemaParsingError`.
-- `discoverSchemaFiles(schemaDir: string): string[]`
+- `parseSchemaFiles(config: SchemaAnalyzerConfig): Promise<SchemaDefinition>` — parses every schema
+  file discovered in `config.schemaDir`. Object argument only — the old `parseSchemaFiles(schemaDir:
+  string)` overload is gone. Throws `SchemaParsingError`.
+- `discoverSchemaFiles(config: SchemaAnalyzerConfig): string[]` — also object-only now.
 - `convertZodSchemaToCollectionSchema(name: string, schema: z.ZodObject<any>): CollectionSchema`
-- `buildFieldDefinition(fieldName: string, zodType: z.ZodTypeAny): FieldDefinition`
-- `isAuthCollection(fields): boolean` — true only when both `email` and `password` are present
-- `getCollectionNameFromFile(filePath)`, `selectSchemaForCollection(module)`,
-  `extractFieldDefinitions`, `extractIndexes`, `extractSchemaDefinitions`, `importSchemaModule`
-- `new SchemaAnalyzer(config?: SchemaAnalyzerConfig)` — the same operations as a stateful object
 
-Export selection order per file: default export, then `*Collection`, then `*Schema`.
+**`SchemaAnalyzerConfig`:**
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `schemaDir` | `string` (required) | — |
+| `workspaceRoot` | `string` | `process.cwd()` |
+| `excludePatterns` | `string[]` | `["base.ts", "index.ts", "permissions.ts", "permission-templates.ts"]` (and their `.js` equivalents) |
+| `includeExtensions` | `string[]` | `[".ts", ".js"]` |
+| `useCompiledFiles` | `boolean` | `true` |
+| `pathTransformer` | `(sourcePath: string) => string` | — |
+
+There is no `schemaPatterns` option.
+
+**Discovery is metadata-based, not name-based.** A file contributes a collection iff one of its
+exports is a Zod object whose `.describe()` carries collection metadata — a JSON `collectionName`,
+which is what `defineCollection()`/`defineView()` produce:
+
+- Export **names** carry no meaning. The old default-export → `*Collection` → `*Schema` preference
+  order is gone; candidates are deduplicated by object reference, so
+  `export default X; export { X }` counts once.
+- A file with no qualifying export is **skipped with a `console.warn`**, not an error — but if that
+  file previously produced a collection, the next diff may propose deleting it.
+- **One collection per file.** A second, distinct metadata-carrying export in the same file throws.
+- The same `collectionName` declared in two different files throws `SchemaParsingError`.
+- `discoverSchemaFiles` is a flat `readdirSync` over `schemaDir` — **subdirectories are never
+  scanned**.
 
 ### Snapshot / state reconstruction
 
 ```typescript
-import { loadSnapshotWithMigrations } from "pocketbase-zod-schema/migration";
+import { loadSnapshotWithMigrations } from "pocketbase-zod-schema/server";
 ```
 
 There is no snapshot JSON file. "Current database state" means *the state produced by executing
@@ -261,44 +270,54 @@ the migration files*.
 
 ##### `loadSnapshotWithMigrations(config?: SnapshotConfig): SchemaSnapshot | null`
 
-**This is the one you want.** Executes the newest `*_collections_snapshot.js` plus every migration
-after it, in timestamp order, through the [execution engine](#execution-engine). Returns `null`
-when there is nothing to replay. A migration that cannot be executed throws `SnapshotError`
-(wrapping `MigrationExecutionError`) — it is a hard failure by design, because continuing would
-reconstruct a state the database was never in.
+Executes the newest `*_collections_snapshot.js` plus every migration after it, in timestamp order,
+through the [execution engine](#execution-engine). Returns `null` when there is nothing to replay.
+A migration that cannot be executed throws `SnapshotError` (wrapping `MigrationExecutionError`) —
+it is a hard failure by design, because continuing would reconstruct a state the database was
+never in.
 
-`SnapshotConfig` fields used here: `migrationsPath` (required in practice), `engineOptions`,
-`appliedMigrations`. Passing a *file* path instead of a directory executes just that file.
+`SnapshotConfig` fields: `migrationsPath` (required in practice), `engineOptions`,
+`appliedMigrations`. Passing a *file* path instead of a directory executes just that file. There is
+no JSON-file snapshot API any more — `saveSnapshot`, `loadSnapshot`, `loadSnapshotIfExists`,
+`getSnapshotPath`, `snapshotExists`, `validateSnapshot`, `getSnapshotVersion`, `mergeSnapshots`,
+`loadBaseMigration` and the `SnapshotManager` class are all gone. State reconstruction is only
+`loadSnapshotWithMigrations` (replays migration files in the `node:vm` engine) plus:
 
-##### `loadSnapshotIfExists(config?: SnapshotConfig): SchemaSnapshot | null`
+##### `findLatestSnapshot(migrationsPath: string): string | null`
 
-Executes **only** the newest snapshot file and ignores every migration after it, and swallows
-failures with a `console.warn`. That is almost never the current state — use it only when you
-genuinely want the snapshot baseline alone.
-
-Also exported: `findLatestSnapshot`, `getSnapshotPath`, `getSnapshotVersion`, `loadBaseMigration`,
-`loadSnapshot`, `mergeSnapshots`, `saveSnapshot`, `snapshotExists`, `validateSnapshot`, and the
-`SnapshotManager` class wrapping them.
+Finds the newest `*_collections_snapshot.js` (or `*_snapshot.js`) file in a migrations directory, by
+filename sort. Does not execute anything.
 
 ### Diff
 
 ```typescript
-import { compare, DiffEngine } from "pocketbase-zod-schema/migration";
+import { compare, filterDiff, categorizeChangesBySeverity } from "pocketbase-zod-schema/server";
 ```
 
 - `compare(current: SchemaDefinition, previous: SchemaSnapshot | null, config?: DiffEngineConfig): SchemaDiff`
-- `new DiffEngine(config?: DiffEngineConfig)` — `.compare()`, `.detectDestructiveChanges()`,
-  `.categorizeChangesBySeverity()`
-- `detectDestructiveChanges(diff): DestructiveChange[]`, `requiresForceFlag(diff): boolean`
-- `filterDiff(diff, options: FilterOptions)` — restrict a diff to `options.patterns` (matching
-  collection or field names, regex allowed), optionally dropping destructive changes with
-  `options.skipDestructive`
-- `filterSystemCollections`, `isSystemCollection`, `getUsersSystemFields`
-- Field-level: `detectFieldChanges`, `compareFieldTypes`, `compareFieldConstraints`,
-  `compareFieldOptions`, `compareRelationConfigurations`, `matchFieldsByName`
-- Collection-level: `findNewCollections`, `findRemovedCollections`, `matchCollectionsByName`,
-  `findNewFields`, `findRemovedFields`
-- Reporting: `aggregateChanges`, `categorizeChangesBySeverity`, `generateChangeSummary`
+- `filterDiff(diff: SchemaDiff, options: FilterOptions): SchemaDiff` — restrict a diff to
+  `options.patterns` (matching collection or field names, regex allowed), optionally dropping
+  destructive changes with `options.skipDestructive`
+- `categorizeChangesBySeverity(diff, config?): { destructive: string[]; nonDestructive: string[] }`
+
+**`DiffEngineConfig`:**
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `systemCollections` | `string[]` | `["_mfas", "_otps", "_externalAuths", "_authOrigins", "_superusers"]` |
+| `usersSystemFields` | `string[]` | `["id", "password", "tokenKey", "email", "emailVisibility", "verified", "created", "updated"]` |
+
+`severityThreshold`, `requireForceForDestructive` and `warnOnDelete` no longer exist on
+`DiffEngineConfig` — they only ever fed the deleted `diff/destructiveness.ts` implementation. See
+[Destructive changes](#destructive-changes) for the one that remains.
+
+**`FilterOptions`:** `patterns?: string[]`, `skipDestructive?: boolean`.
+
+This is the entire public diff surface — `filterSystemCollections`, `isSystemCollection`,
+`getUsersSystemFields`, the field-level helpers (`detectFieldChanges`, `compareFieldTypes`, ...),
+the collection-level helpers (`findNewCollections`, `matchCollectionsByName`, ...),
+`aggregateChanges` and `generateChangeSummary` are internal to `migration/diff/` and are not
+exported.
 
 Collection **ids are assigned in the diff**, not the generator: a random `pb_` + 15 characters
 (`generateCollectionId()`), except `users`, which is pinned to `_pb_users_auth_`. Field ids are
@@ -307,15 +326,55 @@ ids — idempotency depends on the replay path above, not on reproducible ids.
 
 Changing an existing collection's **type** is not diffed and produces no migration.
 
-> Two destructive-change implementations exist: `diff/destructiveness.ts` (used by `DiffEngine`)
-> and `migration/validation.ts` (used by the CLI, re-exported as
-> `detectDestructiveChangesValidation` / `requiresForceFlagValidation`). A policy change usually
-> needs both.
+### Destructive changes
+
+```typescript
+import {
+  detectDestructiveChanges,
+  hasDestructiveChanges,
+  requiresForceFlag,
+  formatDestructiveChanges,
+  summarizeDestructiveChanges,
+} from "pocketbase-zod-schema/server";
+```
+
+There is a single destructive-change implementation, `migration/validation.ts`, used by both the
+CLI and these exports. The parallel `diff/destructiveness.ts` implementation and its
+`detectDestructiveChangesValidation` / `requiresForceFlagValidation` aliases are gone.
+
+- `detectDestructiveChanges(diff: SchemaDiff): DestructiveChange[]` — collection deletions (except
+  views, which store no data), field deletions, field type changes, and optional→required field
+  changes.
+- `hasDestructiveChanges(diff: SchemaDiff): boolean`
+- `requiresForceFlag(changes: DestructiveChange[]): boolean` — true when any change is `"high"` or
+  `"medium"` severity.
+- `formatDestructiveChanges(changes: DestructiveChange[]): string` — a grouped, human-readable
+  report.
+- `summarizeDestructiveChanges(changes): { total: number; high: number; medium: number; low: number }`
+
+```typescript
+enum DestructiveChangeType {
+  COLLECTION_DELETION = "collection_deletion",
+  FIELD_DELETION = "field_deletion",
+  FIELD_TYPE_CHANGE = "field_type_change",
+  FIELD_REQUIRED_CHANGE = "field_required_change",
+}
+
+interface DestructiveChange {
+  type: DestructiveChangeType;
+  description: string;
+  collection: string;
+  field?: string;
+  details?: { oldValue?: any; newValue?: any };
+  severity: "high" | "medium" | "low";
+  warning: string;
+}
+```
 
 ### Generator
 
 ```typescript
-import { generate, planMigrations } from "pocketbase-zod-schema/migration";
+import { generate, planMigrations, writePlannedMigrations } from "pocketbase-zod-schema/server";
 ```
 
 ##### `generate(diff: SchemaDiff, config: MigrationGeneratorConfig | string): string[]`
@@ -328,20 +387,32 @@ const paths = generate(diff, "./pocketbase/pb_migrations");
 console.log(`Wrote ${paths.length} migration(s):`, paths);
 ```
 
-##### `planMigrations(diff, config): PlannedMigration[]`
+##### `planMigrations(diff: SchemaDiff, config: MigrationGeneratorConfig | string): PlannedMigration[]`
 
-The same planning step without touching disk — `{ filename, content, ... }` per operation. Pair
-with `writePlannedMigrations(planned, migrationDir): string[]` to write them later.
+The same planning step without touching disk — one `{ filename, content, operation }` per
+collection operation. Also accepts a bare directory string.
 
-`MigrationGeneratorConfig`: `migrationDir` (required), `workspaceRoot?`, `timestampGenerator?`,
-`template?` (`{{UP_CODE}}` / `{{DOWN_CODE}}` placeholders), `includeTypeReference?`.
+##### `writePlannedMigrations(planned: PlannedMigration[], migrationDir: string): string[]`
 
-Also exported: `generateUpMigration`, `generateDownMigration`, `generateMigrationFilename`,
-`generateMigrationDescription`, `generateTimestamp`, `generateCollectionCreation`,
-`generateCollectionRules`, `generateCollectionPermissions`, `generatePermissionUpdate`,
-`generateFieldAddition`, `generateFieldDeletion`, `generateFieldModification`,
-`generateFieldDefinitionObject`, `generateFieldsArray`, `generateIndexesArray`,
-`createMigrationFileStructure`, `writeMigrationFile`, and the `MigrationGenerator` class.
+Writes migrations produced by `planMigrations()`. Unlike `generate`/`planMigrations`, this one
+always takes a plain directory string — there is no config-object overload.
+
+**`MigrationGeneratorConfig`:**
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `migrationDir` | `string` (required) | — |
+| `workspaceRoot` | `string` | `process.cwd()` |
+| `timestampGenerator` | `() => string` | Unix timestamp in seconds |
+| `template` | `string` (`{{UP_CODE}}` / `{{DOWN_CODE}}` placeholders) | built-in `migrate((app) => {...}, (app) => {...})` template |
+| `includeTypeReference` | `boolean` | `true` |
+| `typesPath` | `string` | `"../pb_data/types.d.ts"` |
+| `force` | `boolean` | `false` — write even if an identical migration already exists |
+
+This is a deliberate asymmetry, worth keeping straight: `generate`/`planMigrations` **keep** their
+`(diff, migrationDir: string)` convenience overload for ergonomics, while the analyzer's
+`parseSchemaFiles`/`discoverSchemaFiles` **dropped** their equivalent string overload and now
+require the config object.
 
 Generated filenames follow `<unix-timestamp>_<description>.js`, where the description is
 `created_<Name>`, `updated_<Name>`, `deleted_<Name>`, or `<verb>_<n>_collections` when one
@@ -362,7 +433,7 @@ import {
   replayMigrations,
   executeMigrationFile,
   CollectionStore,
-} from "pocketbase-zod-schema/migration/engine";
+} from "pocketbase-zod-schema/server";
 
 const result = replayMigrationsDirectory("pocketbase/pb_migrations", {
   strictness: "lenient",
@@ -372,21 +443,28 @@ const result = replayMigrationsDirectory("pocketbase/pb_migrations", {
 // result.snapshot / result.store / result.warnings
 ```
 
-Grouped by job:
+The engine's full internal surface is large (field constructors, `FieldsList`, the `Collection`
+runtime class, `unmarshal`, the `$dbx`/expression grammar, `SimulatedApp`, per-file verification
+helpers, ...), but only a curated subset is re-exported from `pocketbase-zod-schema/server`:
 
 - **Replay**: `replayMigrations`, `replayMigrationsDirectory`, `executeMigrationFile`,
-  `executeMigrationSource`, `executeMigrationDownFile`, `executeMigrationDownSource`,
-  `discoverMigrations`, `extractTimestampFromFilename`, `CollectionStore`
+  `discoverMigrations`, `CollectionStore`
 - **Applied migrations**: `readAppliedMigrations`, `readAppliedMigrationsIfPresent`,
-  `appliedMigrationsFromList`, `planMigrationReplay`, `resolveDatabasePath`,
-  `defaultDataDirectory`, `APPLIED_MIGRATIONS_TABLE`, `POCKETBASE_DATABASE_FILENAME`
-- **Verification**: `verifyMigrationRoundTrip`, `verifyMigrationFileRoundTrip`,
-  `verifyMigrationFiles`, `verifyMigrationSources`, `compareStores`, `describeStateDifferences`
-- **goja lint**: `lintMigrationSource`, `lintMigrationFile`, `lintMigrationFiles`,
-  `formatGojaLintFinding`, `gojaFindingsFromWarnings`, `availableGlobals`
-- **Record simulation** (opt-in via `records: "simulate"`): `RecordModel`, `RecordStore`,
-  `createDbx`, `isDbxExpression`, `parseCondition`
-- **Errors**: `AppliedMigrationsError`, `ExpressionError`, `UnsupportedQueryError`
+  `appliedMigrationsFromList`, `planMigrationReplay`, `defaultDataDirectory`,
+  `AppliedMigrationsError`
+- **Verification**: `verifyMigrationSources` — the sequence-level entry point. The per-file/
+  single-round-trip helpers (`verifyMigrationFiles`, `verifyMigrationRoundTrip`,
+  `verifyMigrationFileRoundTrip`) are internal to `migration/engine/verify.ts` and not part of the
+  public surface; build a `MigrationSourceRef[]` (`{ source, file? }`) and call
+  `verifyMigrationSources` instead (see [EXECUTION_ENGINE.md](./EXECUTION_ENGINE.md#down-migration-verification)).
+- **goja lint**: `lintMigrationSource`, `lintMigrationFile`, `formatGojaLintFinding`
+- **Record simulation** (opt-in via `records: "simulate"`): `RecordModel`
+
+Also exported: engine option/result types — `EngineOptions`, `EngineRecordMode`,
+`EngineStrictness`, `EngineWarning`, `MigrationDirection`, `MigrationExecutionResult`,
+`MigrationPlan`, `DiscoveredMigration`, `PlanOptions`, `ReplayResult`, `AppliedMigration`,
+`AppliedMigrationsSource`, `GojaLintFinding`, `GojaLintOptions`, `GojaLintResult`, `GojaLintRule`,
+`GojaLintSeverity`, `MigrationRoundTripResult`, `MigrationSourceRef`, `MigrationVerificationReport`.
 
 Reading the `_migrations` table uses Node's built-in `node:sqlite` and therefore needs
 **Node >= 22.5**; on older runtimes pass the applied list explicitly with
@@ -460,16 +538,17 @@ Defaults to every file in the migrations directory. Exits non-zero on any error-
 ### Programmatic CLI use
 
 ```typescript
-import { loadConfig, generateMigration, getMigrationStatus } from "pocketbase-zod-schema/cli";
+import { loadConfig, generateMigration, getMigrationStatus } from "pocketbase-zod-schema/server";
 ```
 
 `loadConfig(options?): Promise<MigrationConfig>` merges, in priority order: CLI args >
 environment variables > config file > defaults. See [CONFIGURATION.md](./CONFIGURATION.md).
 
-Loggers: `logSuccess`, `logError`, `logWarning`, `logInfo`, `logDebug`, `logSection`, `logStep`,
-`logBox`, `logList`, `logTable`, `logKeyValue`, `logTimed`, `logTimestamp`, `withProgress`,
-`createSpinner`, `createProgressBar`, `formatChangeSummary`, `formatDuration`, `formatStatusJson`,
-`setVerbosity`, `getVerbosity`.
+`generateMigration(filters, options)` and `getMigrationStatus(options)` are the same code paths as
+the `generate`/`status` CLI commands, callable directly.
+
+CLI loggers (`logInfo`, `logError`, `formatChangeSummary`, `withProgress`, ...) are **no longer
+exported** — they are an internal detail of the CLI's terminal output.
 
 ## Type Definitions
 
@@ -550,6 +629,12 @@ interface RuleUpdate {
   newValue: string | null;
 }
 
+interface PermissionChange {
+  ruleType: APIRuleType;
+  oldValue: string | null;
+  newValue: string | null;
+}
+
 interface ViewQueryUpdate {
   oldValue: string | null;
   newValue: string;
@@ -620,7 +705,7 @@ import {
   FileSystemError,
   ConfigurationError,
   CLIUsageError,
-} from "pocketbase-zod-schema/migration";
+} from "pocketbase-zod-schema/server";
 ```
 
 | Class | Constructor | Public fields |
@@ -634,49 +719,8 @@ import {
 | `ConfigurationError` | `(message, configPath?, invalidFields?, originalError?)` | `configPath`, `invalidFields`, `originalError` |
 | `CLIUsageError` | `(message, command?, suggestion?)` | `command`, `suggestion` |
 
-The engine adds `AppliedMigrationsError`, `ExpressionError` and `UnsupportedQueryError`, exported
-from `pocketbase-zod-schema/migration/engine`.
-
-## Utility Functions
-
-```typescript
-import {
-  mapZodTypeToPocketBase,
-  isRelationField,
-  pluralize,
-  singularize,
-} from "pocketbase-zod-schema/migration/utils";
-```
-
-### Type mapping
-
-- `mapZodTypeToPocketBase(zodType: z.ZodTypeAny, fieldName: string): PocketBaseFieldType` — note
-  the **two** parameters
-- `getFieldTypeInfo(zodType, fieldName): { type, isMultiple, options }`
-- `extractFieldOptions(zodType)`, `extractComprehensiveFieldOptions(zodType)`,
-  `filterSupportedFieldOptions(type, options)`,
-  `getSupportedFieldOptionKeys(type?)` — the option keys the generator may emit
-  for a field type, and the same list the engine's reader reads back
-- `isFieldRequired`, `unwrapZodType`, `getDefaultValue`, `isArrayType`, `getArrayElementType`,
-  `isGeoPointType`
-- Per-type mappers: `mapZodStringType`, `mapZodNumberType`, `mapZodBooleanType`, `mapZodEnumType`,
-  `mapZodArrayType`, `mapZodDateType`, `mapZodRecordType`
-- `POCKETBASE_FIELD_TYPES`, `FIELD_TYPE_INFO`
-
-### Relation detection (naming-convention fallback)
-
-- `isRelationField(fieldName, zodType): boolean`
-- `isSingleRelationField(fieldName, zodType)` / `isMultipleRelationField(fieldName, zodType)`
-- `resolveTargetCollection(fieldName): string`
-- `getMaxSelect(fieldName, zodType)` / `getMinSelect(fieldName, zodType)`
-
-Used only when a field carries no `RelationField`/`RelationsField` metadata. See
-[NAMING_CONVENTIONS.md](./NAMING_CONVENTIONS.md) for the exact rule.
-
-### Strings and ids
-
-- `pluralize(singular)`, `singularize(plural)`, `toCollectionName(entityName)`
-- `generateCollectionId(): string`, `generateFieldId(type, name?): string`
+The engine adds `AppliedMigrationsError`, exported from `pocketbase-zod-schema/server` alongside
+the rest of the [engine surface](#execution-engine).
 
 ## Examples
 
@@ -689,13 +733,13 @@ import {
   generate,
   loadSnapshotWithMigrations,
   detectDestructiveChanges,
-} from "pocketbase-zod-schema/migration";
+} from "pocketbase-zod-schema/server";
 
 const schemaDir = "./src/schema";
 const migrationsDir = "./pocketbase/pb_migrations";
 
 // 1. Parse the Zod schemas
-const currentSchema = await parseSchemaFiles(schemaDir);
+const currentSchema = await parseSchemaFiles({ schemaDir });
 
 // 2. Reconstruct current DB state by executing the existing migrations
 const previousSnapshot = loadSnapshotWithMigrations({ migrationsPath: migrationsDir });
@@ -720,8 +764,8 @@ console.log(paths.length ? `Wrote:\n${paths.join("\n")}` : "No changes detected"
 import {
   readAppliedMigrationsIfPresent,
   planMigrationReplay,
-} from "pocketbase-zod-schema/migration/engine";
-import { loadSnapshotWithMigrations } from "pocketbase-zod-schema/migration";
+  loadSnapshotWithMigrations,
+} from "pocketbase-zod-schema/server";
 
 const applied = readAppliedMigrationsIfPresent("pocketbase/pb_data");
 const plan = planMigrationReplay("pocketbase/pb_migrations", { applied: applied ?? undefined });
@@ -740,13 +784,15 @@ const state = loadSnapshotWithMigrations({
 
 ```typescript
 import {
+  parseSchemaFiles,
+  loadSnapshotWithMigrations,
   SchemaParsingError,
   SnapshotError,
   MigrationExecutionError,
-} from "pocketbase-zod-schema/migration";
+} from "pocketbase-zod-schema/server";
 
 try {
-  const schemas = await parseSchemaFiles("./src/schema");
+  const schemas = await parseSchemaFiles({ schemaDir: "./src/schema" });
   const state = loadSnapshotWithMigrations({ migrationsPath: "./pocketbase/pb_migrations" });
 } catch (error) {
   if (error instanceof SchemaParsingError) {
@@ -771,4 +817,4 @@ try {
 - [Configuration](./CONFIGURATION.md) — every config key and environment variable
 - [Type Mapping](./TYPE_MAPPING.md) — Zod → PocketBase field rules
 - [View Collections](./VIEW_COLLECTIONS.md) — SQL-backed read-only collections
-- [Naming Conventions](./NAMING_CONVENTIONS.md) — files, collections, relation detection
+- [Naming Conventions](./NAMING_CONVENTIONS.md) — files and collections

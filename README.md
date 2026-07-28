@@ -47,7 +47,7 @@ import {
   SelectField,
   RelationField,
   RelationsField,
-} from 'pocketbase-zod-schema/schema';
+} from 'pocketbase-zod-schema';
 
 // Define the Zod schema with field helpers
 const PostSchema = z.object({
@@ -283,7 +283,7 @@ import {
   GeoPointField,
   RelationField,
   RelationsField,
-} from 'pocketbase-zod-schema/schema';
+} from 'pocketbase-zod-schema';
 ```
 
 **Available Field Helpers:**
@@ -319,7 +319,7 @@ import {
   BoolField,
   FileField,
   RelationField,
-} from 'pocketbase-zod-schema/schema';
+} from 'pocketbase-zod-schema';
 
 const ProductSchema = z.object({
   name: TextField({ min: 1, max: 200 }),
@@ -359,7 +359,7 @@ describes the row shape for TypeScript only:
 
 ```typescript
 import { z } from 'zod';
-import { baseSchema, defineView, sql } from 'pocketbase-zod-schema/schema';
+import { baseSchema, defineView, sql } from 'pocketbase-zod-schema';
 
 const ProductStatsSchema = z
   .object({
@@ -430,12 +430,13 @@ import {
   compare,
   generate,
   loadSnapshotWithMigrations,
-} from 'pocketbase-zod-schema/migration';
+} from 'pocketbase-zod-schema/server';
 
+const schemaDir = './src/schema';
 const migrationsDir = './pocketbase/pb_migrations';
 
 // Analyze schemas
-const currentSchema = await parseSchemaFiles('./src/schema');
+const currentSchema = await parseSchemaFiles({ schemaDir });
 
 // Reconstruct the current database state by executing the existing migrations
 const previousSnapshot = loadSnapshotWithMigrations({
@@ -449,9 +450,7 @@ const diff = compare(currentSchema, previousSnapshot);
 const migrationPaths = generate(diff, migrationsDir);
 ```
 
-Use `loadSnapshotWithMigrations`, not `loadSnapshotIfExists` — the latter executes only the
-snapshot file and ignores every migration after it, which is almost never the current state. Full
-API in [docs/API.md](docs/API.md).
+Full API in [docs/API.md](docs/API.md).
 
 ## Complete Example
 
@@ -471,7 +470,7 @@ import {
   FileField,
   RelationField,
   RelationsField,
-} from 'pocketbase-zod-schema/schema';
+} from 'pocketbase-zod-schema';
 
 // Blog post collection
 const PostSchema = z.object({

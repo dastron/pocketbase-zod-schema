@@ -64,6 +64,12 @@ Directory containing Zod schema files. Resolved relative to the current working 
 Filenames or glob patterns to skip during schema discovery. Use it for files that hold helpers
 rather than collections — a barrel `index.ts`, shared field fragments, test files.
 
+A file is only ever read as a collection if one of its exports carries collection metadata (what
+`defineCollection()`/`defineView()` produce) — a helper file that exports no such schema is simply
+**skipped with a console warning**, whether or not it is listed here. Adding a file to `exclude`
+just skips the import outright and silences that warning; it is not required to keep the analyzer
+from misreading a helper file as a collection.
+
 Note this replaces the default list rather than adding to it, so re-list anything you still want
 excluded:
 
@@ -216,6 +222,9 @@ spelling against this page.
 
 ```javascript
 // pocketbase-migrate.config.js
+/**
+ * @type {import('pocketbase-zod-schema/server').MigrationConfig}
+ */
 export default {
   schema: {
     directory: "src/schema",

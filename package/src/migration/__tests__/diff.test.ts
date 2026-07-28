@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { aggregateChanges, comparePermissions, filterSystemCollections, isSystemCollection } from "../diff";
+import { compare, comparePermissions, filterSystemCollections, isSystemCollection } from "../diff";
 import type { CollectionSchema, SchemaDefinition } from "../types";
 
 describe("comparePermissions", () => {
@@ -313,7 +313,7 @@ describe("aggregateChanges with system collection filtering", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, null);
+    const diff = compare(currentSchema, null);
 
     expect(diff.collectionsToCreate).toHaveLength(2);
     expect(diff.collectionsToCreate.map((c: CollectionSchema) => c.name)).toEqual(["users", "posts"]);
@@ -337,7 +337,7 @@ describe("aggregateChanges with system collection filtering", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     expect(diff.collectionsToDelete).toHaveLength(1);
     expect(diff.collectionsToDelete.map((c: CollectionSchema) => c.name)).toEqual(["posts"]);
@@ -366,7 +366,7 @@ describe("aggregateChanges with system collection filtering", () => {
       collections: new Map<string, CollectionSchema>([["users", { name: "users", id: "users_id", type: "auth" as const, fields: [] }]]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     expect(diff.collectionsToModify).toHaveLength(1);
     expect(diff.collectionsToModify[0].collection).toBe("users");
@@ -406,7 +406,7 @@ describe("aggregateChanges with system collection filtering", () => {
       collections: new Map<string, CollectionSchema>([["users", { name: "users", id: "users_id", type: "auth" as const, fields: [] }]]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     expect(diff.collectionsToModify).toHaveLength(1);
     expect(diff.collectionsToModify[0].collection).toBe("users");
@@ -452,7 +452,7 @@ describe("aggregateChanges with system collection filtering", () => {
       collections: new Map<string, CollectionSchema>([["posts", { name: "posts", id: "posts_id", type: "base" as const, fields: [] }]]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     expect(diff.collectionsToModify).toHaveLength(1);
     expect(diff.collectionsToModify[0].collection).toBe("posts");

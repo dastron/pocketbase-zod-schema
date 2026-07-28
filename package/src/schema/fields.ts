@@ -168,7 +168,7 @@ export interface SelectFieldOptions {
   maxSelect?: number;
 }
 
-type EnumFromArray<T extends readonly [string, ...string[]]> = z.ZodEnum<z.core.util.ToEnum<T[number]>>;
+export type EnumFromArray<T extends readonly [string, ...string[]]> = z.ZodEnum<z.core.util.ToEnum<T[number]>>;
 
 /**
  * Human-friendly byte size input.
@@ -604,9 +604,16 @@ export function AutodateField(options?: AutodateFieldOptions): z.ZodString {
  * Creates a select field schema from enum values
  * Maps to PocketBase 'select' field type
  *
+ * A `maxSelect` of 1 (or no options) produces a single-select enum schema;
+ * `maxSelect` greater than 1 produces a multi-select array schema.
+ *
+ * Pass `maxSelect` as a literal so the overloads can pick the right return
+ * type — a widened `number` variable resolves to the array overload even when
+ * its runtime value is 1.
+ *
  * @param values - Array of allowed string values
  * @param options - Optional select configuration
- * @returns Zod enum or array schema with PocketBase metadata
+ * @returns Zod enum schema (single select) or array schema (multiple select) with PocketBase metadata
  *
  * @example
  * // Single select
@@ -622,56 +629,20 @@ export function AutodateField(options?: AutodateFieldOptions): z.ZodString {
  */
 export function SelectField<const T extends readonly [string, ...string[]]>(
   values: T,
-  options?: SelectFieldOptions
-): EnumFromArray<T> | z.ZodArray<EnumFromArray<T>> {
-  // Return array schema if maxSelect > 1
-  if (options?.maxSelect && options.maxSelect > 1) {
-    return MultiSelectField(values, options);
-  }
-
-  return SingleSelectField(values);
-}
-
-/**
- * Creates a single select field schema from enum values
- * Maps to PocketBase 'select' field type with maxSelect=1
- *
- * @param values - Array of allowed string values
- * @returns Zod enum schema with PocketBase metadata
- */
-export function SingleSelectField<const T extends readonly [string, ...string[]]>(values: T): EnumFromArray<T> {
-  const enumSchema = z.enum(values);
-
-  const metadata = {
-    [FIELD_METADATA_KEY]: {
-      type: "select" as const,
-      options: {
-        values,
-        maxSelect: 1,
-      },
-    },
-  };
-
-  return enumSchema.describe(JSON.stringify(metadata)) as EnumFromArray<T>;
-}
-
-/**
- * Creates a multiple select field schema from enum values
- * Maps to PocketBase 'select' field type with maxSelect>1
- *
- * @param values - Array of allowed string values
- * @param options - Optional select configuration
- * @returns Zod array schema with PocketBase metadata
- */
-export function MultiSelectField<const T extends readonly [string, ...string[]]>(
+  options?: { maxSelect?: 1 }
+): EnumFromArray<T>;
+export function SelectField<const T extends readonly [string, ...string[]]>(
+  values: T,
+  options: { maxSelect: number }
+): z.ZodArray<EnumFromArray<T>>;
+export function SelectField<const T extends readonly [string, ...string[]]>(
   values: T,
   options?: SelectFieldOptions
-): z.ZodArray<EnumFromArray<T>> {
-  const enumSchema = z.enum(values);
-  const maxSelect = options?.maxSelect ?? 999;
+): EnumFromArray<T> | z.ZodArray<EnumFromArray<T>> {
+  const maxSelect = options?.maxSelect ?? 1;
 
-  if (maxSelect <= 1) {
-    throw new Error("MultiSelectField: maxSelect must be greater than 1");
+  if (maxSelect < 1) {
+    throw new Error("SelectField: maxSelect must be >= 1");
   }
 
   const metadata = {
@@ -684,7 +655,11 @@ export function MultiSelectField<const T extends readonly [string, ...string[]]>
     },
   };
 
-  return z.array(enumSchema).describe(JSON.stringify(metadata)) as z.ZodArray<EnumFromArray<T>>;
+  if (maxSelect > 1) {
+    return z.array(z.enum(values)).describe(JSON.stringify(metadata)) as z.ZodArray<EnumFromArray<T>>;
+  }
+
+  return z.enum(values).describe(JSON.stringify(metadata)) as EnumFromArray<T>;
 }
 
 /**

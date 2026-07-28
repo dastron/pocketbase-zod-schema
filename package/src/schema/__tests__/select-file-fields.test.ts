@@ -1,13 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { z } from "zod";
-import {
-  FileField,
-  FilesField,
-  MultiSelectField,
-  SelectField,
-  SingleSelectField,
-  extractFieldMetadata,
-} from "../fields";
+import { FileField, FilesField, SelectField, extractFieldMetadata, type EnumFromArray } from "../fields";
 
 describe("SelectField", () => {
   it("should create a single select field with metadata", () => {
@@ -35,50 +28,31 @@ describe("SelectField", () => {
     expect(field).toBeInstanceOf(z.ZodEnum);
   });
 
+  it("should treat an explicit maxSelect of 1 as single select", () => {
+    const field = SelectField(["draft", "published"], { maxSelect: 1 });
+    const metadata = extractFieldMetadata(field.description);
+
+    expect(field).toBeInstanceOf(z.ZodEnum);
+    expect(metadata?.options?.maxSelect).toBe(1);
+  });
+
   it("should return array schema for multiple select", () => {
     const field = SelectField(["tag1", "tag2"], { maxSelect: 2 });
     expect(field).toBeInstanceOf(z.ZodArray);
   });
-});
 
-describe("SingleSelectField", () => {
-  it("should create a single select field with metadata", () => {
-    const field = SingleSelectField(["draft", "published"]);
-    const metadata = extractFieldMetadata(field.description);
-
-    expect(metadata).toBeDefined();
-    expect(metadata?.type).toBe("select");
-    expect(metadata?.options?.values).toEqual(["draft", "published"]);
-    expect(metadata?.options?.maxSelect).toBe(1);
+  it("should throw when maxSelect < 1", () => {
+    expect(() => SelectField(["a", "b"], { maxSelect: 0 })).toThrow("SelectField: maxSelect must be >= 1");
   });
 
-  it("should return enum schema", () => {
-    const field = SingleSelectField(["draft", "published"]);
-    expect(field).toBeInstanceOf(z.ZodEnum);
-  });
-});
+  it("should resolve overload return types from literal maxSelect", () => {
+    const single = SelectField(["draft", "published"]);
+    const singleExplicit = SelectField(["draft", "published"], { maxSelect: 1 });
+    const multi = SelectField(["tag1", "tag2"], { maxSelect: 3 });
 
-describe("MultiSelectField", () => {
-  it("should create a multiple select field with metadata", () => {
-    const field = MultiSelectField(["tag1", "tag2"], { maxSelect: 3 });
-    const metadata = extractFieldMetadata(field.description);
-
-    expect(metadata).toBeDefined();
-    expect(metadata?.type).toBe("select");
-    expect(metadata?.options?.values).toEqual(["tag1", "tag2"]);
-    expect(metadata?.options?.maxSelect).toBe(3);
-  });
-
-  it("should default maxSelect to 999", () => {
-    const field = MultiSelectField(["tag1", "tag2"]);
-    const metadata = extractFieldMetadata(field.description);
-
-    expect(metadata?.options?.maxSelect).toBe(999);
-  });
-
-  it("should return array schema", () => {
-    const field = MultiSelectField(["tag1", "tag2"], { maxSelect: 2 });
-    expect(field).toBeInstanceOf(z.ZodArray);
+    expectTypeOf(single).toEqualTypeOf<EnumFromArray<["draft", "published"]>>();
+    expectTypeOf(singleExplicit).toEqualTypeOf<EnumFromArray<["draft", "published"]>>();
+    expectTypeOf(multi).toEqualTypeOf<z.ZodArray<EnumFromArray<["tag1", "tag2"]>>>();
   });
 });
 

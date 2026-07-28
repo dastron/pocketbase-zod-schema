@@ -519,7 +519,7 @@ describe("Field Metadata Integration", () => {
     });
   });
 
-  describe("Backward compatibility", () => {
+  describe("Structural inference (loose contract)", () => {
     it("should still infer type from plain Zod string", () => {
       const field = z.string();
       const definition = buildFieldDefinition("name", field);

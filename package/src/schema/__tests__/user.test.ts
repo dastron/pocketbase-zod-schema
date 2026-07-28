@@ -10,8 +10,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import { describe, expect, it } from "vitest";
-import { buildSchemaDefinition } from "../../migration/analyzer";
-import { aggregateChanges } from "../../migration/diff";
+import { parseSchemaFiles } from "../../migration/analyzer";
+import { compare } from "../../migration/diff";
 import { loadSnapshotWithMigrations } from "../../migration/snapshot";
 
 describe("User Schema Snapshot Alignment", () => {
@@ -29,7 +29,7 @@ describe("User Schema Snapshot Alignment", () => {
 
     // Build schema definition from the user schema file
     const schemaDir = path.resolve(__dirname, "../");
-    const currentSchema = await buildSchemaDefinition({
+    const currentSchema = await parseSchemaFiles({
       schemaDir,
       useCompiledFiles: false,
     });
@@ -47,7 +47,7 @@ describe("User Schema Snapshot Alignment", () => {
     }
 
     // Compare the current schema with the snapshot
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     // Verify there are no collections to modify (user schema should match snapshot exactly)
     expect(diff.collectionsToModify).toHaveLength(0);
