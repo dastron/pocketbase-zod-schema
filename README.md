@@ -8,19 +8,19 @@ A TypeScript-first migration generator for PocketBase that uses Zod schemas to c
 
 ## Features
 
-- 🔒 **Type-Safe**: Full TypeScript support with Zod schema validation
-- 🚀 **Schema-Driven**: Define your database structure using Zod schemas
-- 🔄 **Automatic Migrations**: Generate PocketBase migrations from schema changes
-- 👁️ **View Collections**: Define read-only SQL views alongside your regular collections
-- 🔍 **Change Detection**: Smart diff engine with destructive change warnings
-- ⚙️ **Execution Engine**: Reconstructs current state by *executing* your migrations in a simulated
+- **Type-Safe**: Full TypeScript support with Zod schema validation
+- **Schema-Driven**: Define your database structure using Zod schemas
+- **Automatic Migrations**: Generate PocketBase migrations from schema changes
+- **View Collections**: Define read-only SQL views alongside your regular collections
+- **Change Detection**: Smart diff engine with destructive change warnings
+- **Execution Engine**: Reconstructs current state by *executing* your migrations in a simulated
   PocketBase JSVM — no fragile text parsing, so loops and helper functions are understood
   ([details](docs/EXECUTION_ENGINE.md))
-- ✅ **Verification & Linting**: Round-trip `up()`/`down()` before writing, and catch JavaScript
+- **Verification & Linting**: Round-trip `up()`/`down()` before writing, and catch JavaScript
   that PocketBase's goja runtime cannot run
-- 📋 **Status Reporting**: Check migration status without generating files, including drift against
+- **Status Reporting**: Check migration status without generating files, including drift against
   PocketBase's `_migrations` table
-- 🛠️ **CLI Tools**: Command-line interface for migration management
+- **CLI Tools**: Command-line interface for migration management
 
 ## Installation
 
@@ -31,6 +31,23 @@ yarn add pocketbase-zod-schema
 # or
 pnpm add pocketbase-zod-schema
 ```
+
+### Upgrading from 0.7.x
+
+`1.0.0`–`1.0.2` are breaking (the changelog only flags `1.0.0` — `1.0.1` and `1.0.2` shipped as
+`fix:` commits). In short:
+
+- **Two import paths only**: `pocketbase-zod-schema` (browser-safe schema half) and
+  `pocketbase-zod-schema/server` (Node migration pipeline). `/schema`, `/enums`, `/mutator`,
+  `/migration*`, `/cli` and `/cli/utils` no longer resolve.
+- **`SelectField` replaces `SingleSelectField`/`MultiSelectField`** — `SelectField(values)` is
+  `maxSelect: 1`, so pass `{ maxSelect: 999 }` where `MultiSelectField(values)` relied on its
+  implicit default.
+- **No name-based inference**: declare relations with `RelationField`/`RelationsField`, set
+  `type: "auth"` explicitly, and wrap every collection in `defineCollection()`/`defineView()`.
+
+Full list, with what each change does to your next `generate`:
+[Version upgrade notes](docs/MIGRATION_GUIDE.md#version-upgrade-notes).
 
 ## Quick Start
 

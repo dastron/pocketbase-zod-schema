@@ -223,12 +223,112 @@ The result is the same as the TypeORM example above: unique constraints move int
 
 ## Version upgrade notes
 
-### Unreleased — naming-convention inference removed; entry points consolidated (breaking)
+**Upgrading from 0.7.x?** Every breaking change landed across `1.0.0`–`1.0.2`. Only `1.0.0` carries
+a `⚠ BREAKING CHANGES` note in [package/CHANGELOG.md](../package/CHANGELOG.md): `1.0.1` and `1.0.2`
+were released from `fix:` commits, so the generated changelog files them as bug fixes even though
+`1.0.2` removes import paths, exports, and schema inference. **This section is the authoritative
+list** — the changelog undercounts.
 
-This release deletes the naming-convention fallback entirely, stops guessing `auth` collections,
-and trims the package to two entry points. Existing schemas that relied on any of the removed
-inference need updates **before** you next run `generate` — read points 1–4 first, since skipping
-them can produce a migration that deletes data on a real database.
+| Version | Breaking change |
+| --- | --- |
+| [1.0.2](#102--import-paths-consolidated-inference-and-exports-removed-breaking) | Subpath imports (`/schema`, `/migration`, `/cli`, …) removed; `SingleSelectField`/`MultiSelectField` folded into `SelectField`; naming-convention inference removed; many exports deleted |
+| [1.0.1](#101--field-constraints-are-read-from-chained-validators-and-removing-one-settles) | Chained validators (`.max()`, `.regex()`) on field helpers now reach the migration; relation names ending in a reference suffix are refused |
+| [1.0.0](#100--the-static-migration-parser-is-gone) | Static migration parser removed — state is reconstructed by executing migrations |
+
+### 1.0.2 — import paths consolidated, inference and exports removed (breaking)
+
+This release trims the package to two entry points, deletes the naming-convention fallback
+entirely, and stops guessing `auth` collections. Import-path and export changes are compile-time
+breaks — you find them immediately. The inference removals are **not**: a schema that still relies
+on them keeps compiling and changes what `generate` emits, so read
+[Removed schema inference](#removed-schema-inference) before you next run `generate`.
+
+#### Removed import paths
+
+There are exactly two import paths left, plus the CLI binary:
+
+| Import path | Contents | Environment |
+| --- | --- | --- |
+| `pocketbase-zod-schema` | `defineCollection`, `defineView`, field helpers, permission templates, metadata accessors, types | browser-safe |
+| `pocketbase-zod-schema/server` | the above, plus the migration pipeline (analyzer, snapshot, diff, destructive-change detection, generator, engine) and the programmatic CLI API | Node only |
+
+Every other subpath is gone from `package.json`'s `exports`, so importing one is a resolution error
+(`ERR_PACKAGE_PATH_NOT_EXPORTED`), not a deprecation warning:
+
+| Removed subpath | Import from instead |
+| --- | --- |
+| `pocketbase-zod-schema/schema` | `pocketbase-zod-schema` |
+| `pocketbase-zod-schema/enums` | — deleted, no replacement (see [below](#other-removed-and-renamed-exports)) |
+| `pocketbase-zod-schema/mutator` | — deleted, no replacement |
+| `pocketbase-zod-schema/migration` | `pocketbase-zod-schema/server` |
+| `pocketbase-zod-schema/migration/analyzer` | `pocketbase-zod-schema/server` |
+| `pocketbase-zod-schema/migration/diff` | `pocketbase-zod-schema/server` |
+| `pocketbase-zod-schema/migration/engine` (1.0.0–1.0.1 only) | `pocketbase-zod-schema/server` |
+| `pocketbase-zod-schema/migration/generator` | `pocketbase-zod-schema/server` |
+| `pocketbase-zod-schema/migration/snapshot` | `pocketbase-zod-schema/server` |
+| `pocketbase-zod-schema/migration/utils` | `pocketbase-zod-schema/server` |
+| `pocketbase-zod-schema/cli` | `pocketbase-zod-schema/server` (`generateMigration`, `getMigrationStatus`, `loadConfig`) |
+| `pocketbase-zod-schema/cli/utils` | `pocketbase-zod-schema/server` (`loadConfig` only — the loggers are gone) |
+
+```typescript
+// before
+import { defineCollection, TextField } from "pocketbase-zod-schema/schema";
+import { parseSchemaFiles } from "pocketbase-zod-schema/migration/analyzer";
+import { compare } from "pocketbase-zod-schema/migration/diff";
+import { generate } from "pocketbase-zod-schema/migration/generator";
+import { loadConfig } from "pocketbase-zod-schema/cli/utils";
+
+// after
+import { defineCollection, TextField } from "pocketbase-zod-schema";
+import { compare, generate, loadConfig, parseSchemaFiles } from "pocketbase-zod-schema/server";
+```
+
+`pocketbase-zod-schema/server` re-exports everything the browser-safe entry point does, so a
+server-side file can import from it alone. Keep schema files on the plain `pocketbase-zod-schema`
+import if they are also bundled for the browser — `/server` pulls in `fs`, `path`, and `node:vm`.
+The `pocketbase-migrate` binary is wired through `package.json`'s `bin`, so it is unaffected; it was
+never an import path. `pocketbase-zod-schema/package.json` is still exported.
+
+#### `SelectField` replaces `SingleSelectField` and `MultiSelectField`
+
+`SingleSelectField` and `MultiSelectField` no longer exist. `SelectField` covers both through
+overloads resolved by `maxSelect`:
+
+```typescript
+// before
+import { MultiSelectField, SingleSelectField } from "pocketbase-zod-schema";
+
+status: SingleSelectField(["draft", "published"]),      // ZodEnum
+categories: MultiSelectField(["a", "b", "c"]),          // ZodArray<ZodEnum>, maxSelect 999
+tags: MultiSelectField(["a", "b", "c"], { maxSelect: 3 }),
+
+// after
+import { SelectField } from "pocketbase-zod-schema";
+
+status: SelectField(["draft", "published"]),            // ZodEnum  (maxSelect 1)
+categories: SelectField(["a", "b", "c"], { maxSelect: 999 }),
+tags: SelectField(["a", "b", "c"], { maxSelect: 3 }),
+```
+
+Two things to watch:
+
+- **`MultiSelectField(values)` defaulted `maxSelect` to `999`; `SelectField(values)` means
+  `maxSelect: 1`.** Carry the `999` over explicitly. Otherwise the field flips from multi- to
+  single-select and the next `generate` emits an `updated_*` migration narrowing it — an option
+  change, so it is **not** flagged as destructive and needs no `--force`, while records already
+  holding several values no longer validate. Ported like-for-like, the swap produces **no**
+  migration: both helpers wrote the same `select` metadata (`values` + `maxSelect`).
+- **Pass `maxSelect` as a literal.** The overloads are selected at compile time, so a widened
+  `number` (`const n: number = 1`) resolves to the array overload even when its runtime value is
+  `1`, and `z.infer` disagrees with what the field actually holds.
+
+See [TYPE_MAPPING.md](./TYPE_MAPPING.md#select-field) for the full option table.
+
+#### Removed schema inference
+
+These change what `generate` emits without any compile error to warn you. Convert the affected
+schemas first, then run `pocketbase-migrate status` and confirm you see no unexpected type changes
+or deletions before generating.
 
 1. **Name-based relation detection is gone.** There is no more fallback that read an
    uppercase-first `z.string()`/`z.array(z.string())` field name as a relation target. Every
@@ -259,40 +359,39 @@ them can produce a migration that deletes data on a real database.
    **deleting it** (gated behind `--force`, since collection deletion is destructive). **Wrap every
    collection-bearing schema in `defineCollection()`/`defineView()`** before regenerating, and check
    `pocketbase-migrate status` for unexpected deletions.
-5. **Renamed and removed exports.** Update these on the way to the new version:
-
-   | Removed | Replacement |
-   | --- | --- |
-   | `buildSchemaDefinition` | `parseSchemaFiles(config)` — object argument only, no string overload |
-   | `aggregateChanges` | `compare(current, previous, config?)` |
-   | `detectDestructiveChangesValidation` | `detectDestructiveChanges` |
-   | `requiresForceFlagValidation` | `requiresForceFlag` |
-   | `ValidationDestructiveChange` (type) | `DestructiveChange` (type) |
-   | `withPermissions()` / `withIndexes()` | `defineCollection({ permissions, indexes })` |
-   | `SingleSelectField` / `MultiSelectField` | `SelectField(values, { maxSelect })` |
-
-   Also deleted outright, with no replacement: the snapshot JSON-file API (`saveSnapshot`,
-   `loadSnapshot`, `loadSnapshotIfExists`, `getSnapshotPath`, `snapshotExists`, `validateSnapshot`,
-   `getSnapshotVersion`, `mergeSnapshots`, `loadBaseMigration`); the OO wrapper classes
-   (`SchemaAnalyzer`, `DiffEngine`, `MigrationGenerator`, `SnapshotManager`); `mutator/`
-   (`BaseMutator`, `MutatorOptions`, `Expanded`); `enums.ts` (`StatusEnum`, `StatusEnumType`); the
-   image-file schema fragments (`baseImageFileSchema`, `inputImageFileSchema`,
-   `omitImageFilesSchema`, `baseSchemaWithTimestamps`); the permission validators (`isTemplateConfig`,
-   `isPermissionSchema`, `createPermissions`, `mergePermissions`, `validatePermissionConfig`,
-   `validateRuleExpression`, `PermissionValidationResult`); and the naming-convention internals
-   (`pluralize`/`singularize`/`toCollectionName`, `relation-detector.ts`). CLI loggers (`logInfo`,
-   `logError`, `formatChangeSummary`, `withProgress`, …) are no longer exported either.
-6. **Entry points consolidated to `.` and `/server`.** Every subpath import — `/schema`, `/enums`,
-   `/mutator`, `/migration`, `/migration/analyzer`, `/migration/diff`, `/migration/engine`,
-   `/migration/generator`, `/migration/snapshot`, `/migration/utils`, `/cli`, `/cli/utils` — must be
-   rewritten to `pocketbase-zod-schema` (browser-safe: field helpers, `defineCollection`,
-   `defineView`, permissions) or `pocketbase-zod-schema/server` (Node: the migration pipeline and
-   programmatic CLI).
-7. **Unknown `defineCollection()` keys are now type errors.** The `[key: string]: unknown` escape
+5. **Unknown `defineCollection()` keys are now type errors.** The `[key: string]: unknown` escape
    hatch on `CollectionConfig` is gone, and field types embedded in `__pocketbase_field__` metadata
    are validated at analysis time — an unrecognized type throws instead of silently falling through.
+   (Compile-time, unlike the four above.)
 
-### Unreleased — field constraints are read from chained validators, and removing one settles
+#### Other removed and renamed exports
+
+| Removed | Replacement |
+| --- | --- |
+| `SingleSelectField` / `MultiSelectField` | `SelectField(values, { maxSelect })` — [details above](#selectfield-replaces-singleselectfield-and-multiselectfield) |
+| `buildSchemaDefinition` | `parseSchemaFiles(config)` — object argument only, no string overload |
+| `aggregateChanges` | `compare(current, previous, config?)` |
+| `detectDestructiveChangesValidation` | `detectDestructiveChanges` |
+| `requiresForceFlagValidation` | `requiresForceFlag` |
+| `ValidationDestructiveChange` (type) | `DestructiveChange` (type) |
+| `withPermissions()` / `withIndexes()` | `defineCollection({ permissions, indexes })` |
+
+Also deleted outright, with no replacement: the snapshot JSON-file API (`saveSnapshot`,
+`loadSnapshot`, `loadSnapshotIfExists`, `getSnapshotPath`, `snapshotExists`, `validateSnapshot`,
+`getSnapshotVersion`, `mergeSnapshots`, `loadBaseMigration`); the OO wrapper classes
+(`SchemaAnalyzer`, `DiffEngine`, `MigrationGenerator`, `SnapshotManager`); `mutator/`
+(`BaseMutator`, `MutatorOptions`, `Expanded`); `enums.ts` (`StatusEnum`, `StatusEnumType`); the
+image-file schema fragments (`baseImageFileSchema`, `inputImageFileSchema`,
+`omitImageFilesSchema`, `baseSchemaWithTimestamps`); the permission validators (`isTemplateConfig`,
+`isPermissionSchema`, `createPermissions`, `mergePermissions`, `validatePermissionConfig`,
+`validateRuleExpression`, `PermissionValidationResult`); and the naming-convention internals
+(`pluralize`/`singularize`/`toCollectionName`, `relation-detector.ts`). CLI loggers (`logInfo`,
+`logError`, `formatChangeSummary`, `withProgress`, …) are no longer exported either.
+
+The published surface is now pinned by `package/src/__tests__/public-exports.test.ts`, which asserts
+both what each entry point exports and that the names above stay gone.
+
+### 1.0.1 — field constraints are read from chained validators, and removing one settles
 
 Three fixes to how a field's `min`/`max`/`pattern` travel from a Zod schema into a migration. Each
 can produce one migration on the next `generate`, after which the schema and the database agree.
@@ -312,10 +411,10 @@ can produce one migration on the next `generate`, after which the schema and the
   PocketBase's zero value (`max = 0`, `pattern = ""`), and the diff treats a zero value — and a
   `null` from an older migration — as equivalent to a schema that never set the option.
 
-### Unreleased — relation names ending in a reference suffix are refused
+### 1.0.1 — relation names ending in a reference suffix are refused
 
-> **Superseded.** The naming-convention fallback this entry describes no longer exists at all —
-> see [the entry above](#unreleased--naming-convention-inference-removed-entry-points-consolidated-breaking).
+> **Superseded by 1.0.2.** The naming-convention fallback this entry describes no longer exists at
+> all — see [the 1.0.2 entry above](#102--import-paths-consolidated-inference-and-exports-removed-breaking).
 > Every relation is now declared with `RelationField()`/`RelationsField()`, so this specific error
 > can no longer occur. Left here for anyone tracing history from an older version.
 
@@ -341,7 +440,7 @@ trailing word is matched, so entity names that contain a suffix as a substring (
 **Also in this release:** a select field's `values` is compared as a set, so reordering the options
 alone no longer produces a migration. See [TYPE_MAPPING.md](./TYPE_MAPPING.md#select-field).
 
-### Unreleased — the static migration parser is gone
+### 1.0.0 — the static migration parser is gone
 
 The text-scanning migration reader has been removed. State reconstruction now has exactly one
 implementation: execute the migration files in a simulated PocketBase JSVM

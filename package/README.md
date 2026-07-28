@@ -26,6 +26,60 @@ yarn add pocketbase-zod-schema
 pnpm add pocketbase-zod-schema
 ```
 
+## Upgrading from 0.7.x (breaking changes in 1.0)
+
+`1.0.0`–`1.0.2` are breaking. The generated changelog only flags `1.0.0`, because `1.0.1` and
+`1.0.2` shipped as `fix:` commits — the full list lives in
+[docs/MIGRATION_GUIDE.md](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/MIGRATION_GUIDE.md#version-upgrade-notes).
+The three you are most likely to hit:
+
+**1. Subpath imports are gone.** There are exactly two entry points: `pocketbase-zod-schema`
+(browser-safe — `defineCollection`, `defineView`, field helpers, permission templates) and
+`pocketbase-zod-schema/server` (Node — the migration pipeline and programmatic CLI API). `/schema`,
+`/enums`, `/mutator`, `/migration`, `/migration/analyzer`, `/migration/diff`, `/migration/engine`,
+`/migration/generator`, `/migration/snapshot`, `/migration/utils`, `/cli` and `/cli/utils` have been
+removed from `exports`, so importing one now fails to resolve.
+
+```typescript
+// before
+import { defineCollection, TextField } from "pocketbase-zod-schema/schema";
+import { parseSchemaFiles } from "pocketbase-zod-schema/migration/analyzer";
+import { compare } from "pocketbase-zod-schema/migration/diff";
+
+// after
+import { defineCollection, TextField } from "pocketbase-zod-schema";
+import { compare, parseSchemaFiles } from "pocketbase-zod-schema/server";
+```
+
+The `pocketbase-migrate` CLI is unaffected — it is a `bin`, not an import path.
+
+**2. `SingleSelectField` and `MultiSelectField` are folded into `SelectField`.**
+
+```typescript
+// before
+status: SingleSelectField(["draft", "published"]),
+categories: MultiSelectField(["a", "b", "c"]),              // maxSelect defaulted to 999
+
+// after
+status: SelectField(["draft", "published"]),                // maxSelect 1
+categories: SelectField(["a", "b", "c"], { maxSelect: 999 }),
+```
+
+`SelectField(values)` means `maxSelect: 1`, so carry `MultiSelectField`'s implicit `999` over
+explicitly — otherwise the field narrows to a single select and the next `generate` emits a
+migration for it (an option change, so no `--force` is required, and records holding several values
+stop validating). Pass `maxSelect` as a literal; a widened `number` resolves to the array overload
+even when its value is `1`.
+
+**3. Nothing is inferred from names any more.** Relations must be declared with
+`RelationField`/`RelationsField`, `auth` collections need an explicit `type: "auth"`, and a schema
+file only contributes a collection if it exports a `defineCollection()`/`defineView()` result. These
+changes are silent at compile time and change what `generate` emits — run `pocketbase-migrate status`
+and check for unexpected type changes or deletions before generating. Also removed: `mutator/`
+(`BaseMutator`), `enums.ts`, the JSON snapshot-file API, the `SchemaAnalyzer`/`DiffEngine`/
+`MigrationGenerator`/`SnapshotManager` classes, `withPermissions()`/`withIndexes()`, and the CLI
+loggers.
+
 ## Quick Start
 
 ### 1. Create a schema file
