@@ -84,12 +84,40 @@ export function isMultipleRelationField(fieldName: string, zodType: z.ZodTypeAny
 }
 
 /**
+ * Trailing name segments that mark a field as *being* a reference rather than
+ * naming what it references. The heuristic below reads the last segment as the
+ * entity name, so without this list `WorkspaceRef` resolves to a `Reves`
+ * collection — a name nothing in the database answers to, silently written
+ * into a migration. These are refused instead of guessed: `WorkspaceRef` could
+ * plausibly target `Workspaces`, `Workspace`, or `workspaces`, and picking one
+ * produces a broken relation rather than an error anyone can act on.
+ */
+const REFERENCE_NAME_SUFFIXES = new Set([
+  "ref",
+  "refs",
+  "id",
+  "ids",
+  "uid",
+  "uids",
+  "uuid",
+  "uuids",
+  "fk",
+  "fks",
+  "pk",
+  "pks",
+]);
+
+/**
  * Resolves the target collection name from a relation field name
  * Examples:
  * - "User" -> "Users"
  * - "SubscriberUsers" -> "Users"
  * - "Author" -> "Authors"
  * - "Category" -> "Categories"
+ *
+ * @throws when the name ends in a reference suffix (`WorkspaceRef`, `PostId`),
+ * which identifies a relation without naming its target. Such a field has to
+ * declare the collection explicitly via `RelationField`/`RelationsField`.
  */
 export function resolveTargetCollection(fieldName: string): string {
   // For single relations, the field name is typically the entity name
@@ -109,8 +137,23 @@ export function resolveTargetCollection(fieldName: string): string {
   // Take the last matched entity name (e.g., "Users" from "SubscriberUsers")
   const entityName = matches[matches.length - 1];
 
+  if (REFERENCE_NAME_SUFFIXES.has(entityName.toLowerCase())) {
+    throw new Error(buildUnresolvableTargetMessage(fieldName, entityName, matches.slice(0, -1)));
+  }
+
   // Pluralize the entity name to get collection name
   return pluralize(entityName);
+}
+
+/** Explains the refusal and shows the explicit declaration that replaces it. */
+function buildUnresolvableTargetMessage(fieldName: string, suffix: string, leadingSegments: string[]): string {
+  const likelyTarget = leadingSegments.length > 0 ? pluralize(leadingSegments.join("")) : "TargetCollection";
+
+  return (
+    `Cannot infer the relation target for field "${fieldName}": the name ends in "${suffix}", ` +
+    `which marks it as a reference without naming the collection it points at. ` +
+    `Declare the target explicitly, e.g. ${fieldName}: RelationField({ collection: "${likelyTarget}" }).`
+  );
 }
 
 /**

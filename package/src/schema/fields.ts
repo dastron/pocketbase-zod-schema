@@ -234,9 +234,42 @@ export interface FilesFieldOptions extends FileFieldOptions {
   maxSelect?: number;
 }
 
+/**
+ * JSON field configuration options
+ */
+export interface JSONFieldOptions {
+  /**
+   * Maximum size of the serialized JSON value.
+   *
+   * - Provide a number for raw bytes
+   * - Or use a string with `K`, `M`, `G` suffix (case-insensitive)
+   *
+   * PocketBase applies a **1MB** default when this is unset (or `0`), so a field
+   * holding anything larger has to declare its own limit. The maximum PocketBase
+   * accepts is 2^53-1 bytes.
+   *
+   * @example
+   * maxSize: 5242880
+   * maxSize: "5M"
+   * maxSize: "200K"
+   */
+  maxSize?: ByteSize;
+}
+
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024 * 1024; // 8G
 
-function parseByteSizeToBytes(value: ByteSize, context: string): number {
+/**
+ * PocketBase validates a json field's `maxSize` against `maxSafeJSONInt`
+ * (2^53-1) — the field is stored as a JS-safe integer, not a file size, so the
+ * file ceiling does not apply here.
+ */
+const MAX_JSON_SIZE_BYTES = Number.MAX_SAFE_INTEGER; // 2^53 - 1
+
+function parseByteSizeToBytes(
+  value: ByteSize,
+  context: string,
+  limit: { bytes: number; label: string } = { bytes: MAX_FILE_SIZE_BYTES, label: "8G" }
+): number {
   let bytes: number;
 
   if (typeof value === "number") {
@@ -266,8 +299,8 @@ function parseByteSizeToBytes(value: ByteSize, context: string): number {
     throw new Error(`${context}: maxSize must be >= 0`);
   }
 
-  if (bytes > MAX_FILE_SIZE_BYTES) {
-    throw new Error(`${context}: maxSize cannot exceed 8G (${MAX_FILE_SIZE_BYTES} bytes)`);
+  if (bytes > limit.bytes) {
+    throw new Error(`${context}: maxSize cannot exceed ${limit.label} (${limit.bytes} bytes)`);
   }
 
   return bytes;
@@ -284,6 +317,22 @@ function normalizeFileFieldOptions(
     ...options,
     // PocketBase expects bytes; normalize any human-friendly inputs to bytes here.
     maxSize: parseByteSizeToBytes(options.maxSize, context),
+  };
+}
+
+function normalizeJSONFieldOptions(
+  options: JSONFieldOptions | undefined,
+  context: string
+): JSONFieldOptions | undefined {
+  if (!options) return options;
+  if (options.maxSize === undefined) return options;
+
+  return {
+    ...options,
+    maxSize: parseByteSizeToBytes(options.maxSize, context, {
+      bytes: MAX_JSON_SIZE_BYTES,
+      label: "2^53-1",
+    }),
   };
 }
 
@@ -402,10 +451,17 @@ export function TextField(options?: TextFieldOptions): z.ZodString {
   }
 
   // Build metadata
+  //
+  // The metadata travels as JSON in the description, and `JSON.stringify` turns
+  // a RegExp into `{}` — the pattern would be silently lost between here and
+  // the analyzer. PocketBase stores the pattern as a string anyway, so a RegExp
+  // is recorded as its source.
   const metadata = {
     [FIELD_METADATA_KEY]: {
       type: "text" as const,
-      options: options || {},
+      options: options
+        ? { ...options, ...(options.pattern instanceof RegExp ? { pattern: options.pattern.source } : {}) }
+        : {},
     },
   };
 
@@ -729,10 +785,30 @@ export function FilesField(options?: FilesFieldOptions): z.ZodType<string[], (Fi
 }
 
 /**
+ * Distinguishes `JSONField(schema)` from `JSONField(options)`.
+ *
+ * Both arguments are plain objects at runtime, so the Zod schema is identified
+ * by its parse surface rather than by shape.
+ */
+function isZodSchema(value: unknown): value is z.ZodTypeAny {
+  if (value instanceof z.ZodType) {
+    return true;
+  }
+
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { parse?: unknown }).parse === "function" &&
+    typeof (value as { safeParse?: unknown }).safeParse === "function"
+  );
+}
+
+/**
  * Creates a JSON field schema with optional inner schema validation
  * Maps to PocketBase 'json' field type
  *
  * @param schema - Optional Zod schema for the JSON structure
+ * @param options - Optional PocketBase constraints (`maxSize`)
  * @returns Zod schema with PocketBase metadata
  *
  * @example
@@ -749,14 +825,36 @@ export function FilesField(options?: FilesFieldOptions): z.ZodType<string[], (Fi
  *     notifications: z.boolean(),
  *   })),
  * });
+ *
+ * @example
+ * // A payload larger than PocketBase's 1MB default needs its own limit
+ * const TimelineSchema = z.object({
+ *   timelineData: JSONField({ maxSize: "5M" }),
+ *   outputSettings: JSONField(z.object({ fps: z.number() }), { maxSize: "200K" }),
+ * });
  */
-export function JSONField<T extends z.ZodTypeAny>(schema?: T): T | z.ZodRecord<z.ZodString, z.ZodAny> {
-  const baseSchema = schema ?? z.record(z.string(), z.any());
+export function JSONField(options?: JSONFieldOptions): z.ZodRecord<z.ZodString, z.ZodAny>;
+export function JSONField(schema: undefined, options?: JSONFieldOptions): z.ZodRecord<z.ZodString, z.ZodAny>;
+export function JSONField<T extends z.ZodTypeAny>(schema: T, options?: JSONFieldOptions): T;
+export function JSONField<T extends z.ZodTypeAny>(
+  schemaOrOptions?: T | JSONFieldOptions,
+  maybeOptions?: JSONFieldOptions
+): T | z.ZodRecord<z.ZodString, z.ZodAny> {
+  const schema = isZodSchema(schemaOrOptions) ? schemaOrOptions : undefined;
+  // A caller passing the schema conditionally (`JSONField(shape ?? undefined,
+  // { maxSize })`) leaves the options in the second slot, so both are read —
+  // otherwise the size cap would be dropped without a word
+  const options = schema ? maybeOptions : ((schemaOrOptions as JSONFieldOptions | undefined) ?? maybeOptions);
 
-  // Build metadata
+  const baseSchema = schema ?? z.record(z.string(), z.any());
+  const normalizedOptions = normalizeJSONFieldOptions(options, "JSONField");
+
+  // Build metadata — `options` is omitted when the field carries no constraint,
+  // so an unconstrained JSONField serializes exactly as it always has
   const metadata = {
     [FIELD_METADATA_KEY]: {
       type: "json" as const,
+      ...(normalizedOptions && Object.keys(normalizedOptions).length > 0 ? { options: normalizedOptions } : {}),
     },
   };
 

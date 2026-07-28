@@ -81,7 +81,7 @@ describe("CollectionStore", () => {
 
     const cloned = store.clone().getById("_pb_users_auth_")!;
 
-    expect(cloned.fields.getByName("emailVisibility")).toBeUndefined();
+    expect(cloned.fields.getByName("emailVisibility")).toBeNull();
     expect(cloned.fields.getByName("password")).toBeDefined();
   });
 

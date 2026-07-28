@@ -157,6 +157,38 @@ describe("executeMigrationSource", () => {
     expect(apis).toContain("Record");
   });
 
+  it("treats an unsimulated list finder as an empty list", () => {
+    // The batched fetch-and-delete shape hand-written data migrations use:
+    // it must terminate and iterate nothing, not throw "records is not iterable"
+    const { result, store } = run(`
+      migrate((app) => {
+        app.save(new Collection({ id: "pbc_1", name: "posts" }));
+        let removed = 0;
+        while (true) {
+          const records = app.findRecordsByFilter("posts", "id != ''", "", 500, 0);
+          if (!records || records.length === 0) {
+            break;
+          }
+          for (const record of records) {
+            app.delete(record);
+            removed++;
+          }
+          if (records.length < 500) {
+            break;
+          }
+        }
+        const spread = [...app.findAllRecords("posts")];
+        console.log("removed", removed, "spread", spread.length);
+      }, (app) => null);
+    `);
+
+    expect(result.applied).toBe(true);
+    expect(store.getByNameOrId("posts")).toBeDefined();
+    expect(result.warnings.find((w) => w.kind === "console")?.message).toContain("removed 0 spread 0");
+    const apis = result.warnings.filter((w) => w.kind === "unsupported-api").map((w) => w.api);
+    expect(apis).toContain("app.findRecordsByFilter");
+  });
+
   it("strict mode throws on unsupported APIs", () => {
     expect(() =>
       run(
@@ -206,7 +238,8 @@ describe("executeMigrationSource", () => {
     `);
 
     const field = store.getByNameOrId("posts")!.fields.getByName("title")!;
-    expect(field.id).toMatch(/^text\d{10}$/);
+    // The id PocketBase itself would derive: type + crc32(name)
+    expect(field.id).toBe("text724990059");
   });
 
   it("adds the auth system fields when an auth collection is saved", () => {
@@ -234,6 +267,6 @@ describe("executeMigrationSource", () => {
     store.getByNameOrId("members")!.fields.removeByName("verified");
     const next = store.clone();
 
-    expect(next.getByNameOrId("members")!.fields.getByName("verified")).toBeUndefined();
+    expect(next.getByNameOrId("members")!.fields.getByName("verified")).toBeNull();
   });
 });

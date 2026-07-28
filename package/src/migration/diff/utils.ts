@@ -1,3 +1,4 @@
+import { getFieldOptionUnsetValue } from "../utils/type-mapper";
 import { mergeConfig, type DiffEngineConfig } from "./config";
 
 /**
@@ -59,22 +60,6 @@ export function areValuesEqual(a: any, b: any): boolean {
 }
 
 /**
- * Options whose zero value carries no information: PocketBase stores them on
- * every field of the relevant type, and a schema that omits them describes the
- * same field. Keys not listed here (`min`, `max`, …) are compared literally.
- */
-const OPTION_ZERO_VALUES: Record<string, any> = {
-  autogeneratePattern: "",
-  pattern: "",
-  primaryKey: false,
-  convertURLs: false,
-  cost: 0,
-  hidden: false,
-  presentable: false,
-  system: false,
-};
-
-/**
  * Normalizes a field option value to account for PocketBase defaults
  * Returns the normalized value, treating default values as equivalent to undefined
  *
@@ -89,36 +74,39 @@ export function normalizeOptionValue(key: string, value: any, fieldType: string)
   // option means the same thing, so the zero value has to compare equal to a
   // missing one — otherwise replaying a PocketBase-authored migration reports
   // a modification the generator can never settle.
-  if (OPTION_ZERO_VALUES[key] !== undefined && value === OPTION_ZERO_VALUES[key]) {
+  //
+  // `null` arrives from the same place: it is what PocketBase writes for its
+  // pointer-typed options (a number field's `min`/`max`), and what a migration
+  // clearing an option used to assign.
+  if (value === null || value === undefined) {
     return undefined;
   }
 
-  // maxSelect: 1 is the default for select and file fields
+  const unsetValue = getFieldOptionUnsetValue(fieldType, key);
+  if (unsetValue !== undefined && areValuesEqual(value, unsetValue)) {
+    return undefined;
+  }
+
+  // A select field's `values` is stored as an ordered list, but the order
+  // carries no data semantics — it only fixes the option order in the admin
+  // UI, and PocketBase appends options added there to the end. A schema
+  // listing the same options in a different order describes the same field,
+  // so compare them as a multiset (sorted copy, duplicates still count).
+  // A genuine add or remove is still reported, and the generator writes the
+  // whole array back in the schema's order, so the order re-syncs then.
+  if (key === "values" && fieldType === "select" && Array.isArray(value)) {
+    return [...value].sort();
+  }
+
+  // The remaining defaults are not zero values, so they need naming:
+  // maxSelect: 1 is what a single-value select or file field carries
   if (key === "maxSelect" && value === 1 && (fieldType === "select" || fieldType === "file")) {
     return undefined; // Treat as undefined to match missing default
-  }
-
-  // maxSize: 0 is default for file fields
-  if (key === "maxSize" && value === 0 && fieldType === "file") {
-    return undefined;
   }
 
   // min: 1 can be a default for some PocketBase versions/number fields
   if (key === "min" && value === 1 && fieldType === "number") {
     return undefined;
-  }
-
-  // Empty arrays are defaults for file fields
-  if (fieldType === "file") {
-    if (key === "mimeTypes" && Array.isArray(value) && value.length === 0) {
-      return undefined;
-    }
-    if (key === "thumbs" && Array.isArray(value) && value.length === 0) {
-      return undefined;
-    }
-    if (key === "protected" && value === false) {
-      return undefined;
-    }
   }
 
   // Autodate defaults

@@ -142,6 +142,36 @@ describe("Relation Detector", () => {
       expect(resolveTargetCollection("Users")).toBe("Users");
       expect(resolveTargetCollection("Categories")).toBe("Categories");
     });
+
+    // A reference suffix identifies the field as a relation but says nothing
+    // about the target, and the trailing-segment heuristic would turn it into
+    // a collection name nothing answers to ("WorkspaceRef" -> "Reves")
+    it("should refuse to guess a target from a reference suffix", () => {
+      expect(() => resolveTargetCollection("WorkspaceRef")).toThrow(/Cannot infer the relation target/);
+      expect(() => resolveTargetCollection("MediaClipRef")).toThrow(/Cannot infer the relation target/);
+      expect(() => resolveTargetCollection("LabelRefs")).toThrow(/Cannot infer the relation target/);
+      expect(() => resolveTargetCollection("PostId")).toThrow(/Cannot infer the relation target/);
+      expect(() => resolveTargetCollection("AuthorIds")).toThrow(/Cannot infer the relation target/);
+      expect(() => resolveTargetCollection("SessionUuid")).toThrow(/Cannot infer the relation target/);
+    });
+
+    it("should name the field and the explicit declaration that replaces the guess", () => {
+      expect(() => resolveTargetCollection("MediaClipRef")).toThrow(
+        'Cannot infer the relation target for field "MediaClipRef": the name ends in "Ref", ' +
+          "which marks it as a reference without naming the collection it points at. " +
+          'Declare the target explicitly, e.g. MediaClipRef: RelationField({ collection: "MediaClips" }).'
+      );
+    });
+
+    it("should refuse a bare suffix without suggesting a nonsense target", () => {
+      expect(() => resolveTargetCollection("Ref")).toThrow(/collection: "TargetCollection"/);
+    });
+
+    it("should still resolve entity names that merely contain a suffix substring", () => {
+      // "Referral" and "Identity" are entity names, not the "Ref"/"Id" markers
+      expect(resolveTargetCollection("Referral")).toBe("Referrals");
+      expect(resolveTargetCollection("UserIdentity")).toBe("Identities");
+    });
   });
 
   describe("getMaxSelect", () => {

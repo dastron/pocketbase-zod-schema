@@ -678,6 +678,66 @@ export function filterSupportedFieldOptions(
 }
 
 /**
+ * What PocketBase stores for an option that carries no constraint.
+ *
+ * Options live on a Go struct, so there is nothing to delete: dropping `max`
+ * from a text field sets it back to `0`, dropping `pattern` sets it back to
+ * `""`. `min`/`max` are typed per field and handled in
+ * {@link getFieldOptionUnsetValue}.
+ */
+const OPTION_UNSET_VALUES: Record<string, any> = {
+  pattern: "",
+  autogeneratePattern: "",
+  cost: 0,
+  maxSize: 0,
+  maxSelect: 0,
+  minSelect: 0,
+  primaryKey: false,
+  onlyInt: false,
+  noDecimal: false,
+  convertURLs: false,
+  protected: false,
+  hidden: false,
+  presentable: false,
+  system: false,
+  values: [],
+  mimeTypes: [],
+  thumbs: [],
+  exceptDomains: [],
+  onlyDomains: [],
+};
+
+/**
+ * PocketBase's zero value for a field option — what the server holds once the
+ * option no longer constrains anything.
+ *
+ * Removing an option has to be *written*, not omitted: the generator emits
+ * `field.max = 0` rather than `field.max = null`, and the diff treats that zero
+ * value as equivalent to a schema that never set the option. Emitting `null`
+ * instead describes a state PocketBase cannot hold, and replay reads it back as
+ * a removal still pending — a fresh `updated_*` migration on every run.
+ *
+ * @param fieldType - The PocketBase field type, if known
+ * @param key - The option key
+ * @returns The zero value PocketBase stores, or undefined for an unknown key
+ */
+export function getFieldOptionUnsetValue(fieldType: string | undefined, key: string): any {
+  // min/max are typed per field type: *float64 on number (nil when unset),
+  // types.DateTime on date (empty string), plain int everywhere else
+  if (key === "min" || key === "max") {
+    if (fieldType === "number") {
+      return null;
+    }
+    if (fieldType === "date") {
+      return "";
+    }
+    return 0;
+  }
+
+  return OPTION_UNSET_VALUES[key];
+}
+
+/**
  * Gets the PocketBase field type with additional context
  */
 export interface FieldTypeResult {

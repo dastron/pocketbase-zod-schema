@@ -38,6 +38,12 @@ export function isInertStub(value: unknown): boolean {
  * like `app.db().newQuery("...").execute()` don't crash. Every call and
  * property access returns the stub itself; primitive coercion yields
  * neutral values.
+ *
+ * It also pretends to be an empty list: `length` is 0 and iterating it
+ * yields nothing. Unsimulated list finders (`app.findRecordsByFilter`, …)
+ * return this, and the usual `for (const r of found)` /
+ * `while (found.length) {}` shapes in hand-written data migrations must
+ * behave as "nothing matched" rather than crash or spin forever.
  */
 export function createInertStub(name: string, options: EngineOptions, warn: WarningSink): any {
   // Must be a full function (not an arrow) so the Proxy construct trap can
@@ -62,6 +68,16 @@ export function createInertStub(name: string, options: EngineOptions, warn: Warn
       // Not a thenable — await/then chains must not treat this as a promise
       if (prop === "then") {
         return undefined;
+      }
+      // Empty-list behaviour: terminates `while (records.length)` loops and
+      // makes `for (const r of records)` / `[...records]` a no-op
+      if (prop === "length") {
+        return 0;
+      }
+      if (prop === Symbol.iterator) {
+        return function* emptyIterator() {
+          // nothing to yield — the call that produced this stub was not simulated
+        };
       }
       if (typeof prop === "symbol") {
         return undefined;
@@ -127,9 +143,14 @@ class SimulatedAppImpl {
     }
     // PocketBase restores missing auth system fields as part of the save
     ensureAuthSystemFields(collection);
+    // Safety net: FieldsList assigns ids on add, so this only fires for a
+    // field whose id a migration blanked out after the fact
     for (const field of collection.fields) {
       if (typeof field.id !== "string" || field.id === "") {
-        field.id = generateRuntimeFieldId(typeof field.type === "string" ? field.type : "");
+        field.id = generateRuntimeFieldId(
+          typeof field.type === "string" ? field.type : "",
+          typeof field.name === "string" ? field.name : ""
+        );
       }
     }
     this.store.upsert(collection);
