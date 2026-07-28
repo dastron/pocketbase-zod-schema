@@ -1,33 +1,26 @@
 import { z } from "zod";
-import { StatusEnum } from "../enums";
-import {
-  baseImageFileSchema,
-  defineCollection,
-  inputImageFileSchema,
-  omitImageFilesSchema,
-  RelationField,
-  RelationsField,
-} from "./base";
-import { EditorField, JSONField, TextField } from "./fields";
+import { baseSchema, defineCollection, RelationField, RelationsField } from "./base";
+import { EditorField, JSONField, SelectField, TextField } from "./fields";
 
-export const ProjectInputSchema = z
-  .object({
-    // Required fields - using field helpers for explicit type definitions
-    title: TextField({ min: 1, max: 200 }),
-    content: EditorField(),
-    status: StatusEnum,
-    summary: TextField({ max: 500 }).optional(),
-    metadata: JSONField(z.object({
+export const ProjectInputSchema = z.object({
+  // Required fields - using field helpers for explicit type definitions
+  title: TextField({ min: 1, max: 200 }),
+  content: EditorField(),
+  status: SelectField(["draft", "active", "complete", "fail"]),
+  summary: TextField({ max: 500 }).optional(),
+  metadata: JSONField(
+    z.object({
       title: z.string(),
       description: z.string(),
       tags: z.array(z.string()),
-    })),
-    OwnerUser: RelationField({ collection: "Users" }),
-    SubscriberUsers: RelationsField({ collection: "Users" }),
-  })
-  .extend(inputImageFileSchema);
+    })
+  ),
+  OwnerUser: RelationField({ collection: "Users" }),
+  SubscriberUsers: RelationsField({ collection: "Users" }),
+});
 
-export const ProjectSchema = ProjectInputSchema.omit(omitImageFilesSchema).extend(baseImageFileSchema);
+// Full schema with PocketBase system fields, for type inference
+export const ProjectSchema = ProjectInputSchema.extend(baseSchema);
 
 // Define collection with permissions using template and custom overrides
 // Uses 'owner-only' template but allows all authenticated users to list projects
@@ -49,5 +42,5 @@ const ProjectCollection = defineCollection({
 // The migration tool will automatically detect and use this
 export default ProjectCollection;
 
-// Named export kept for backward compatibility and type inference
+// Named export kept for type inference convenience
 export { ProjectCollection };

@@ -67,14 +67,14 @@ describe("Type Mapper - Zod to PocketBase", () => {
   });
 
   describe("mapZodArrayType", () => {
-    it("should map array of strings to relation", () => {
+    it("should map array of strings to json", () => {
       const zodType = z.array(z.string());
-      expect(mapZodArrayType(zodType, "Users")).toBe("relation");
+      expect(mapZodArrayType(zodType)).toBe("json");
     });
 
     it("should map array of other types to json", () => {
       const zodType = z.array(z.number());
-      expect(mapZodArrayType(zodType, "scores")).toBe("json");
+      expect(mapZodArrayType(zodType)).toBe("json");
     });
   });
 
@@ -99,59 +99,59 @@ describe("Type Mapper - Zod to PocketBase", () => {
 
   describe("mapZodTypeToPocketBase", () => {
     it("should map string types correctly", () => {
-      expect(mapZodTypeToPocketBase(z.string(), "name")).toBe("text");
-      expect(mapZodTypeToPocketBase(z.string().email(), "email")).toBe("email");
-      expect(mapZodTypeToPocketBase(z.string().url(), "website")).toBe("url");
+      expect(mapZodTypeToPocketBase(z.string())).toBe("text");
+      expect(mapZodTypeToPocketBase(z.string().email())).toBe("email");
+      expect(mapZodTypeToPocketBase(z.string().url())).toBe("url");
     });
 
     it("should map number types correctly", () => {
-      expect(mapZodTypeToPocketBase(z.number(), "age")).toBe("number");
+      expect(mapZodTypeToPocketBase(z.number())).toBe("number");
     });
 
     it("should map boolean types correctly", () => {
-      expect(mapZodTypeToPocketBase(z.boolean(), "active")).toBe("bool");
+      expect(mapZodTypeToPocketBase(z.boolean())).toBe("bool");
     });
 
     it("should map enum types correctly", () => {
       const statusEnum = z.enum(["active", "pending"]);
-      expect(mapZodTypeToPocketBase(statusEnum, "status")).toBe("select");
+      expect(mapZodTypeToPocketBase(statusEnum)).toBe("select");
     });
 
     it("should map array types correctly", () => {
-      expect(mapZodTypeToPocketBase(z.array(z.string()), "Users")).toBe("relation");
+      expect(mapZodTypeToPocketBase(z.array(z.string()))).toBe("json");
     });
 
     it("should map date types correctly", () => {
-      expect(mapZodTypeToPocketBase(z.date(), "eventDate")).toBe("date");
+      expect(mapZodTypeToPocketBase(z.date())).toBe("date");
     });
 
     it("should map record types correctly", () => {
-      expect(mapZodTypeToPocketBase(z.record(z.string(), z.any()), "metadata")).toBe("json");
+      expect(mapZodTypeToPocketBase(z.record(z.string(), z.any()))).toBe("json");
     });
 
     it("should unwrap optional types", () => {
-      expect(mapZodTypeToPocketBase(z.string().optional(), "name")).toBe("text");
-      expect(mapZodTypeToPocketBase(z.string().email().optional(), "email")).toBe("email");
+      expect(mapZodTypeToPocketBase(z.string().optional())).toBe("text");
+      expect(mapZodTypeToPocketBase(z.string().email().optional())).toBe("email");
     });
 
     it("should unwrap nullable types", () => {
-      expect(mapZodTypeToPocketBase(z.string().nullable(), "name")).toBe("text");
-      expect(mapZodTypeToPocketBase(z.number().nullable(), "age")).toBe("number");
+      expect(mapZodTypeToPocketBase(z.string().nullable())).toBe("text");
+      expect(mapZodTypeToPocketBase(z.number().nullable())).toBe("number");
     });
 
     it("should unwrap default types", () => {
-      expect(mapZodTypeToPocketBase(z.string().default("test"), "name")).toBe("text");
-      expect(mapZodTypeToPocketBase(z.boolean().default(false), "active")).toBe("bool");
+      expect(mapZodTypeToPocketBase(z.string().default("test"))).toBe("text");
+      expect(mapZodTypeToPocketBase(z.boolean().default(false))).toBe("bool");
     });
 
     it("should handle chained optional, nullable, and default", () => {
       const complexType = z.string().optional().nullable().default("test");
-      expect(mapZodTypeToPocketBase(complexType, "name")).toBe("text");
+      expect(mapZodTypeToPocketBase(complexType)).toBe("text");
     });
 
     it("should prioritize metadata over type mapping", () => {
       const schema = z.string().describe(JSON.stringify({ __pocketbase_field__: { type: "editor" } }));
-      expect(mapZodTypeToPocketBase(schema, "some_field")).toBe("editor");
+      expect(mapZodTypeToPocketBase(schema)).toBe("editor");
     });
 
 

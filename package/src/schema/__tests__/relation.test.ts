@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { convertZodSchemaToCollectionSchema } from "../../migration/analyzer";
 import { generateFieldDefinitionObject } from "../../migration/generator";
-import { extractRelationMetadata, RelationField, RelationsField, withPermissions } from "../base";
+import { defineCollection, extractRelationMetadata, RelationField, RelationsField } from "../base";
 
 describe("Explicit Relation Definition", () => {
   describe("RelationField() helper", () => {
@@ -170,9 +170,9 @@ describe("Explicit Relation Definition", () => {
     });
   });
 
-  describe("Explicit vs Implicit Relations", () => {
-    it("should prefer explicit relation metadata over naming convention", () => {
-      // Even with lowercase field name, explicit relation should work
+  describe("Explicit relations", () => {
+    it("should detect explicit relation metadata regardless of field name casing", () => {
+      // Lowercase field name; only the metadata matters
       const schema = z.object({
         owner: RelationField({ collection: "users" }),
       });
@@ -184,27 +184,15 @@ describe("Explicit Relation Definition", () => {
       expect(ownerField?.relation?.collection).toBe("users");
     });
 
-    it("should still support legacy uppercase naming convention", () => {
-      // Legacy behavior: uppercase field name triggers relation detection
-      const schema = z.object({
-        User: z.string(),
-      });
-
-      const collection = convertZodSchemaToCollectionSchema("projects", schema);
-      const userField = collection.fields.find((f) => f.name === "User");
-
-      expect(userField?.type).toBe("relation");
-      expect(userField?.relation?.collection).toBe("Users");
-    });
-
-    it("should work with withPermissions", () => {
-      const schema = withPermissions(
-        z.object({
+    it("should work inside defineCollection with permissions", () => {
+      const schema = defineCollection({
+        collectionName: "posts",
+        schema: z.object({
           title: z.string(),
           author: RelationField({ collection: "users" }),
         }),
-        { template: "authenticated" }
-      );
+        permissions: { template: "authenticated" },
+      });
 
       const collection = convertZodSchemaToCollectionSchema("posts", schema);
       const authorField = collection.fields.find((f) => f.name === "author");
@@ -212,6 +200,31 @@ describe("Explicit Relation Definition", () => {
       expect(authorField?.type).toBe("relation");
       expect(authorField?.relation?.collection).toBe("users");
       expect(collection.permissions).toBeDefined();
+    });
+
+    it("should map a bare uppercase string field to text, not relation", () => {
+      // Field names carry no meaning — no naming-convention relation detection
+      const schema = z.object({
+        User: z.string(),
+      });
+
+      const collection = convertZodSchemaToCollectionSchema("projects", schema);
+      const userField = collection.fields.find((f) => f.name === "User");
+
+      expect(userField?.type).toBe("text");
+      expect(userField?.relation).toBeUndefined();
+    });
+
+    it("should map a bare string array to json, not relation", () => {
+      const schema = z.object({
+        Tags: z.array(z.string()),
+      });
+
+      const collection = convertZodSchemaToCollectionSchema("posts", schema);
+      const tagsField = collection.fields.find((f) => f.name === "Tags");
+
+      expect(tagsField?.type).toBe("json");
+      expect(tagsField?.relation).toBeUndefined();
     });
   });
 

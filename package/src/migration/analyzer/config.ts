@@ -29,12 +29,6 @@ export interface SchemaAnalyzerConfig {
   includeExtensions?: string[];
 
   /**
-   * Schema export name patterns to look for
-   * Defaults to ['Schema', 'InputSchema']
-   */
-  schemaPatterns?: string[];
-
-  /**
    * Whether to use compiled JavaScript files instead of TypeScript source
    * When true, looks for .js files; when false, looks for .ts files
    * Defaults to true (use compiled files for dynamic import)
@@ -65,7 +59,6 @@ export const DEFAULT_CONFIG: Required<Omit<SchemaAnalyzerConfig, "schemaDir" | "
     "permission-templates.js",
   ],
   includeExtensions: [".ts", ".js"],
-  schemaPatterns: ["Schema", "InputSchema", "Collection"],
   useCompiledFiles: true,
 };
 
@@ -80,7 +73,6 @@ export function mergeConfig(
     ...config,
     excludePatterns: config.excludePatterns || DEFAULT_CONFIG.excludePatterns,
     includeExtensions: config.includeExtensions || DEFAULT_CONFIG.includeExtensions,
-    schemaPatterns: config.schemaPatterns || DEFAULT_CONFIG.schemaPatterns,
   };
 }
 

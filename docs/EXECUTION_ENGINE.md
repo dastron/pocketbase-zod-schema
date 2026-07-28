@@ -136,7 +136,7 @@ options.
 | CLI | `pocketbase-migrate generate --verify`, `pocketbase-migrate status --verify [--pb-data <path>]`, `pocketbase-migrate lint` |
 | Programmatic | `loadSnapshotWithMigrations({ migrationsPath, engineOptions, appliedMigrations })` |
 
-Programmatic API (also exported from `pocketbase-zod-schema/migration/engine`):
+Programmatic API (also exported from `pocketbase-zod-schema/server`):
 
 ```ts
 import {
@@ -144,7 +144,7 @@ import {
   replayMigrations,
   executeMigrationFile,
   CollectionStore,
-} from "pocketbase-zod-schema/migration/engine";
+} from "pocketbase-zod-schema/server";
 
 const result = replayMigrationsDirectory("pocketbase/pb_migrations", {
   strictness: "lenient",
@@ -173,7 +173,7 @@ import {
   readAppliedMigrations,
   planMigrationReplay,
   replayMigrationsDirectory,
-} from "pocketbase-zod-schema/migration/engine";
+} from "pocketbase-zod-schema/server";
 
 const applied = readAppliedMigrations("pocketbase/pb_data");
 const plan = planMigrationReplay("pocketbase/pb_migrations", { applied });
@@ -321,9 +321,11 @@ runs `up()`. Verification closes that gap by executing both directions:
    reported per difference.
 
 ```ts
-import { verifyMigrationFiles, verifyMigrationRoundTrip } from "pocketbase-zod-schema/migration/engine";
+import * as fs from "node:fs";
+import { verifyMigrationSources } from "pocketbase-zod-schema/server";
 
-const report = verifyMigrationFiles(["pb_migrations/1712345678_created_Posts.js"]);
+const files = ["pb_migrations/1712345678_created_Posts.js"];
+const report = verifyMigrationSources(files.map((file) => ({ source: fs.readFileSync(file, "utf-8"), file })));
 // report.ok        -> every migration applied and reversed cleanly
 // report.failures  -> the results that did not
 // report.store     -> state after every up(), as replay would build it
@@ -332,6 +334,11 @@ for (const failure of report.failures) {
   console.log(failure.file, failure.differences.map((d) => d.message));
 }
 ```
+
+`verifyMigrationSources` (the sequence-level entry point above) is what `pocketbase-zod-schema/server`
+re-exports. The single-file/single-round-trip helpers (`verifyMigrationFiles`,
+`verifyMigrationRoundTrip`, `verifyMigrationFileRoundTrip`) exist in `migration/engine/verify.ts` but
+are not part of the public surface — build a `MigrationSourceRef[]` from disk as shown instead.
 
 A sequence is verified the way it will be applied: each file is round-tripped
 against the state its predecessors leave behind, then its `up()` is committed

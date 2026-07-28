@@ -1,25 +1,5 @@
 import type { SchemaDiff } from "../types";
 import { type DiffEngineConfig } from "./config";
-import { detectDestructiveChanges, type DestructiveChange } from "./destructiveness";
-
-/**
- * Change summary for status reporting
- */
-export interface ChangeSummary {
-  totalChanges: number;
-  collectionsToCreate: number;
-  collectionsToDelete: number;
-  collectionsToModify: number;
-  fieldsToAdd: number;
-  fieldsToRemove: number;
-  fieldsToModify: number;
-  indexChanges: number;
-  ruleChanges: number;
-  permissionChanges: number;
-  viewQueryChanges: number;
-  destructiveChanges: DestructiveChange[];
-  nonDestructiveChanges: string[];
-}
 
 /**
  * Categorizes changes by severity
@@ -104,53 +84,4 @@ export function categorizeChangesBySeverity(
   }
 
   return { destructive, nonDestructive };
-}
-
-/**
- * Generates a summary of all changes in a diff
- * Useful for status reporting and user feedback
- *
- * @param diff - Schema diff to summarize
- * @param config - Optional configuration
- * @returns Change summary with counts and details
- */
-export function generateChangeSummary(diff: SchemaDiff, config?: DiffEngineConfig): ChangeSummary {
-  const destructiveChanges = detectDestructiveChanges(diff, config);
-  const { nonDestructive } = categorizeChangesBySeverity(diff, config);
-
-  let fieldsToAdd = 0;
-  let fieldsToRemove = 0;
-  let fieldsToModify = 0;
-  let indexChanges = 0;
-  let ruleChanges = 0;
-  let permissionChanges = 0;
-  let viewQueryChanges = 0;
-
-  for (const modification of diff.collectionsToModify) {
-    fieldsToAdd += modification.fieldsToAdd.length;
-    fieldsToRemove += modification.fieldsToRemove.length;
-    fieldsToModify += modification.fieldsToModify.length;
-    indexChanges += modification.indexesToAdd.length + modification.indexesToRemove.length;
-    ruleChanges += modification.rulesToUpdate.length;
-    permissionChanges += modification.permissionsToUpdate.length;
-    if (modification.viewQueryUpdate) {
-      viewQueryChanges += 1;
-    }
-  }
-
-  return {
-    totalChanges: diff.collectionsToCreate.length + diff.collectionsToDelete.length + diff.collectionsToModify.length,
-    collectionsToCreate: diff.collectionsToCreate.length,
-    collectionsToDelete: diff.collectionsToDelete.length,
-    collectionsToModify: diff.collectionsToModify.length,
-    fieldsToAdd,
-    fieldsToRemove,
-    fieldsToModify,
-    indexChanges,
-    ruleChanges,
-    permissionChanges,
-    viewQueryChanges,
-    destructiveChanges,
-    nonDestructiveChanges: nonDestructive,
-  };
 }

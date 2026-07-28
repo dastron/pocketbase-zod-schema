@@ -10,27 +10,20 @@ import * as fs from "fs";
 import * as path from "path";
 import { FileSystemError, MigrationGenerationError } from "../errors";
 import type { CollectionOperation, SchemaDiff } from "../types";
-import { mergeConfig, type MigrationGeneratorConfig } from "./config";
+import { type MigrationGeneratorConfig } from "./config";
 import { createMigrationFileStructure, resolveMigrationDir, writeMigrationFile } from "./file-writer";
-import {
-  generateDownMigration,
-  generateOperationDownMigration,
-  generateOperationUpMigration,
-  generateUpMigration,
-} from "./migrator";
-import { generateCollectionMigrationFilename, generateMigrationFilename, splitDiffByCollection } from "./operations";
+import { generateOperationDownMigration, generateOperationUpMigration } from "./migrator";
+import { generateCollectionMigrationFilename, splitDiffByCollection } from "./operations";
 import { generateTimestamp } from "./utils";
 
-// Export everything from submodules
-export * from "./collections";
-export * from "./config";
-export * from "./fields";
-export * from "./file-writer";
-export * from "./indexes";
-export * from "./migrator";
-export * from "./operations";
-export * from "./rules";
-export * from "./utils";
+// Curated submodule surface — file-writer/config internals (mergeConfig,
+// DEFAULT_CONFIG, generateFindCollectionCode, ...) stay module-private
+export { type MigrationGeneratorConfig } from "./config";
+export { createMigrationFileStructure, writeMigrationFile } from "./file-writer";
+export { generateFieldDefinitionObject } from "./fields";
+export { generateOperationDownMigration, generateOperationUpMigration } from "./migrator";
+export { generateCollectionMigrationFilename, splitDiffByCollection } from "./operations";
+export { generateCollectionPermissions } from "./rules";
 
 /**
  * A migration file that has been generated but not yet written to disk
@@ -179,53 +172,4 @@ export function generate(diff: SchemaDiff, config: MigrationGeneratorConfig | st
  */
 export function writePlannedMigrations(planned: PlannedMigration[], migrationDir: string): string[] {
   return planned.map((migration) => writeMigrationFile(migrationDir, migration.filename, migration.content));
-}
-
-/**
- * MigrationGenerator class for object-oriented usage
- * Provides a stateful interface for migration generation
- */
-export class MigrationGenerator {
-  private config: Required<MigrationGeneratorConfig>;
-
-  constructor(config: MigrationGeneratorConfig) {
-    this.config = mergeConfig(config);
-  }
-
-  /**
-   * Generates migration files from a schema diff
-   * Returns array of file paths (one per collection operation)
-   */
-  generate(diff: SchemaDiff): string[] {
-    return generate(diff, this.config);
-  }
-
-  /**
-   * Generates the migration file contents without writing them, so they can
-   * be inspected or verified first
-   */
-  plan(diff: SchemaDiff): PlannedMigration[] {
-    return planMigrations(diff, this.config);
-  }
-
-  /**
-   * Generates the up migration code without writing to file
-   */
-  generateUpMigration(diff: SchemaDiff): string {
-    return generateUpMigration(diff);
-  }
-
-  /**
-   * Generates the down migration code without writing to file
-   */
-  generateDownMigration(diff: SchemaDiff): string {
-    return generateDownMigration(diff);
-  }
-
-  /**
-   * Generates a migration filename
-   */
-  generateMigrationFilename(diff: SchemaDiff): string {
-    return generateMigrationFilename(diff, this.config);
-  }
 }

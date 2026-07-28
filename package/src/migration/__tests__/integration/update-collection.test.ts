@@ -11,15 +11,14 @@ import * as path from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compare } from "../../diff";
 import { generate } from "../../generator";
-import { loadSnapshot } from "../../snapshot";
 import type { SchemaDefinition } from "../../types";
-import {
-  editCollectionAddFieldAfterName,
-  editCollectionAddFieldAfterType,
-  editCollectionAddIndexAfterName,
-  editCollectionAddIndexAfterType,
-} from "../fixtures/schemas";
 import { compareMigrations, formatDifferences, parseMigrationFile } from "../helpers";
+import { loadJsonSnapshotFixture } from "../helpers/json-snapshot";
+
+const editCollectionAddFieldAfterName = "edit_collection_add_field";
+const editCollectionAddFieldAfterType = "base" as const;
+const editCollectionAddIndexAfterName = "edit_collection_add_index";
+const editCollectionAddIndexAfterType = "base" as const;
 
 /**
  * Helper function to create a schema definition from a collection schema
@@ -58,7 +57,7 @@ describe("Collection Update Integration Tests", () => {
 
       // Load snapshot representing the before state
       const snapshotPath = path.join(snapshotsDir, "edit-collection-add-field-before.json");
-      const previousSnapshot = loadSnapshot({ snapshotPath });
+      const previousSnapshot = loadJsonSnapshotFixture(snapshotPath);
 
       // Create schema definition for the after state with the new field
       const afterCollectionSchema: any = {
@@ -423,7 +422,7 @@ describe("Collection Update Integration Tests", () => {
 
       // Load snapshot representing the before state
       const snapshotPath = path.join(snapshotsDir, "edit-collection-add-index-before.json");
-      const previousSnapshot = loadSnapshot({ snapshotPath });
+      const previousSnapshot = loadJsonSnapshotFixture(snapshotPath);
 
       // Create schema definition for the after state with field and index
       const afterCollectionSchema: any = {

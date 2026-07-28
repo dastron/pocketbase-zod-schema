@@ -171,18 +171,15 @@ export interface StatusBaselines {
  *
  * @param currentSchema - Schema parsed from the Zod files
  * @param migrationsDir - Directory holding the migration files
- * @param workspaceRoot - Root used to resolve migration imports
  * @param applied - Result of the `_migrations` lookup, if one was made
  */
 export function loadStatusBaselines(
   currentSchema: SchemaDefinition,
   migrationsDir: string,
-  workspaceRoot: string,
   applied: AppliedLookup | null
 ): StatusBaselines {
   const previousSnapshot = loadSnapshotWithMigrations({
     migrationsPath: migrationsDir,
-    workspaceRoot,
   });
 
   if (applied?.status !== "found" || applied.plan.inSync) {
@@ -191,7 +188,6 @@ export function loadStatusBaselines(
 
   const appliedSnapshot = loadSnapshotWithMigrations({
     migrationsPath: migrationsDir,
-    workspaceRoot,
     appliedMigrations: applied.applied,
   });
 
@@ -411,7 +407,7 @@ export async function executeStatus(options: any): Promise<void> {
     }
 
     logInfo("Loading previous snapshot...");
-    const { previousSnapshot, appliedDiff } = loadStatusBaselines(currentSchema, migrationsDir, process.cwd(), applied);
+    const { previousSnapshot, appliedDiff } = loadStatusBaselines(currentSchema, migrationsDir, applied);
 
     // Drift is reported before the schema comparison, and fails the command
     // when it was explicitly asked for — but the rest of the status still
@@ -540,7 +536,7 @@ export async function executeStatus(options: any): Promise<void> {
       console.error();
       logInfo("Suggestions:");
       console.log("  • Make sure your schema files are valid Zod schemas");
-      console.log('  • Check that schema files export schemas ending with "Schema" or "InputSchema"');
+      console.log('  • Check that each schema file exports a defineCollection()/defineView() result (default export preferred)');
     } else if (error instanceof SnapshotError) {
       logError("Snapshot Error");
       console.error();

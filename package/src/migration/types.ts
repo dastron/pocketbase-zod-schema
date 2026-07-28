@@ -2,15 +2,9 @@
  * Shared types for migration tool
  */
 
-// Import and re-export PocketBaseFieldType from schema/fields to avoid duplication
-import type { PocketBaseFieldType } from "../schema/fields.js";
-export type { PocketBaseFieldType };
-
-// Import and re-export APIRuleType from schema/permissions to avoid duplication
-import type { APIRuleType } from "../utils/permissions.js";
-export type { APIRuleType };
-
 import { z } from "zod";
+import type { PocketBaseFieldType } from "../schema/fields.js";
+import type { APIRuleType } from "../utils/permissions.js";
 
 export interface FieldDefinition {
   name: string;

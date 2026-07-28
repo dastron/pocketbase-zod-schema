@@ -1,25 +1,37 @@
 # Permission Schema Usage Guide
 
-How to use the permission exports from `pocketbase-zod-schema/schema`.
+How to use the permission exports from `pocketbase-zod-schema`.
 
-> `withPermissions()` is the older API and still supported. For new code, pass `permissions`
-> directly to `defineCollection()` — it accepts the same `PermissionSchema` and
-> `PermissionTemplateConfig` shapes shown here, and keeps the collection name, schema, permissions
-> and indexes in one place. Every example below has a `defineCollection()` equivalent:
->
-> ```typescript
-> export default defineCollection({
->   collectionName: "posts",
->   schema: PostSchema,
->   permissions: { template: "owner-only", ownerField: "author" },
-> });
-> ```
+Pass `permissions` directly to `defineCollection()` (or, for a view, the smaller `listRule`/
+`viewRule`-only shape accepted by `defineView()`). It keeps the collection name, schema,
+permissions and indexes in one place, and accepts either a template config or a fully custom
+`PermissionSchema`:
+
+```typescript
+export default defineCollection({
+  collectionName: "posts",
+  schema: PostSchema,
+  permissions: { template: "owner-only", ownerField: "author" },
+});
+```
+
+```typescript
+export default defineView({
+  collectionName: "ProjectStats",
+  schema: ProjectStatsSchema,
+  viewQuery: sql`...`,
+  permissions: {
+    listRule: "owner = @request.auth.id",
+    viewRule: "owner = @request.auth.id",
+  },
+});
+```
 
 ## Importing
 
 ```typescript
 import {
-  withPermissions,
+  defineCollection,
   PermissionTemplates,
   resolveTemplate,
   type PermissionSchema,
@@ -27,7 +39,7 @@ import {
   type APIRuleType,
   type RuleExpression,
   type PermissionTemplate,
-} from "pocketbase-zod-schema/schema";
+} from "pocketbase-zod-schema";
 ```
 
 ## Using Permission Templates
@@ -36,90 +48,98 @@ import {
 
 ```typescript
 import { z } from "zod";
-import { withPermissions } from "pocketbase-zod-schema/schema";
+import { defineCollection } from "pocketbase-zod-schema";
 
-const PublicPostSchema = withPermissions(
-  z.object({
+export default defineCollection({
+  collectionName: "posts",
+  schema: z.object({
     title: z.string(),
     content: z.string(),
   }),
-  { template: "public" }
-);
+  permissions: { template: "public" },
+});
 ```
 
 ### Authenticated Users Only
 
 ```typescript
-const AuthenticatedPostSchema = withPermissions(
-  z.object({
+export default defineCollection({
+  collectionName: "posts",
+  schema: z.object({
     title: z.string(),
     content: z.string(),
   }),
-  { template: "authenticated" }
-);
+  permissions: { template: "authenticated" },
+});
 ```
 
 ### Owner-Only Access
 
 ```typescript
-const PrivatePostSchema = withPermissions(
-  z.object({
+import { RelationField } from "pocketbase-zod-schema";
+
+export default defineCollection({
+  collectionName: "posts",
+  schema: z.object({
     title: z.string(),
     content: z.string(),
-    User: z.string(), // Owner relation field
+    author: RelationField({ collection: "users" }), // Owner relation field
   }),
-  {
+  permissions: {
     template: "owner-only",
-    ownerField: "User",
-  }
-);
+    ownerField: "author",
+  },
+});
 ```
 
 ### Admin-Only Access
 
 ```typescript
-const AdminPostSchema = withPermissions(
-  z.object({
+export default defineCollection({
+  collectionName: "posts",
+  schema: z.object({
     title: z.string(),
     content: z.string(),
   }),
-  {
+  permissions: {
     template: "admin-only",
     roleField: "role", // Field to check for admin role
-  }
-);
+  },
+});
 ```
 
 ### Read-Public, Write-Authenticated
 
 ```typescript
-const BlogPostSchema = withPermissions(
-  z.object({
+export default defineCollection({
+  collectionName: "posts",
+  schema: z.object({
     title: z.string(),
     content: z.string(),
   }),
-  { template: "read-public" }
-);
+  permissions: { template: "read-public" },
+});
 ```
 
 ## Using Custom Rules
 
 ```typescript
-const CustomPostSchema = withPermissions(
-  z.object({
+export default defineCollection({
+  collectionName: "posts",
+  schema: z.object({
     title: z.string(),
     content: z.string(),
-    User: z.string(),
+    author: RelationField({ collection: "users" }),
     status: z.enum(["draft", "published"]),
   }),
-  {
+  permissions: {
     listRule: '@request.auth.id != "" && status = "published"',
-    viewRule: '@request.auth.id != "" && (User = @request.auth.id || status = "published")',
+    viewRule: '@request.auth.id != "" && (author = @request.auth.id || status = "published")',
     createRule: '@request.auth.id != ""',
-    updateRule: '@request.auth.id != "" && User = @request.auth.id',
-    deleteRule: '@request.auth.id != "" && User = @request.auth.id',
-  }
-);
+    updateRule: '@request.auth.id != "" && author = @request.auth.id',
+    deleteRule: '@request.auth.id != "" && author = @request.auth.id',
+  },
+});
 ```
 
 ### Relation Paths and Back-Relations
@@ -129,8 +149,8 @@ Rules can traverse relations with dot notation, in both directions.
 **Forward** — follow a relation field on this collection:
 
 ```typescript
-// Captions.WorkspaceRef -> Workspaces.OwnerRef
-listRule: "WorkspaceRef.OwnerRef = @request.auth.id";
+// Captions.workspace -> Workspaces.owner
+listRule: "workspace.owner = @request.auth.id";
 ```
 
 **Backward** — PocketBase's `<collection>_via_<field>` syntax selects the rows of
@@ -139,15 +159,15 @@ membership join table:
 
 ```typescript
 // Workspaces: "I am a member of this workspace".
-// WorkspaceMembers.WorkspaceRef points back at Workspaces; ?= is the
+// WorkspaceMembers.workspace points back at Workspaces; ?= is the
 // at-least-one-match operator, since the back-relation yields many rows.
-listRule: "WorkspaceMembers_via_WorkspaceRef.UserRef ?= @request.auth.id";
+listRule: "workspaceMembers_via_workspace.user ?= @request.auth.id";
 
 // Captions: hop to the workspace first, then walk the same relation backwards
-listRule: "WorkspaceRef.WorkspaceMembers_via_WorkspaceRef.UserRef ?= @request.auth.id";
+listRule: "workspace.workspaceMembers_via_workspace.user ?= @request.auth.id";
 ```
 
-Note there is no `WorkspaceMembers_via_WorkspaceRef` field to declare in your Zod schema —
+Note there is no `workspaceMembers_via_workspace` field to declare in your Zod schema —
 the back-relation is derived from the *other* collection's relation field.
 
 **Validation reaches one hop only.** Rule validation runs per collection, so only the root
@@ -160,32 +180,33 @@ therefore surfaces at PocketBase runtime (the rule silently matches nothing), no
 ## Combining Templates with Custom Rules
 
 ```typescript
-const HybridPostSchema = withPermissions(
-  z.object({
+export default defineCollection({
+  collectionName: "posts",
+  schema: z.object({
     title: z.string(),
     content: z.string(),
-    User: z.string(),
+    author: RelationField({ collection: "users" }),
   }),
-  {
+  permissions: {
     template: "owner-only",
-    ownerField: "User",
+    ownerField: "author",
     customRules: {
       // Override list rule to allow viewing all posts
       listRule: '@request.auth.id != ""',
     },
-  }
-);
+  },
+});
 ```
 
 ## Using Permission Templates Directly
 
 ```typescript
-import { PermissionTemplates } from "pocketbase-zod-schema/schema";
+import { PermissionTemplates } from "pocketbase-zod-schema";
 
 // Get permission rules without attaching to a schema
 const publicRules = PermissionTemplates.public();
 const authRules = PermissionTemplates.authenticated();
-const ownerRules = PermissionTemplates.ownerOnly("User");
+const ownerRules = PermissionTemplates.ownerOnly("author");
 const adminRules = PermissionTemplates.adminOnly("role");
 const readPublicRules = PermissionTemplates.readPublic();
 const lockedRules = PermissionTemplates.locked();                 // every rule null
@@ -199,11 +220,11 @@ them directly and pass the result as `permissions`.
 ## Resolving Templates Programmatically
 
 ```typescript
-import { resolveTemplate } from "pocketbase-zod-schema/schema";
+import { resolveTemplate } from "pocketbase-zod-schema";
 
 const config = {
   template: "owner-only" as const,
-  ownerField: "User",
+  ownerField: "author",
   customRules: {
     listRule: '@request.auth.id != ""',
   },

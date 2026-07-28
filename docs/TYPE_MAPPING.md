@@ -1,6 +1,6 @@
 # Type Mapping Reference
 
-This document provides a comprehensive reference for how Zod schemas are mapped to PocketBase field types in the migration system. The library supports two approaches: explicit field helpers (recommended) and automatic type inference (backward compatible).
+This document provides a comprehensive reference for how Zod schemas are mapped to PocketBase field types in the migration system. The library supports two approaches: explicit field helpers (recommended, and the only way to reach some PocketBase field types and options) and a loose structural mapping for plain Zod types that keeps simple fields simple.
 
 ## Field Helper Functions (Recommended)
 
@@ -14,7 +14,7 @@ Field helpers provide explicit, type-safe field definitions with PocketBase-spec
 
 **Example:**
 ```typescript
-import { BoolField } from "pocketbase-zod-schema/schema";
+import { BoolField } from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   active: BoolField(),
@@ -44,7 +44,7 @@ const ProductSchema = z.object({
 
 **Example:**
 ```typescript
-import { NumberField } from "pocketbase-zod-schema/schema";
+import { NumberField } from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   price: NumberField({ min: 0 }),
@@ -77,7 +77,7 @@ const ProductSchema = z.object({
 
 **Example:**
 ```typescript
-import { TextField } from "pocketbase-zod-schema/schema";
+import { TextField } from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   name: TextField({ min: 1, max: 200 }),
@@ -105,7 +105,7 @@ const ProductSchema = z.object({
 
 **Example:**
 ```typescript
-import { EmailField } from "pocketbase-zod-schema/schema";
+import { EmailField } from "pocketbase-zod-schema";
 
 const UserSchema = z.object({
   email: EmailField(),
@@ -130,7 +130,7 @@ const UserSchema = z.object({
 
 **Example:**
 ```typescript
-import { URLField } from "pocketbase-zod-schema/schema";
+import { URLField } from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   website: URLField(),
@@ -155,7 +155,7 @@ const ProductSchema = z.object({
 
 **Example:**
 ```typescript
-import { EditorField } from "pocketbase-zod-schema/schema";
+import { EditorField } from "pocketbase-zod-schema";
 
 const PostSchema = z.object({
   content: EditorField(),
@@ -184,7 +184,7 @@ const PostSchema = z.object({
 
 **Example:**
 ```typescript
-import { DateField } from "pocketbase-zod-schema/schema";
+import { DateField } from "pocketbase-zod-schema";
 
 const EventSchema = z.object({
   startDate: DateField(),
@@ -214,7 +214,7 @@ const EventSchema = z.object({
 
 **Example:**
 ```typescript
-import { AutodateField } from "pocketbase-zod-schema/schema";
+import { AutodateField } from "pocketbase-zod-schema";
 
 const PostSchema = z.object({
   createdAt: AutodateField({ onCreate: true }),
@@ -247,7 +247,7 @@ const PostSchema = z.object({
 
 **Example:**
 ```typescript
-import { SelectField } from "pocketbase-zod-schema/schema";
+import { SelectField } from "pocketbase-zod-schema";
 
 const PostSchema = z.object({
   // Single select
@@ -303,7 +303,7 @@ the option order in the admin UI.
 
 **Example:**
 ```typescript
-import { FileField } from "pocketbase-zod-schema/schema";
+import { FileField } from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   thumbnail: FileField({ 
@@ -345,7 +345,7 @@ equivalent: `z.ZodType<string[], (File | string)[]>`.
 
 **Example:**
 ```typescript
-import { FilesField } from "pocketbase-zod-schema/schema";
+import { FilesField } from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   images: FilesField({ 
@@ -389,7 +389,7 @@ Either argument may be given alone — `JSONField({ maxSize: "5M" })` is an unty
 
 **Example:**
 ```typescript
-import { JSONField } from "pocketbase-zod-schema/schema";
+import { JSONField } from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   // Any JSON
@@ -432,7 +432,7 @@ const ProductSchema = z.object({
 
 **Example:**
 ```typescript
-import { GeoPointField } from "pocketbase-zod-schema/schema";
+import { GeoPointField } from "pocketbase-zod-schema";
 
 const LocationSchema = z.object({
   coordinates: GeoPointField(),
@@ -467,7 +467,7 @@ const LocationSchema = z.object({
 
 **Example:**
 ```typescript
-import { RelationField, RelationsField } from "pocketbase-zod-schema/schema";
+import { RelationField, RelationsField } from "pocketbase-zod-schema";
 
 const PostSchema = z.object({
   // Single relation
@@ -529,14 +529,21 @@ const PostSchema = z.object({
 | `RelationField(config)` | relation | collection, cascadeDelete, displayFields | `author: RelationField({ collection: "users" })` |
 | `RelationsField(config)` | relation | collection, minSelect, maxSelect | `tags: RelationsField({ collection: "tags" })` |
 
-`SingleSelectField(values)` and `MultiSelectField(values, options?)` are also exported, for when
-you want the single/multiple decision made at the call site instead of inferred from `maxSelect`.
+`SelectField` is a single function with two overloads, resolved by `maxSelect`: omitted or
+`{ maxSelect: 1 }` returns a `ZodEnum` (single select); `{ maxSelect: N }` with `N > 1` returns a
+`ZodArray` (multiple select). There is no separate `SingleSelectField`/`MultiSelectField` — pass a
+literal `maxSelect` so the overloads can pick the right return type; a widened `number` variable
+resolves to the array overload even when its runtime value happens to be `1`.
 
 ---
 
-## Automatic Type Inference (Backward Compatible)
+## Loose Structural Contract (Plain Zod Types)
 
-For backward compatibility, the library still supports automatic type inference from plain Zod types. However, using field helpers is recommended for new schemas.
+A field with no field-helper or relation metadata falls back to a loose structural mapping: the
+library looks only at the Zod type and its chained validators, never the field's name. Field
+helpers are recommended for new schemas because they carry options (autogenerate patterns, file
+constraints, autodate on/off) the structural mapping cannot infer — but plain Zod types remain a
+first-class way to declare simple fields.
 
 ### Basic Type Mappings
 
@@ -554,71 +561,14 @@ For backward compatibility, the library still supports automatic type inference 
 | `z.object({...})` | `json` | `settings: z.object({ theme: z.string() })` |
 | `z.instanceof(File)` | `file` | `avatar: z.instanceof(File)` |
 | `z.array(z.instanceof(File))` | `file` | `images: z.array(z.instanceof(File))` |
-| `z.array(z.string())` | `relation` | see the caveat below |
+| `z.array(z.string())` | `json` | `tags: z.array(z.string())` |
 | `z.array(<anything else>)` | `json` | `scores: z.array(z.number())` |
 
-> **Caveat — `z.array(z.string())` always maps to `relation`.** The array-of-strings case is
-> assumed to be a relation regardless of the field name. If the name does not also satisfy the
-> naming convention below, the field is emitted as a `relation` with **no target collection**,
-> which PocketBase will reject. Use `RelationsField({ collection })` for real relations and
-> `JSONField(z.array(z.string()))` for a plain list of strings.
-
-### Relation Type Mappings (Automatic Detection)
-
-**Note:** For explicit relation definitions, use `RelationField()` and `RelationsField()` helpers instead. Naming-convention detection exists for backward compatibility and only applies when a field carries no relation metadata.
-
-### Single Relations
-
-A **`z.string()` field whose name starts with an uppercase letter** is treated as a single
-relation, unless the name is one of the excluded common fields (`Title`, `Name`, `Description`,
-`Content`, `Summary`, `Status`, `Type`). The target collection is the field name pluralized —
-whether or not a collection by that name exists.
-
-```typescript
-{
-  User: z.string(),           // → relation to Users (maxSelect: 1)
-  Author: z.string(),         // → relation to Authors (maxSelect: 1)
-  Category: z.string(),       // → relation to Categories (maxSelect: 1)
-  Title: z.string(),          // → text (excluded name)
-  username: z.string(),       // → text (lowercase)
-}
-```
-
-**Generated PocketBase Field:**
-```javascript
-{
-  name: "User",
-  type: "relation",
-  required: true,
-  maxSelect: 1,
-  collectionId: "users_collection_id"
-}
-```
-
-### Multiple Relations
-
-A **`z.array(z.string())` field whose name contains any uppercase letter** is treated as a multiple
-relation. The target collection is the *last* capitalized word in the name, pluralized.
-
-```typescript
-{
-  Tags: z.array(z.string()),              // → relation to Tags (maxSelect: 999)
-  SubscriberUsers: z.array(z.string()),   // → relation to Users (maxSelect: 999)
-  Categories: z.array(z.string()),        // → relation to Categories (maxSelect: 999)
-  relatedPosts: z.array(z.string()),      // → relation to Posts (the "P" is enough)
-}
-```
-
-**Generated PocketBase Field:**
-```javascript
-{
-  name: "Tags",
-  type: "relation",
-  required: true,
-  maxSelect: 999,
-  collectionId: "tags_collection_id"
-}
-```
+There is no name-based or shape-based relation guessing anywhere in this mapping. A `relation`
+field only ever comes from `RelationField()`/`RelationsField()` metadata (see
+[Relation Fields](#relation-fields) above); a bare `z.array(z.string())` is an ordinary `json`
+array, because PocketBase has no plain string-array type. Use `RelationsField({ collection })` for
+a real multi-relation, or `SelectField(values, { maxSelect })` for a multi-select.
 
 ## Validation Constraint Mappings
 
@@ -721,7 +671,7 @@ already models both, so a single declaration covers the collection *and* the for
 
 ```typescript
 import { z } from "zod";
-import { defineCollection, FileField, TextField } from "pocketbase-zod-schema/schema";
+import { defineCollection, FileField, TextField } from "pocketbase-zod-schema";
 
 export const UserSchema = z.object({
   name: TextField({ max: 100 }),
@@ -759,10 +709,6 @@ export const UserInputSchema = UserSchema.extend({
 });
 ```
 
-The library also ships ready-made fragments — `baseImageFileSchema` (adds `thumbnailURL` and
-`imageFiles` to `baseSchema`), `inputImageFileSchema` and `omitImageFilesSchema`. All three are
-plain objects of Zod fields, so spread them or pass them to `.extend()`.
-
 ## Enum Mappings
 
 Zod enums map to PocketBase `select` fields, with the enum members becoming the allowed values:
@@ -796,12 +742,13 @@ multi-select.
 
 ## Collection Type Detection
 
-`defineCollection({ type })` always wins. When `type` is omitted, the type is inferred:
+`defineCollection({ type })` is the only way to set a collection's type — there is no inference
+from the fields present. A schema with `email` and `password` fields does **not** become an `auth`
+collection on its own; you must write `type: "auth"` explicitly.
 
 ### Auth Collection
 
-Detected when the schema contains **both** an `email` and a `password` field (case-insensitive on
-the field names). One without the other is not enough:
+Explicit only:
 
 ```typescript
 export const UserSchema = z.object({
@@ -809,13 +756,19 @@ export const UserSchema = z.object({
   password: TextField({ min: 8 }),
   name: TextField({ max: 100 }).optional(),
 });
+
+export default defineCollection({
+  collectionName: "Users",
+  type: "auth", // required — never inferred from the fields
+  schema: UserSchema,
+});
 ```
 
 **Generated Collection:**
 ```javascript
 {
   name: "Users",
-  type: "auth", // Automatically detected
+  type: "auth",
   fields: [...] // plus the injected system fields
 }
 ```
@@ -825,7 +778,7 @@ Auth collections get PocketBase's system fields injected (`email`, `emailVisibil
 
 ### Base Collection
 
-Default for everything else:
+Default for everything else — including a schema with `email`/`password` fields that omits `type`:
 
 ```typescript
 export const PostSchema = z.object({
@@ -857,11 +810,12 @@ See [VIEW_COLLECTIONS.md](./VIEW_COLLECTIONS.md).
 
 ### Array Fields (Non-Relation)
 
-Arrays of non-strings become `json`:
+Any array whose elements are not `File` becomes `json` — including an array of strings:
 
 ```typescript
 {
   scores: z.array(z.number()),
+  tags: z.array(z.string()),
 }
 ```
 
@@ -874,8 +828,8 @@ Arrays of non-strings become `json`:
 }
 ```
 
-An array of *strings* does **not** land here — it is always inferred as a relation. For a plain
-list of strings use `JSONField(z.array(z.string()))`.
+For an array field you want as a real relation, use `RelationsField({ collection })` instead — a
+plain Zod array carries no target collection to point at.
 
 ### JSON Fields
 
@@ -945,7 +899,7 @@ The following Zod types are not directly supported and will need manual migratio
 
 **Example:**
 ```typescript
-import { TextField, NumberField, SelectField } from "pocketbase-zod-schema/schema";
+import { TextField, NumberField, SelectField } from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   name: TextField({ min: 1, max: 200 }),
@@ -955,12 +909,12 @@ const ProductSchema = z.object({
 });
 ```
 
-### When Automatic Inference is Acceptable
+### When the Loose Structural Contract Is Acceptable
 
-**Automatic inference works for:**
-- ✅ Existing schemas (backward compatibility)
+**The plain-Zod mapping works well for:**
 - ✅ Simple fields without PocketBase-specific options
 - ✅ Quick prototyping
+- ✅ Schemas shared with non-PocketBase code, where importing field helpers isn't worth it
 
 **Example:**
 ```typescript
@@ -971,7 +925,10 @@ const SimpleSchema = z.object({
 });
 ```
 
-### Migration Path
+It never guesses at a `relation` or an `auth` collection type — those always require explicit
+`RelationField()`/`RelationsField()` and `type: "auth"`, respectively.
+
+### Adopting Field Helpers Incrementally
 
 If you have existing schemas using plain Zod types, you can gradually migrate to field helpers:
 
@@ -986,7 +943,7 @@ const PostSchema = z.object({
 
 **After:**
 ```typescript
-import { TextField, EditorField, BoolField } from "pocketbase-zod-schema/schema";
+import { TextField, EditorField, BoolField } from "pocketbase-zod-schema";
 
 const PostSchema = z.object({
   title: TextField({ min: 1, max: 200 }),
@@ -1027,7 +984,7 @@ import {
   GeoPointField,
   RelationField,
   RelationsField,
-} from "pocketbase-zod-schema/schema";
+} from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   // Text fields
@@ -1098,7 +1055,7 @@ export const ProductCollection = defineCollection({
 1. **Use field helpers for new schemas** - Get explicit type declarations and PocketBase-specific options
 2. **Keep it simple** - Use basic types that map cleanly to PocketBase
 3. **Use enums** - For fixed value sets instead of unions
-4. **Follow naming conventions** - For automatic relation detection (if not using helpers)
+4. **Declare relations explicitly** - `RelationField()`/`RelationsField()`, always — there is no other way to get a `relation` field
 5. **Separate input/database schemas** - For file uploads and form validation
 6. **Add validation messages** - For better user feedback
 7. **Document complex mappings** - With comments in schema
@@ -1106,7 +1063,7 @@ export const ProductCollection = defineCollection({
 ## See Also
 
 - [API Reference](./API.md) - Every exported function and type
-- [Naming Conventions](./NAMING_CONVENTIONS.md) - The exact relation-detection rules
+- [Naming Conventions](./NAMING_CONVENTIONS.md) - Collection metadata, file organization, and naming style
 - [View Collections](./VIEW_COLLECTIONS.md) - SQL-backed collections, whose fields are derived not declared
 - [Migration Guide](./MIGRATION_GUIDE.md) - Adoption and upgrade notes
 - [PocketBase Field Types](https://pocketbase.io/docs/collections/) - Official PocketBase docs

@@ -1,4 +1,5 @@
-import type { CollectionSchema, FieldDefinition, PocketBaseFieldType, SchemaDefinition } from "../../types";
+import type { PocketBaseFieldType } from "../../../schema/fields";
+import type { CollectionSchema, FieldDefinition, SchemaDefinition } from "../../types";
 import { generateFieldId } from "../../utils/collection-id-generator.js";
 
 /**

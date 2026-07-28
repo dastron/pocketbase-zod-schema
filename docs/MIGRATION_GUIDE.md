@@ -70,7 +70,7 @@ import {
   EditorField,
   BoolField,
   RelationField,
-} from "pocketbase-zod-schema/schema";
+} from "pocketbase-zod-schema";
 
 export const PostSchema = z.object({
   title: TextField({ min: 1, max: 200 }),
@@ -149,7 +149,7 @@ import {
   BoolField,
   AutodateField,
   RelationField,
-} from "pocketbase-zod-schema/schema";
+} from "pocketbase-zod-schema";
 
 export const PostSchema = z.object({
   title: TextField({ min: 1 }),
@@ -184,7 +184,7 @@ export class User {
 ```typescript
 // src/schema/user.ts
 import { z } from "zod";
-import { defineCollection, EmailField, TextField } from "pocketbase-zod-schema/schema";
+import { defineCollection, EmailField, TextField } from "pocketbase-zod-schema";
 
 export const UserSchema = z.object({
   email: EmailField(),
@@ -194,6 +194,7 @@ export const UserSchema = z.object({
 
 export default defineCollection({
   collectionName: "users",
+  type: "auth", // required — a schema with email/password fields is not detected automatically
   schema: UserSchema,
   indexes: ["CREATE UNIQUE INDEX idx_users_email ON users (email)"],
 });
@@ -201,8 +202,8 @@ export default defineCollection({
 
 Notes:
 
-- A collection is detected as `auth` only when it has **both** `email` and `password` fields. Set
-  `type: "auth"` explicitly if you want to be sure.
+- `type: "auth"` must be set explicitly. Having `email` and `password` fields does not make a
+  collection an `auth` collection on its own.
 - The inverse side of a one-to-many (`posts`) has no column in PocketBase — model it as a relation
   on `Post` only, and read it back with a back-relation filter or `expand`.
 - `@Column({ unique: true })` becomes a unique index, not a field option.
@@ -221,6 +222,75 @@ The result is the same as the TypeORM example above: unique constraints move int
 `notNull` becomes a non-`.optional()` field, and the primary key disappears.
 
 ## Version upgrade notes
+
+### Unreleased — naming-convention inference removed; entry points consolidated (breaking)
+
+This release deletes the naming-convention fallback entirely, stops guessing `auth` collections,
+and trims the package to two entry points. Existing schemas that relied on any of the removed
+inference need updates **before** you next run `generate` — read points 1–4 first, since skipping
+them can produce a migration that deletes data on a real database.
+
+1. **Name-based relation detection is gone.** There is no more fallback that read an
+   uppercase-first `z.string()`/`z.array(z.string())` field name as a relation target. Every
+   relation must be declared with `RelationField({ collection })` / `RelationsField({ collection })`.
+   **Convert these fields before regenerating** — an un-migrated field now falls through to the
+   loose structural mapping (`text` for a string, `json` for an array), and the next `generate`
+   emits a field **type-change** migration (`relation` → `text` or `relation` → `json`). PocketBase
+   drops a relation's stored values when its type changes, so applying that migration destroys the
+   relation data server-side. Run `pocketbase-migrate status` after converting and confirm it shows
+   no unexpected type changes before you `generate`.
+2. **Bare `z.array(z.string())` now maps to `json`, not `relation`.** If you had one relying on the
+   old naming-convention fallback to become a relation, replace it with
+   `RelationsField({ collection })`. A plain list of strings that was never meant to be a relation
+   needs no change — it now maps the way `JSONField(z.array(z.string()))` always did. See
+   [TYPE_MAPPING.md](./TYPE_MAPPING.md#basic-type-mappings).
+3. **Auth auto-detection is removed.** A schema with `email` and `password` fields no longer becomes
+   an `auth` collection on its own. **Add `type: "auth"` explicitly** in `defineCollection()` before
+   regenerating. Collection *type* changes are never diffed, so an existing auth collection in the
+   database will not be silently downgraded — but without the explicit `type`, the analyzer treats
+   the schema as `base` when computing system fields and `manageRule`, which disagrees with the real
+   collection.
+4. **Discovery is metadata-based, and a file with none is skipped, not guessed.** A file contributes
+   a collection only if one of its exports is a Zod object whose description carries
+   `defineCollection()`/`defineView()` metadata — see
+   [NAMING_CONVENTIONS.md](./NAMING_CONVENTIONS.md#which-export-the-analyzer-picks). A file that
+   still uses a bare exported schema (no `defineCollection()` wrapper) now produces a console warning
+   and contributes nothing; if that collection already exists in the database, the diff may propose
+   **deleting it** (gated behind `--force`, since collection deletion is destructive). **Wrap every
+   collection-bearing schema in `defineCollection()`/`defineView()`** before regenerating, and check
+   `pocketbase-migrate status` for unexpected deletions.
+5. **Renamed and removed exports.** Update these on the way to the new version:
+
+   | Removed | Replacement |
+   | --- | --- |
+   | `buildSchemaDefinition` | `parseSchemaFiles(config)` — object argument only, no string overload |
+   | `aggregateChanges` | `compare(current, previous, config?)` |
+   | `detectDestructiveChangesValidation` | `detectDestructiveChanges` |
+   | `requiresForceFlagValidation` | `requiresForceFlag` |
+   | `ValidationDestructiveChange` (type) | `DestructiveChange` (type) |
+   | `withPermissions()` / `withIndexes()` | `defineCollection({ permissions, indexes })` |
+   | `SingleSelectField` / `MultiSelectField` | `SelectField(values, { maxSelect })` |
+
+   Also deleted outright, with no replacement: the snapshot JSON-file API (`saveSnapshot`,
+   `loadSnapshot`, `loadSnapshotIfExists`, `getSnapshotPath`, `snapshotExists`, `validateSnapshot`,
+   `getSnapshotVersion`, `mergeSnapshots`, `loadBaseMigration`); the OO wrapper classes
+   (`SchemaAnalyzer`, `DiffEngine`, `MigrationGenerator`, `SnapshotManager`); `mutator/`
+   (`BaseMutator`, `MutatorOptions`, `Expanded`); `enums.ts` (`StatusEnum`, `StatusEnumType`); the
+   image-file schema fragments (`baseImageFileSchema`, `inputImageFileSchema`,
+   `omitImageFilesSchema`, `baseSchemaWithTimestamps`); the permission validators (`isTemplateConfig`,
+   `isPermissionSchema`, `createPermissions`, `mergePermissions`, `validatePermissionConfig`,
+   `validateRuleExpression`, `PermissionValidationResult`); and the naming-convention internals
+   (`pluralize`/`singularize`/`toCollectionName`, `relation-detector.ts`). CLI loggers (`logInfo`,
+   `logError`, `formatChangeSummary`, `withProgress`, …) are no longer exported either.
+6. **Entry points consolidated to `.` and `/server`.** Every subpath import — `/schema`, `/enums`,
+   `/mutator`, `/migration`, `/migration/analyzer`, `/migration/diff`, `/migration/engine`,
+   `/migration/generator`, `/migration/snapshot`, `/migration/utils`, `/cli`, `/cli/utils` — must be
+   rewritten to `pocketbase-zod-schema` (browser-safe: field helpers, `defineCollection`,
+   `defineView`, permissions) or `pocketbase-zod-schema/server` (Node: the migration pipeline and
+   programmatic CLI).
+7. **Unknown `defineCollection()` keys are now type errors.** The `[key: string]: unknown` escape
+   hatch on `CollectionConfig` is gone, and field types embedded in `__pocketbase_field__` metadata
+   are validated at analysis time — an unrecognized type throws instead of silently falling through.
 
 ### Unreleased — field constraints are read from chained validators, and removing one settles
 
@@ -243,6 +313,11 @@ can produce one migration on the next `generate`, after which the schema and the
   `null` from an older migration — as equivalent to a schema that never set the option.
 
 ### Unreleased — relation names ending in a reference suffix are refused
+
+> **Superseded.** The naming-convention fallback this entry describes no longer exists at all —
+> see [the entry above](#unreleased--naming-convention-inference-removed-entry-points-consolidated-breaking).
+> Every relation is now declared with `RelationField()`/`RelationsField()`, so this specific error
+> can no longer occur. Left here for anyone tracing history from an older version.
 
 The naming-convention fallback (a `z.string()`/`z.array(z.string())` field with an uppercase-first
 name and no `RelationField`) reads the last capitalized word as the target entity. For a name like
@@ -331,7 +406,8 @@ src/schema/
 ```
 
 One collection per file, singular lowercase filename. Files that hold helpers rather than
-collections belong in `schema.exclude`. Subdirectories are supported.
+collections belong in `schema.exclude`. Discovery is a flat `readdir` of `schema.directory` —
+subdirectories are not scanned, so keep every schema file directly in that directory.
 
 ### Workflow
 
@@ -448,8 +524,10 @@ compatibility, to a `shared/` subdirectory). Run the CLI from the project root, 
 
 ### No collections discovered
 
-Check that each file exports the collection — the analyzer looks for a default export first, then
-`*Collection`, then `*Schema` — and that the filename is not caught by `schema.exclude`.
+Check the console output for a per-file warning — the analyzer skips any file where no export's
+Zod description carries `defineCollection()`/`defineView()` metadata, and logs which file it
+skipped. Confirm the schema is wrapped in `defineCollection()`/`defineView()` and that the filename
+is not caught by `schema.exclude`.
 
 ### Type errors on a field helper
 

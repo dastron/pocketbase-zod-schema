@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { defineCollection } from "../base";
 import type {
   AutodateFieldOptions,
+  ByteSize,
   DateFieldOptions,
+  EnumFromArray,
   FieldMetadata,
   FileFieldOptions,
   FilesFieldOptions,
@@ -12,6 +16,7 @@ import type {
   RelationsConfig,
   SelectFieldOptions,
   TextFieldOptions,
+  ViewCollectionConfig,
 } from "../index";
 
 describe("Type exports", () => {
@@ -33,6 +38,13 @@ describe("Type exports", () => {
 
     const fieldType: PocketBaseFieldType = "text";
     const metadata: FieldMetadata = { type: "text", options: {} };
+    const byteSize: ByteSize = "5M";
+    const statusEnum: EnumFromArray<["a", "b"]> = z.enum(["a", "b"]);
+    const viewConfig: ViewCollectionConfig = {
+      collectionName: "Stats",
+      schema: z.object({ id: z.string() }),
+      viewQuery: "SELECT id FROM projects",
+    };
 
     // If we got here, all types are properly exported
     expect(textOptions).toBeDefined();
@@ -47,5 +59,20 @@ describe("Type exports", () => {
     expect(relationsConfig).toBeDefined();
     expect(fieldType).toBeDefined();
     expect(metadata).toBeDefined();
+    expect(byteSize).toBeDefined();
+    expect(statusEnum).toBeDefined();
+    expect(viewConfig).toBeDefined();
+  });
+
+  it("should reject unknown defineCollection keys at compile time", () => {
+    const collection = defineCollection({
+      collectionName: "posts",
+      schema: z.object({ title: z.string() }),
+      // @ts-expect-error - unknown keys are excess-property errors, not silently serialized
+      futureOption: true,
+    });
+
+    // Unknown keys never reach the serialized metadata
+    expect(JSON.parse(collection.description!)).toEqual({ collectionName: "posts" });
   });
 });

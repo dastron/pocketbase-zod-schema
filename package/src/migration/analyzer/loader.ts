@@ -27,12 +27,9 @@ async function ensureTsxLoader(): Promise<void> {
  * @param config - Schema analyzer configuration
  * @returns Array of schema file paths (without extension)
  */
-export function discoverSchemaFiles(config: SchemaAnalyzerConfig | string): string[] {
-  // Support legacy string-only parameter
-  const normalizedConfig: SchemaAnalyzerConfig = typeof config === "string" ? { schemaDir: config } : config;
-
-  const mergedConfig = mergeConfig(normalizedConfig);
-  const schemaDir = resolveSchemaDir(normalizedConfig);
+export function discoverSchemaFiles(config: SchemaAnalyzerConfig): string[] {
+  const mergedConfig = mergeConfig(config);
+  const schemaDir = resolveSchemaDir(config);
 
   try {
     if (!fs.existsSync(schemaDir)) {

@@ -68,9 +68,11 @@ different collection ids — idempotency depends entirely on the snapshot/replay
 only emitted here), and `view` (read-only, SQL-backed — see below). Changing an existing
 collection's *type* is not diffed and produces no migration.
 
-**Two destructive-change implementations exist**: `diff/destructiveness.ts` (used by `DiffEngine`)
-and `migration/validation.ts` (used by the CLI, re-exported aliased as
-`detectDestructiveChangesValidation`). Changes to destructive-change policy usually need both.
+**Destructive-change detection has a single implementation**: `migration/validation.ts`
+(`detectDestructiveChanges`, `hasDestructiveChanges`, `requiresForceFlag`,
+`formatDestructiveChanges`, `summarizeDestructiveChanges`), exported under those clean names from
+`/server`. The older `diff/destructiveness.ts` implementation and the `…Validation`-suffixed
+aliases are gone.
 
 ### View collections
 
@@ -93,20 +95,28 @@ bare; no top-level `UNION`): `docs/VIEW_COLLECTIONS.md`.
 
 ## Conventions
 
-- **Schema files**: one collection per file, singular lowercase filename (`user.ts` → `Users`);
-  collection names are pluralized from the filename unless `collectionName` is set. Prefer a
-  `export default defineCollection({...})` (the analyzer prefers the default export, then
-  `*Collection`, then `*Schema`). See `docs/NAMING_CONVENTIONS.md`.
+- **Discovery is metadata-based, not name-based.** A file contributes a collection iff one of its
+  exports is a Zod object whose description carries collection metadata — what `defineCollection()`/
+  `defineView()` produce. Export names carry no meaning (no default → `*Collection` → `*Schema`
+  preference order). A file with no metadata-carrying export is skipped with a console warning. One
+  collection per file: two metadata-carrying exports in the same file, or the same `collectionName`
+  declared in two files, is an error. See `docs/NAMING_CONVENTIONS.md`.
 - **Field helpers over bare Zod** (`TextField`, `NumberField`, `RelationField`, …) — they carry
-  explicit PocketBase type metadata instead of relying on structural inference. Relation detection
-  also falls back to a naming convention (uppercase-first field names) for backward compatibility.
+  explicit PocketBase type metadata instead of relying on structural inference. Without a helper,
+  field types fall back to loose structural Zod mapping (`z.string()` → text, `z.enum([...])` →
+  select, …) — never on field *names*. Relations in particular are explicit-only
+  (`RelationField`/`RelationsField`); a bare `z.array(z.string())` maps to `json`, not a relation.
+  Auth collections are explicit too — `type: "auth"` must be set in `defineCollection()`; it is
+  never inferred from the presence of `email`/`password` fields.
 - **Test style**: no vitest snapshots anywhere. Tests build a `SchemaDefinition`, run
   `compare()` → `generate()` into an `os.tmpdir()` directory, then assert with `toContain` or by
   parsing the output and comparing structurally. `__tests__/fixtures/reference-migrations/` holds
   real PocketBase-authored migrations used as ground truth — regenerate them from an actual
   PocketBase instance rather than hand-writing them.
-- Entry points are split for browser safety: `index.ts` (enums/mutator/schema) is browser-safe,
-  `server.ts` adds `migration/*` and CLI utilities (Node only).
+- Entry points are split for browser safety: `index.ts` (schema, field helpers, permission
+  templates) is browser-safe, `server.ts` adds the migration pipeline and programmatic CLI API
+  (Node only). Only `.` and `/server` are published (`package/package.json` `exports`); the CLI
+  binary is wired via `bin`, not a subpath export.
 
 ## Docs
 

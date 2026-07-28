@@ -1,419 +1,13 @@
 /**
- * Tests for snapshot serialization and deserialization with permissions
+ * Tests for snapshot reconstruction from migration files
  */
 
 import * as fs from "fs";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  findLatestSnapshot,
-  loadSnapshot,
-  loadSnapshotIfExists,
-  mergeSnapshots,
-  saveSnapshot,
-  snapshotExists,
-} from "../snapshot";
-import type { CollectionSchema, SchemaDefinition, SchemaSnapshot } from "../types";
+import { findLatestSnapshot, loadSnapshotWithMigrations } from "../snapshot";
 
-describe("Snapshot System - Permissions Support", () => {
-  const testSnapshotPath = path.join(__dirname, ".test-snapshot.json");
-  const testConfig = { snapshotPath: testSnapshotPath, workspaceRoot: __dirname };
-
-  // Clean up test snapshot file after each test
-  afterEach(() => {
-    if (fs.existsSync(testSnapshotPath)) {
-      fs.unlinkSync(testSnapshotPath);
-    }
-  });
-
-  it("should serialize and deserialize permissions correctly", () => {
-    const schema: SchemaDefinition = {
-      collections: new Map<string, CollectionSchema>([
-        [
-          "projects",
-          {
-            name: "projects",
-            id: "projects_id",
-            type: "base",
-            fields: [
-              { name: "title", id: "title_id", type: "text", required: true },
-              { name: "User", id: "User_id", type: "relation", required: true, relation: { collection: "users" } },
-            ],
-            permissions: {
-              listRule: "",
-              viewRule: "",
-              createRule: '@request.auth.id != ""',
-              updateRule: '@request.auth.id != "" && User = @request.auth.id',
-              deleteRule: '@request.auth.id != "" && User = @request.auth.id',
-              manageRule: null,
-            },
-          },
-        ],
-      ]),
-    };
-
-    // Save snapshot
-    saveSnapshot(schema, testConfig);
-
-    // Verify file exists
-    expect(snapshotExists(testConfig)).toBe(true);
-
-    // Load snapshot
-    const loadedSnapshot = loadSnapshot(testConfig);
-
-    // Verify structure
-    expect(loadedSnapshot.version).toBe("1.0.0");
-    expect(loadedSnapshot.timestamp).toBeDefined();
-    expect(loadedSnapshot.collections).toBeInstanceOf(Map);
-    expect(loadedSnapshot.collections.size).toBe(1);
-
-    // Verify collection data
-    const projectsCollection = loadedSnapshot.collections.get("projects");
-    expect(projectsCollection).toBeDefined();
-    expect(projectsCollection?.name).toBe("projects");
-    expect(projectsCollection?.type).toBe("base");
-    expect(projectsCollection?.fields).toHaveLength(2);
-
-    // Verify permissions are preserved
-    expect(projectsCollection?.permissions).toBeDefined();
-    expect(projectsCollection?.permissions?.listRule).toBe("");
-    expect(projectsCollection?.permissions?.viewRule).toBe("");
-    expect(projectsCollection?.permissions?.createRule).toBe('@request.auth.id != ""');
-    expect(projectsCollection?.permissions?.updateRule).toBe('@request.auth.id != "" && User = @request.auth.id');
-    expect(projectsCollection?.permissions?.deleteRule).toBe('@request.auth.id != "" && User = @request.auth.id');
-    expect(projectsCollection?.permissions?.manageRule).toBeNull();
-  });
-
-  it("should handle collections without permissions", () => {
-    const schema: SchemaDefinition = {
-      collections: new Map<string, CollectionSchema>([
-        [
-          "articles",
-          {
-            name: "articles",
-            id: "articles_id",
-            type: "base",
-            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
-            // No permissions field
-          },
-        ],
-      ]),
-    };
-
-    // Save snapshot
-    saveSnapshot(schema, testConfig);
-
-    // Load snapshot
-    const loadedSnapshot = loadSnapshot(testConfig);
-
-    // Verify collection data
-    const articlesCollection = loadedSnapshot.collections.get("articles");
-    expect(articlesCollection).toBeDefined();
-    expect(articlesCollection?.name).toBe("articles");
-
-    // Permissions should be undefined if not set
-    expect(articlesCollection?.permissions).toBeUndefined();
-  });
-
-  it("should handle auth collections with manageRule", () => {
-    const schema: SchemaDefinition = {
-      collections: new Map<string, CollectionSchema>([
-        [
-          "users",
-          {
-            name: "users",
-            id: "users_id",
-            type: "auth",
-            fields: [
-              { name: "email", id: "email_id", type: "email", required: true },
-              { name: "password", id: "password_id", type: "text", required: true },
-              { name: "name", id: "name_id", type: "text", required: false },
-            ],
-            permissions: {
-              listRule: '@request.auth.id != ""',
-              viewRule: "@request.auth.id = id",
-              createRule: "",
-              updateRule: "@request.auth.id = id",
-              deleteRule: "@request.auth.id = id",
-              manageRule: "@request.auth.id = id",
-            },
-          },
-        ],
-      ]),
-    };
-
-    // Save snapshot
-    saveSnapshot(schema, testConfig);
-
-    // Load snapshot
-    const loadedSnapshot = loadSnapshot(testConfig);
-
-    // Verify collection data
-    const usersCollection = loadedSnapshot.collections.get("users");
-    expect(usersCollection).toBeDefined();
-    expect(usersCollection?.type).toBe("auth");
-
-    // Verify manageRule is preserved for auth collections
-    expect(usersCollection?.permissions).toBeDefined();
-    expect(usersCollection?.permissions?.manageRule).toBe("@request.auth.id = id");
-  });
-
-  it("should handle null permission rules (locked)", () => {
-    const schema: SchemaDefinition = {
-      collections: new Map<string, CollectionSchema>([
-        [
-          "admin_data",
-          {
-            name: "admin_data",
-            id: "admin_data_id",
-            type: "base",
-            fields: [{ name: "data", id: "data_id", type: "json", required: true }],
-            permissions: {
-              listRule: null,
-              viewRule: null,
-              createRule: null,
-              updateRule: null,
-              deleteRule: null,
-              manageRule: null,
-            },
-          },
-        ],
-      ]),
-    };
-
-    // Save snapshot
-    saveSnapshot(schema, testConfig);
-
-    // Load snapshot
-    const loadedSnapshot = loadSnapshot(testConfig);
-
-    // Verify collection data
-    const adminCollection = loadedSnapshot.collections.get("admin_data");
-    expect(adminCollection).toBeDefined();
-
-    // Verify null rules are preserved (locked/superuser only)
-    expect(adminCollection?.permissions).toBeDefined();
-    expect(adminCollection?.permissions?.listRule).toBeNull();
-    expect(adminCollection?.permissions?.viewRule).toBeNull();
-    expect(adminCollection?.permissions?.createRule).toBeNull();
-    expect(adminCollection?.permissions?.updateRule).toBeNull();
-    expect(adminCollection?.permissions?.deleteRule).toBeNull();
-    expect(adminCollection?.permissions?.manageRule).toBeNull();
-  });
-
-  it("should handle empty string permission rules (public)", () => {
-    const schema: SchemaDefinition = {
-      collections: new Map<string, CollectionSchema>([
-        [
-          "public_posts",
-          {
-            name: "public_posts",
-            id: "public_posts_id",
-            type: "base",
-            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
-            permissions: {
-              listRule: "",
-              viewRule: "",
-              createRule: '@request.auth.id != ""',
-              updateRule: '@request.auth.id != ""',
-              deleteRule: '@request.auth.id != ""',
-              manageRule: null,
-            },
-          },
-        ],
-      ]),
-    };
-
-    // Save snapshot
-    saveSnapshot(schema, testConfig);
-
-    // Load snapshot
-    const loadedSnapshot = loadSnapshot(testConfig);
-
-    // Verify collection data
-    const postsCollection = loadedSnapshot.collections.get("public_posts");
-    expect(postsCollection).toBeDefined();
-
-    // Verify empty string rules are preserved (public access)
-    expect(postsCollection?.permissions).toBeDefined();
-    expect(postsCollection?.permissions?.listRule).toBe("");
-    expect(postsCollection?.permissions?.viewRule).toBe("");
-  });
-
-  it("should preserve permissions in JSON format", () => {
-    const schema: SchemaDefinition = {
-      collections: new Map<string, CollectionSchema>([
-        [
-          "projects",
-          {
-            name: "projects",
-            id: "projects_id",
-            type: "base",
-            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
-            permissions: {
-              listRule: '@request.auth.id != ""',
-              viewRule: '@request.auth.id != ""',
-              createRule: '@request.auth.id != ""',
-              updateRule: '@request.auth.id != ""',
-              deleteRule: '@request.auth.id != ""',
-              manageRule: null,
-            },
-          },
-        ],
-      ]),
-    };
-
-    // Save snapshot
-    saveSnapshot(schema, testConfig);
-
-    // Read raw JSON file
-    const rawJson = fs.readFileSync(testSnapshotPath, "utf-8");
-    const parsedJson = JSON.parse(rawJson);
-
-    // Verify permissions are in the JSON structure
-    expect(parsedJson.collections.projects).toBeDefined();
-    expect(parsedJson.collections.projects.permissions).toBeDefined();
-    expect(parsedJson.collections.projects.permissions.listRule).toBe('@request.auth.id != ""');
-    expect(parsedJson.collections.projects.permissions.manageRule).toBeNull();
-  });
-});
-
-describe("Snapshot Merging", () => {
-  it("should merge base snapshot with custom snapshot", () => {
-    const baseSnapshot: SchemaSnapshot = {
-      version: "1.0.0",
-      timestamp: "2024-01-01T00:00:00.000Z",
-      collections: new Map<string, CollectionSchema>([
-        [
-          "_mfas",
-          {
-            name: "_mfas",
-            id: "_mfas_id",
-            type: "base",
-            fields: [
-              { name: "collectionRef", id: "collectionRef_id", type: "text", required: true },
-              { name: "recordRef", id: "recordRef_id", type: "text", required: true },
-            ],
-          },
-        ],
-        [
-          "users",
-          {
-            name: "users",
-            id: "users_id",
-            type: "auth",
-            fields: [
-              { name: "email", id: "email_id", type: "email", required: true },
-              { name: "password", id: "password_id", type: "text", required: true },
-            ],
-          },
-        ],
-      ]),
-    };
-
-    const customSnapshot: SchemaSnapshot = {
-      version: "1.0.0",
-      timestamp: "2024-01-02T00:00:00.000Z",
-      collections: new Map<string, CollectionSchema>([
-        [
-          "projects",
-          {
-            name: "projects",
-            id: "projects_id",
-            type: "base",
-            fields: [{ name: "title", id: "title_id", type: "text", required: true }],
-          },
-        ],
-      ]),
-    };
-
-    const merged = mergeSnapshots(baseSnapshot, customSnapshot);
-
-    // Should have all collections from both snapshots
-    expect(merged.collections.size).toBe(3);
-    expect(merged.collections.has("_mfas")).toBe(true);
-    expect(merged.collections.has("users")).toBe(true);
-    expect(merged.collections.has("projects")).toBe(true);
-
-    // Should use custom snapshot's metadata
-    expect(merged.version).toBe(customSnapshot.version);
-    expect(merged.timestamp).toBe(customSnapshot.timestamp);
-  });
-
-  it("should return base snapshot when custom snapshot is null", () => {
-    const baseSnapshot: SchemaSnapshot = {
-      version: "1.0.0",
-      timestamp: "2024-01-01T00:00:00.000Z",
-      collections: new Map<string, CollectionSchema>([
-        [
-          "_mfas",
-          {
-            name: "_mfas",
-            id: "_mfas_id",
-            type: "base",
-            fields: [{ name: "collectionRef", id: "collectionRef_id", type: "text", required: true }],
-          },
-        ],
-      ]),
-    };
-
-    const merged = mergeSnapshots(baseSnapshot, null);
-
-    // Should return base snapshot unchanged
-    expect(merged).toBe(baseSnapshot);
-    expect(merged.collections.size).toBe(1);
-    expect(merged.collections.has("_mfas")).toBe(true);
-  });
-
-  it("should allow custom snapshot to override base collections", () => {
-    const baseSnapshot: SchemaSnapshot = {
-      version: "1.0.0",
-      timestamp: "2024-01-01T00:00:00.000Z",
-      collections: new Map<string, CollectionSchema>([
-        [
-          "users",
-          {
-            name: "users",
-            id: "users_id",
-            type: "auth",
-            fields: [{ name: "email", id: "email_id", type: "email", required: true }],
-          },
-        ],
-      ]),
-    };
-
-    const customSnapshot: SchemaSnapshot = {
-      version: "1.0.0",
-      timestamp: "2024-01-02T00:00:00.000Z",
-      collections: new Map<string, CollectionSchema>([
-        [
-          "users",
-          {
-            name: "users",
-            id: "users_id",
-            type: "auth",
-            fields: [
-              { name: "email", id: "email_id", type: "email", required: true },
-              { name: "name", id: "name_id", type: "text", required: false },
-            ],
-          },
-        ],
-      ]),
-    };
-
-    const merged = mergeSnapshots(baseSnapshot, customSnapshot);
-
-    // Should have only one users collection
-    expect(merged.collections.size).toBe(1);
-
-    // Should use custom version with extended fields
-    const usersCollection = merged.collections.get("users");
-    expect(usersCollection?.fields).toHaveLength(2);
-    expect(usersCollection?.fields.find((f) => f.name === "name")).toBeDefined();
-  });
-});
-
-describe("loadSnapshotIfExists with migrations directory", () => {
+describe("loadSnapshotWithMigrations", () => {
   const testMigrationsDir = path.join(__dirname, ".test-migrations-base");
 
   beforeEach(() => {
@@ -435,12 +29,22 @@ describe("loadSnapshotIfExists with migrations directory", () => {
   });
 
   it("should return null when migrations directory is empty", () => {
-    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
+    const snapshot = loadSnapshotWithMigrations({ migrationsPath: testMigrationsDir });
     expect(snapshot).toBeNull();
   });
 
-  it("should load snapshot from migrations directory when it exists", () => {
-    // Create a snapshot file in migrations directory
+  it("should return null when no migrationsPath is provided", () => {
+    const snapshot = loadSnapshotWithMigrations({});
+    expect(snapshot).toBeNull();
+  });
+
+  it("should return null for a nonexistent migrations path", () => {
+    const invalidPath = "/nonexistent/path/to/migrations";
+    const snapshot = loadSnapshotWithMigrations({ migrationsPath: invalidPath });
+    expect(snapshot).toBeNull();
+  });
+
+  it("should reconstruct state from a snapshot file in the migrations directory", () => {
     const snapshotContent = `
       migrate((app) => {
         const snapshot = [
@@ -459,22 +63,105 @@ describe("loadSnapshotIfExists with migrations directory", () => {
     `;
     fs.writeFileSync(path.join(testMigrationsDir, "1234567890_collections_snapshot.js"), snapshotContent);
 
-    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
+    const snapshot = loadSnapshotWithMigrations({ migrationsPath: testMigrationsDir });
 
-    // Should have loaded snapshot
     expect(snapshot).not.toBeNull();
     expect(snapshot?.collections.has("projects")).toBe(true);
   });
 
-  it("should return null when no migrationsPath is provided", () => {
-    const snapshot = loadSnapshotIfExists({});
-    expect(snapshot).toBeNull();
+  it("should replay from the most recent snapshot when multiple exist", () => {
+    const oldSnapshotContent = `
+      migrate((app) => {
+        const snapshot = [
+          {
+            name: "users",
+            id: "users_id",
+            type: "auth",
+            fields: [
+              { name: "email", id: "email_id", type: "email", required: true }
+            ]
+          }
+        ];
+
+        return app.importCollections(snapshot, false);
+      });
+    `;
+
+    const newestSnapshotContent = `
+      migrate((app) => {
+        const snapshot = [
+          {
+            name: "users",
+            id: "users_id",
+            type: "auth",
+            fields: [
+              { name: "email", id: "email_id", type: "email", required: true }
+            ]
+          },
+          {
+            name: "projects",
+            id: "projects_id",
+            type: "base",
+            fields: [
+              { name: "title", id: "title_id", type: "text", required: true }
+            ]
+          }
+        ];
+
+        return app.importCollections(snapshot, false);
+      });
+    `;
+
+    fs.writeFileSync(path.join(testMigrationsDir, "1234567890_collections_snapshot.js"), oldSnapshotContent);
+    fs.writeFileSync(path.join(testMigrationsDir, "1234567900_collections_snapshot.js"), newestSnapshotContent);
+
+    const snapshot = loadSnapshotWithMigrations({ migrationsPath: testMigrationsDir });
+
+    // Should have replayed from the newest snapshot
+    expect(snapshot).not.toBeNull();
+    expect(snapshot?.collections.size).toBe(2);
+    expect(snapshot?.collections.has("users")).toBe(true);
+    expect(snapshot?.collections.has("projects")).toBe(true);
   });
 
-  it("should handle invalid migrations path gracefully", () => {
-    const invalidPath = "/nonexistent/path/to/migrations";
-    const snapshot = loadSnapshotIfExists({ migrationsPath: invalidPath });
-    expect(snapshot).toBeNull();
+  it("should apply migrations that come after the snapshot", () => {
+    const snapshotContent = `
+      migrate((app) => {
+        const snapshot = [
+          {
+            name: "projects",
+            id: "projects_id",
+            type: "base",
+            fields: [
+              { name: "title", id: "title_id", type: "text", required: true }
+            ]
+          }
+        ];
+
+        return app.importCollections(snapshot, false);
+      });
+    `;
+    const followUpMigration = `
+      migrate((app) => {
+        const collection = app.findCollectionByNameOrId("projects");
+        collection.fields.add(new Field({
+          name: "summary",
+          id: "summary_id",
+          type: "text",
+          required: false
+        }));
+        return app.save(collection);
+      });
+    `;
+
+    fs.writeFileSync(path.join(testMigrationsDir, "1234567890_collections_snapshot.js"), snapshotContent);
+    fs.writeFileSync(path.join(testMigrationsDir, "1234567895_add_summary.js"), followUpMigration);
+
+    const snapshot = loadSnapshotWithMigrations({ migrationsPath: testMigrationsDir });
+
+    expect(snapshot).not.toBeNull();
+    const projects = snapshot?.collections.get("projects");
+    expect(projects?.fields.find((f) => f.name === "summary")).toBeDefined();
   });
 });
 
@@ -584,98 +271,5 @@ describe("findLatestSnapshot - Snapshot Generation Tests", () => {
 
     const result = findLatestSnapshot(testMigrationsDir);
     expect(result).toBeNull();
-  });
-});
-
-describe("Snapshot Loading with Multiple Snapshots", () => {
-  const testMigrationsDir = path.join(__dirname, ".test-migrations-loading");
-
-  beforeEach(() => {
-    // Create test migrations directory
-    if (!fs.existsSync(testMigrationsDir)) {
-      fs.mkdirSync(testMigrationsDir, { recursive: true });
-    }
-  });
-
-  afterEach(() => {
-    // Clean up test migrations directory
-    if (fs.existsSync(testMigrationsDir)) {
-      const files = fs.readdirSync(testMigrationsDir);
-      for (const file of files) {
-        fs.unlinkSync(path.join(testMigrationsDir, file));
-      }
-      fs.rmdirSync(testMigrationsDir);
-    }
-  });
-
-  it("should load the most recent snapshot from migrations directory", () => {
-    // Create multiple snapshot files
-    const oldSnapshotContent = `
-      migrate((app) => {
-        const snapshot = [
-          {
-            name: "users",
-            id: "users_id",
-            type: "auth",
-            fields: [
-              { name: "email", id: "email_id", type: "email", required: true }
-            ]
-          }
-        ];
-
-        return app.importCollections(snapshot, false);
-      });
-    `;
-
-    const newestSnapshotContent = `
-      migrate((app) => {
-        const snapshot = [
-          {
-            name: "users",
-            id: "users_id",
-            type: "auth",
-            fields: [
-              { name: "email", id: "email_id", type: "email", required: true }
-            ]
-          },
-          {
-            name: "projects",
-            id: "projects_id",
-            type: "base",
-            fields: [
-              { name: "title", id: "title_id", type: "text", required: true }
-            ]
-          }
-        ];
-
-        return app.importCollections(snapshot, false);
-      });
-    `;
-
-    fs.writeFileSync(path.join(testMigrationsDir, "1234567890_collections_snapshot.js"), oldSnapshotContent);
-    fs.writeFileSync(path.join(testMigrationsDir, "1234567900_collections_snapshot.js"), newestSnapshotContent);
-
-    // Load snapshot using loadSnapshotIfExists with migrations directory
-    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
-
-    // Should have loaded the newest snapshot
-    expect(snapshot).not.toBeNull();
-    expect(snapshot?.collections.size).toBe(2);
-    expect(snapshot?.collections.has("users")).toBe(true);
-    expect(snapshot?.collections.has("projects")).toBe(true);
-  });
-
-  it("should return null when no snapshots exist in migrations directory", () => {
-    // Create only regular migration files
-    fs.writeFileSync(path.join(testMigrationsDir, "1234567890_create_users.js"), "// migration");
-
-    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
-    expect(snapshot).toBeNull();
-  });
-
-  it("should handle empty migrations directory", () => {
-    // Directory exists but is empty
-    const snapshot = loadSnapshotIfExists({ migrationsPath: testMigrationsDir });
-    expect(snapshot).toBeNull();
   });
 });

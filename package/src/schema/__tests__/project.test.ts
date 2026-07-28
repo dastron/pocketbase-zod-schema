@@ -68,8 +68,6 @@ describe("Project Schema Migration Generation", () => {
     expect(content).toContain("app.save(");
 
     // Should contain all expected fields
-    // Note: thumbnailURL and imageFiles are excluded as they are image file handling fields,
-    // not actual database fields (they're handled by PocketBase's file system)
     expect(content).toContain('"name": "title"');
     expect(content).toContain('"name": "content"');
     expect(content).toContain('"name": "status"');
@@ -174,8 +172,5 @@ describe("Project Schema Migration Generation", () => {
 
     expect(summaryField).toBeDefined();
     expect(summaryField?.required).toBe(false);
-
-    // Note: thumbnailURL and imageFiles are excluded from database fields
-    // as they are image file handling fields, not actual database columns
   });
 });

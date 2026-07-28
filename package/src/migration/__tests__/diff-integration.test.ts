@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { aggregateChanges } from "../diff";
+import { compare } from "../diff";
 import type { SchemaDefinition, SchemaSnapshot } from "../types";
 
 describe("Diff Engine - Permission Integration", () => {
@@ -52,7 +52,7 @@ describe("Diff Engine - Permission Integration", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     expect(diff.collectionsToCreate).toHaveLength(0);
     expect(diff.collectionsToDelete).toHaveLength(0);
@@ -130,7 +130,7 @@ describe("Diff Engine - Permission Integration", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     expect(diff.collectionsToCreate).toHaveLength(0);
     expect(diff.collectionsToDelete).toHaveLength(0);
@@ -165,7 +165,7 @@ describe("Diff Engine - Permission Integration", () => {
       collections: new Map(),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     expect(diff.collectionsToCreate).toHaveLength(1);
     expect(diff.collectionsToDelete).toHaveLength(0);
@@ -231,7 +231,7 @@ describe("Diff Engine - Permission Integration", () => {
       ]),
     };
 
-    const diff = aggregateChanges(currentSchema, previousSnapshot);
+    const diff = compare(currentSchema, previousSnapshot);
 
     expect(diff.collectionsToModify).toHaveLength(1);
 

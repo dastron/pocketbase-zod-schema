@@ -73,27 +73,34 @@ demo/host workspace that consumes it.
 pocketbase-zod-schema/
 ├── package/                    # The published library (pocketbase-zod-schema)
 │   └── src/
-│       ├── cli/                # CLI entry point, commands, config, logging
+│       ├── index.ts             # Public entry point "." (browser-safe: schema/index.ts)
+│       ├── server.ts             # Public entry point "./server" (adds migration/* + CLI API)
+│       ├── cli/                # commands/, utils/ (config + logging); migrate.ts is the bin entry
 │       │   └── commands/       # generate, status, generate-types, lint
 │       ├── migration/          # The pipeline
 │       │   ├── analyzer/       # Zod schemas -> SchemaDefinition
-│       │   ├── diff/           # SchemaDefinition vs. snapshot -> SchemaDiff
+│       │   ├── diff/           # SchemaDefinition vs. snapshot -> SchemaDiff (no destructiveness.ts)
 │       │   ├── generator/      # SchemaDiff -> migration files
 │       │   ├── engine/         # node:vm simulation of PocketBase's JSVM
-│       │   ├── utils/          # pluralize, type mapping, relation detection, ids
+│       │   ├── utils/          # type mapping, collection/field ids, dependency ordering
 │       │   ├── snapshot.ts     # state reconstruction entry point
-│       │   ├── validation.ts   # destructive-change detection used by the CLI
+│       │   ├── validation.ts   # the destructive-change implementation (used by the CLI and exported)
 │       │   └── errors.ts       # error classes
 │       ├── schema/             # defineCollection, defineView, field helpers
 │       │                       #  ...and the example schemas the host workspace uses
 │       ├── type-gen/           # generate-types implementation
-│       ├── mutator/            # data mutation helpers
 │       └── utils/              # permissions and templates
 ├── pocketbase/pb_migrations/   # Migrations generated from package/src/schema
 ├── tests/e2e/                  # End-to-end suite driving a real PocketBase binary
 ├── docs/                       # Documentation
 └── scripts/                    # PocketBase download / start / stop
 ```
+
+There is no `src/mutator/`, `src/enums.ts`, `src/types.ts`, or `src/schema.ts` — those app-leftover
+modules were removed along with the entry points that used to expose them. `cli/` and `cli/utils/`
+have no `index.ts`; `migration/utils/` has no `index.ts`, `pluralize.ts`, or `relation-detector.ts`
+(relations come only from `RelationField`/`RelationsField` — there is no naming-convention
+fallback); `migration/diff/` has no `destructiveness.ts`.
 
 Tests live in `__tests__/` directories next to the code they cover. There is no top-level `src/`
 and no `examples/` directory — `package/src/schema/*.ts` doubles as the library's example schemas
@@ -152,10 +159,14 @@ permissions, indexes}` into the schema's `.describe()` string as JSON; field hel
 `__pocketbase_relation__`. The analyzer's `extractors.ts` parses it back out. Consequence:
 `defineCollection` *overwrites* the description, so it must wrap the schema, not the reverse.
 
-### Two destructive-change implementations
+### One destructive-change implementation
 
-`diff/destructiveness.ts` (used by `DiffEngine`) and `migration/validation.ts` (used by the CLI).
-A change to destructive-change policy usually needs both.
+`migration/validation.ts` is the only destructive-change implementation — `detectDestructiveChanges`,
+`hasDestructiveChanges`, `requiresForceFlag`, `formatDestructiveChanges`, and
+`summarizeDestructiveChanges`, all exported from `pocketbase-zod-schema/server`. It backs both the
+CLI and the public API; the parallel `diff/destructiveness.ts` implementation (and its
+`…Validation`-suffixed aliases) no longer exists, so a change to destructive-change policy only
+needs to happen in one place.
 
 ## Development Workflow
 

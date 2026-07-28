@@ -1,4 +1,5 @@
-import type { APIRuleType, CollectionSchema, PermissionChange, RuleUpdate } from "../types";
+import type { APIRuleType } from "../../utils/permissions";
+import type { CollectionSchema, PermissionChange, RuleUpdate } from "../types";
 
 /**
  * Compares API rules between current and previous collections

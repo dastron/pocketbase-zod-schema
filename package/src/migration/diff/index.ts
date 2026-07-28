@@ -14,24 +14,19 @@ import {
   findRemovedCollections,
   matchCollectionsByName,
 } from "./collections";
-import { mergeConfig, type DiffEngineConfig } from "./config";
-import {
-  categorizeChangesBySeverity,
-  generateChangeSummary,
-  type ChangeSummary,
-} from "./summary";
+import { type DiffEngineConfig } from "./config";
 import { isSystemCollection } from "./utils";
-import { detectDestructiveChanges, type DestructiveChange, requiresForceFlag } from "./destructiveness";
 
-// Export everything from submodules
-export * from "./collections";
-export * from "./config";
-export * from "./destructiveness";
-export * from "./fields";
-export * from "./indexes";
-export * from "./rules";
-export * from "./summary";
-export * from "./utils";
+// Curated submodule surface — matching/aggregation internals (mergeConfig,
+// buildCollectionModification, find*/match* helpers, normalizeSql) stay
+// module-private
+export { filterSystemCollections } from "./collections";
+export { type DiffEngineConfig } from "./config";
+export { compareFieldOptions } from "./fields";
+export { filterDiff, type FilterOptions } from "./filter";
+export { comparePermissions } from "./rules";
+export { categorizeChangesBySeverity } from "./summary";
+export { isSystemCollection } from "./utils";
 
 /**
  * Checks if a collection modification has any actual changes
@@ -53,15 +48,15 @@ function hasChanges(modification: CollectionModification): boolean {
 }
 
 /**
- * Aggregates all detected changes into a SchemaDiff
- * Main entry point for diff comparison
+ * Main comparison function
+ * Compares current schema with previous snapshot and returns complete diff
  *
  * @param currentSchema - Current schema definition
- * @param previousSnapshot - Previous schema snapshot
+ * @param previousSnapshot - Previous schema snapshot (null for first run)
  * @param config - Optional configuration
- * @returns Complete SchemaDiff with all changes
+ * @returns Complete SchemaDiff with all detected changes
  */
-export function aggregateChanges(
+export function compare(
   currentSchema: SchemaDefinition,
   previousSnapshot: SchemaSnapshot | null,
   config?: DiffEngineConfig
@@ -138,68 +133,3 @@ export function aggregateChanges(
     existingCollectionIds,
   };
 }
-
-/**
- * Main comparison function
- * Compares current schema with previous snapshot and returns complete diff
- *
- * @param currentSchema - Current schema definition
- * @param previousSnapshot - Previous schema snapshot (null for first run)
- * @param config - Optional configuration
- * @returns Complete SchemaDiff with all detected changes
- */
-export function compare(
-  currentSchema: SchemaDefinition,
-  previousSnapshot: SchemaSnapshot | null,
-  config?: DiffEngineConfig
-): SchemaDiff {
-  return aggregateChanges(currentSchema, previousSnapshot, config);
-}
-
-/**
- * DiffEngine class for object-oriented usage
- * Provides a stateful interface for schema comparison
- */
-export class DiffEngine {
-  private config: Required<DiffEngineConfig>;
-
-  constructor(config?: DiffEngineConfig) {
-    this.config = mergeConfig(config);
-  }
-
-  /**
-   * Compares current schema with previous snapshot
-   */
-  compare(currentSchema: SchemaDefinition, previousSnapshot: SchemaSnapshot | null): SchemaDiff {
-    return compare(currentSchema, previousSnapshot, this.config);
-  }
-
-  /**
-   * Detects destructive changes in a diff
-   */
-  detectDestructiveChanges(diff: SchemaDiff): DestructiveChange[] {
-    return detectDestructiveChanges(diff, this.config);
-  }
-
-  /**
-   * Categorizes changes by severity
-   */
-  categorizeChangesBySeverity(diff: SchemaDiff): { destructive: string[]; nonDestructive: string[] } {
-    return categorizeChangesBySeverity(diff, this.config);
-  }
-
-  /**
-   * Generates a summary of changes
-   */
-  generateChangeSummary(diff: SchemaDiff): ChangeSummary {
-    return generateChangeSummary(diff, this.config);
-  }
-
-  /**
-   * Checks if force flag is required
-   */
-  requiresForceFlag(diff: SchemaDiff): boolean {
-    return requiresForceFlag(diff, this.config);
-  }
-}
-export * from "./filter.js";

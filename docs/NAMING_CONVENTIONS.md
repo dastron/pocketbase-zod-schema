@@ -4,49 +4,34 @@ This document outlines the naming conventions used in the schema-driven migratio
 
 ## Collection Names
 
-`collectionName` in `defineCollection()` / `defineView()` is authoritative. Only when it is absent
-is the name derived from the schema file name and pluralized.
+`collectionName` in `defineCollection()` / `defineView()` is the **only** source of a collection's
+name. There is no derivation from the schema file name — a schema file's basename is purely
+organizational and never appears in the generated collection.
 
 ```typescript
-// src/schema/post.ts — collection is "posts", not "Posts"
+// src/schema/post.ts — collection is "posts", regardless of the file name
 export default defineCollection({ collectionName: "posts", schema: PostSchema });
 ```
 
-### Basic Rules
+```typescript
+// src/schema/whatever-you-want-to-call-it.ts — collection is still "posts"
+export default defineCollection({ collectionName: "posts", schema: PostSchema });
+```
 
-| Schema File | Collection Name | Notes |
-|-------------|-----------------|-------|
-| `user.ts` | `Users` | Standard pluralization |
-| `post.ts` | `Posts` | Standard pluralization |
-| `article.ts` | `Articles` | Standard pluralization |
-| `comment.ts` | `Comments` | Standard pluralization |
-| `tag.ts` | `Tags` | Standard pluralization |
+### File Naming Best Practices
 
-### Special Pluralization Cases
-
-| Schema File | Collection Name | Rule |
-|-------------|-----------------|------|
-| `person.ts` | `People` | Irregular plural |
-| `category.ts` | `Categories` | -y → -ies |
-| `company.ts` | `Companies` | -y → -ies |
-| `city.ts` | `Cities` | -y → -ies |
-| `country.ts` | `Countries` | -y → -ies |
-| `story.ts` | `Stories` | -y → -ies |
-| `activity.ts` | `Activities` | -y → -ies |
-
-### Naming Best Practices
+The filename carries no functional meaning, but a consistent style keeps a schema directory
+readable:
 
 ✅ **DO:**
-- Use singular form for file names: `user.ts`, `post.ts`
-- Use lowercase for file names: `article.ts`, not `Article.ts`
-- Use descriptive entity names: `blogPost.ts`, `userProfile.ts`
+- Use a singular entity name that matches the collection's subject: `user.ts`, `post.ts`
+- Use lowercase or camelCase: `article.ts`, `blogPost.ts`, not `Article.ts`
 - Keep names simple and clear: `tag.ts`, `comment.ts`
 
 ❌ **DON'T:**
-- Use plural in file names: ~~`users.ts`~~
+- Rely on the filename to name or pluralize the collection — it does neither
 - Use special characters: ~~`user-profile.ts`~~
-- Use abbreviations: ~~`usr.ts`~~, ~~`pst.ts`~~
-- Mix naming styles: ~~`User.ts`~~, ~~`user_profile.ts`~~
+- Mix naming styles across the directory: ~~`User.ts`~~, ~~`user_profile.ts`~~
 
 ## Field Names
 
@@ -67,162 +52,26 @@ Use camelCase for regular field names:
 
 ### Relation Fields
 
-> **Prefer `RelationField()` / `RelationsField()`.** They state the target collection explicitly,
-> which is checked, and they support `cascadeDelete`, `minSelect`/`maxSelect` and `displayFields`.
-> The naming conventions below are a **fallback** that only applies to fields carrying no relation
-> metadata, kept for backward compatibility.
+Relations come **only** from `RelationField()` / `RelationsField()`. There is no other way to
+declare one — no naming convention, no field-name inspection. Name the field however reads best;
+the target collection is always the explicit `collection` option.
 
 ```typescript
-// Preferred — explicit, no naming rules involved
 {
   author: RelationField({ collection: "users" }),
+  category: RelationField({ collection: "categories", cascadeDelete: true }),
   tags: RelationsField({ collection: "tags", maxSelect: 10 }),
+  coauthors: RelationsField({ collection: "users" }),
 }
 ```
 
-#### Single Relations (One-to-One, Many-to-One)
+`RelationField`/`RelationsField` also support `displayFields` (which columns show in the admin UI)
+and, for `RelationsField`, `minSelect`. See [TYPE_MAPPING.md](./TYPE_MAPPING.md#relation-fields) for
+the full option list.
 
-A **`z.string()` field whose name starts with an uppercase letter** is detected as a single
-relation. The target collection is the field name pluralized — the rule never checks that such a
-collection exists, so a typo produces a relation to a collection that isn't there.
-
-Seven names are excluded because they are common text fields: `Title`, `Name`, `Description`,
-`Content`, `Summary`, `Status`, `Type`.
-
-```typescript
-{
-  User: z.string(),           // → Users collection (maxSelect: 1)
-  Author: z.string(),         // → Authors collection (maxSelect: 1)
-  Category: z.string(),       // → Categories collection (maxSelect: 1)
-  Post: z.string(),           // → Posts collection (maxSelect: 1)
-  Title: z.string(),          // → text (excluded name)
-  slug: z.string(),           // → text (lowercase)
-}
-```
-
-**Pattern:** `CollectionName: z.string()`
-
-**Generated Field:**
-```javascript
-{
-  name: "User",
-  type: "relation",
-  maxSelect: 1,
-  collectionId: "users_collection_id"
-}
-```
-
-#### Multiple Relations (One-to-Many, Many-to-Many)
-
-A **`z.array(z.string())` field whose name contains any uppercase letter** is detected as a
-multiple relation. The target collection is the *last* capitalized word in the name, pluralized.
-
-```typescript
-{
-  Tags: z.array(z.string()),              // → Tags collection (maxSelect: 999)
-  Categories: z.array(z.string()),        // → Categories collection (maxSelect: 999)
-  SubscriberUsers: z.array(z.string()),   // → Users collection (maxSelect: 999)
-  AuthorUsers: z.array(z.string()),       // → Users collection (maxSelect: 999)
-  relatedPosts: z.array(z.string()),      // → Posts collection (one uppercase letter is enough)
-}
-```
-
-**Pattern:** `[Prefix]CollectionName: z.array(z.string())`
-
-#### Reference Suffixes Are Refused, Not Guessed
-
-Both rules read the *last* capitalized word as the entity name, so a name ending in a reference
-suffix — `Ref`, `Refs`, `Id`, `Ids`, `Uid`, `Uuid`, `Fk`, `Pk` and their plurals — identifies the
-field as a relation without naming its target. Rather than guess, the analyzer refuses and tells
-you which field to declare explicitly:
-
-```
-Cannot infer the relation target for field "WorkspaceRef": the name ends in "Ref", which marks it
-as a reference without naming the collection it points at. Declare the target explicitly, e.g.
-WorkspaceRef: RelationField({ collection: "Workspaces" }).
-```
-
-```typescript
-{
-  WorkspaceRef: z.string(),                              // ✗ error — "Ref" names no collection
-  WorkspaceRef: RelationField({ collection: "Workspaces" }),  // ✓ explicit target
-  Referral: z.string(),                                  // ✓ → Referrals (an entity, not a marker)
-}
-```
-
-Only the whole trailing word counts, so entity names that merely *contain* a suffix — `Referral`,
-`UserIdentity` — resolve as before.
-
-> **Watch out:** an all-lowercase `z.array(z.string())` such as `tags: z.array(z.string())` still
-> maps to the `relation` **type** — arrays of strings always do — but fails this naming check, so
-> it is emitted with no target collection and PocketBase rejects it. Use
-> `RelationsField({ collection: "tags" })` for a relation, or `JSONField(z.array(z.string()))` for
-> a plain list of strings.
-
-**Generated Field:**
-```javascript
-{
-  name: "Tags",
-  type: "relation",
-  maxSelect: 999,
-  collectionId: "tags_collection_id"
-}
-```
-
-### Relation Naming Examples
-
-#### Blog Post Example
-
-```typescript
-// post.ts
-export const PostInputSchema = z.object({
-  title: z.string(),
-  content: z.string(),
-  
-  // Single relations
-  User: z.string(),           // Post author (Users collection)
-  Category: z.string(),       // Post category (Categories collection)
-  
-  // Multiple relations
-  Tags: z.array(z.string()),              // Post tags (Tags collection)
-  CoauthorUsers: z.array(z.string()),     // Co-authors (Users collection)
-});
-```
-
-#### E-commerce Order Example
-
-```typescript
-// order.ts
-export const OrderInputSchema = z.object({
-  orderNumber: z.string(),
-  total: z.number(),
-  
-  // Single relations
-  User: z.string(),           // Customer (Users collection)
-  ShippingAddress: z.string(), // Address (Addresses collection)
-  
-  // Multiple relations
-  Products: z.array(z.string()),          // Ordered products (Products collection)
-  Coupons: z.array(z.string()),           // Applied coupons (Coupons collection)
-});
-```
-
-#### Social Media Post Example
-
-```typescript
-// socialPost.ts
-export const SocialPostInputSchema = z.object({
-  content: z.string(),
-  
-  // Single relations
-  User: z.string(),           // Post author (Users collection)
-  
-  // Multiple relations
-  LikerUsers: z.array(z.string()),        // Users who liked (Users collection)
-  MentionedUsers: z.array(z.string()),    // Mentioned users (Users collection)
-  Tags: z.array(z.string()),              // Hashtags (Tags collection)
-});
-```
+> A bare `z.array(z.string())` is **not** a relation — it maps to a `json` field, because
+> PocketBase has no plain string-array type. Use `RelationsField({ collection })` for a multi-relation
+> or `SelectField(values, { maxSelect })` for a multi-select.
 
 ### Field Naming Best Practices
 
@@ -230,8 +79,7 @@ export const SocialPostInputSchema = z.object({
 - Use camelCase: `firstName`, `emailAddress`
 - Use descriptive names: `publishedAt`, `viewCount`
 - Use boolean prefixes: `isActive`, `hasAccess`, `canEdit`
-- Match collection names for relations: `User`, `Category`
-- Add prefix for multiple relations to same collection: `SubscriberUsers`, `AuthorUsers`
+- Name relation fields for what they mean, not what they point at: `author`, `owner`, `assignee`
 
 ❌ **DON'T:**
 - Use snake_case: ~~`first_name`~~, ~~`email_address`~~
@@ -247,48 +95,58 @@ export const SocialPostInputSchema = z.object({
 src/schema/
 ├── index.ts              # Optional barrel; add to schema.exclude
 ├── base.ts               # Your own shared fragments; add to schema.exclude
-├── user.ts               # User entity      → Users
-├── post.ts               # Post entity      → Posts
-├── comment.ts            # Comment entity   → Comments
-├── tag.ts                # Tag entity       → Tags
-└── projectStats.ts       # View collection  → ProjectStats
+├── user.ts               # export default defineCollection({ collectionName: "Users", ... })
+├── post.ts               # export default defineCollection({ collectionName: "Posts", ... })
+├── comment.ts             # export default defineCollection({ collectionName: "Comments", ... })
+├── tag.ts                 # export default defineCollection({ collectionName: "Tags", ... })
+└── projectStats.ts        # export default defineView({ collectionName: "ProjectStats", ... })
 ```
 
-Files that hold helpers rather than collections must be listed in `schema.exclude`, or the analyzer
-will try to read a collection out of them. Subdirectories are supported.
+Files that hold helpers rather than collections must be listed in `schema.exclude`, or they will be
+skipped with a warning (see below) instead of contributing a collection.
 
-### File Naming Rules
-
-✅ **DO:**
-- Use singular entity names: `user.ts`, `post.ts`
-- Use camelCase for multi-word entities: `blogPost.ts`, `userProfile.ts`
-- Keep names concise: `tag.ts`, `comment.ts`
-- Group related schemas in subdirectories if needed
-
-❌ **DON'T:**
-- Use plural: ~~`users.ts`~~, ~~`posts.ts`~~
-- Use kebab-case: ~~`blog-post.ts`~~, ~~`user-profile.ts`~~
-- Use snake_case: ~~`blog_post.ts`~~, ~~`user_profile.ts`~~
-- Use PascalCase: ~~`User.ts`~~, ~~`BlogPost.ts`~~
-
-## Schema Export Names
+**Discovery is a flat `readdir` of the schema directory — subdirectories are not scanned.** Keep
+every schema file directly in `schema.directory`.
 
 ### Which export the analyzer picks
 
-Per file, in order: the **default export**, then `*Collection`, then `*Schema`. Prefer a default
-export of `defineCollection()` — it is unambiguous:
+A file contributes a collection iff **one** of its exports is a Zod object whose `.describe()`
+carries collection metadata — the JSON `defineCollection()`/`defineView()` write. Export *names*
+carry no meaning: the default export qualifies exactly the same as any named export, and there is
+no preference order between them.
+
+```typescript
+// Both of these are equally valid — the analyzer looks at the value, not the name
+export default defineCollection({ collectionName: "posts", schema: PostSchema });
+// or
+export const PostCollection = defineCollection({ collectionName: "posts", schema: PostSchema });
+```
+
+Three rules follow from that:
+
+- **No metadata-carrying export → skipped with a warning.** A file that only exports plain Zod
+  schemas, types, or helpers contributes nothing; `parseSchemaFiles` logs a warning naming the file
+  and moves on. If the file previously defined a collection, the diff may now propose deleting it —
+  wrap every collection-bearing schema in `defineCollection()`/`defineView()` before regenerating.
+- **Two metadata-carrying exports in one file → error.** One collection per file. Re-exporting the
+  same value under two names (`export default X; export { X }`) is fine — candidates are
+  deduplicated by object identity — but two distinct `defineCollection()` calls in one file is not.
+- **The same `collectionName` declared in two files → error.** Collection names must be unique
+  across the whole schema directory.
+
+## Schema Export Names
+
+Since export names carry no meaning to the analyzer, the patterns below are conventions for human
+readability and `z.infer` ergonomics, not requirements.
+
+### Collection definition
+
+**Pattern:** `[Entity]Collection`, exported as `default` for clarity — one glance at the file tells
+you which export is the collection.
 
 ```typescript
 const PostCollection = defineCollection({ collectionName: "posts", schema: PostSchema });
 export default PostCollection;
-```
-
-### Collection definition
-
-**Pattern:** `[Entity]Collection`
-
-```typescript
-export const PostCollection = defineCollection({ ... });
 ```
 
 ### Database Schema
@@ -406,7 +264,7 @@ import {
   RelationsField,
   SelectField,
   TextField,
-} from "pocketbase-zod-schema/schema";
+} from "pocketbase-zod-schema";
 
 export const BlogPostSchema = z.object({
   // Standard fields (camelCase)
@@ -446,33 +304,32 @@ export default defineCollection({
 });
 ```
 
-**Generated Collection:** `BlogPosts` (from `collectionName`; it would also be `BlogPosts` if
-derived from the filename)
+**Generated Collection:** `BlogPosts` (from `collectionName` — the filename `blogPost.ts` plays no
+part)
 
 **Generated Migration:** `1769385981_created_BlogPosts.js`
 
 ## Quick Reference
 
 ### Collection Names
-- `collectionName` wins; otherwise `entity.ts` → `Entities`
-- Singular file name → plural collection name
-- Special cases: `person.ts` → `People`, `category.ts` → `Categories`
+- `collectionName` in `defineCollection()`/`defineView()` is the only source; the filename is
+  never consulted
 
 ### Field Names
 - Standard: `camelCase` (e.g., `firstName`, `emailAddress`)
-- Relations: use `RelationField()` / `RelationsField()` and name the field however you like
-- Fallback detection (no relation metadata): `z.string()` starting uppercase → single relation;
-  `z.array(z.string())` containing an uppercase letter → multiple relation
+- Relations: use `RelationField()` / `RelationsField()` — there is no other way to declare one
 - Boolean: `is/has/can` prefix (e.g., `isActive`, `hasAccess`)
 
 ### Schema Names
-- Collection: `[Entity]Collection`, exported as default
+- Collection: `[Entity]Collection`, exported as default (a convention, not a requirement — any
+  export whose value carries collection metadata is picked)
 - Database: `[Entity]Schema` (e.g., `UserSchema`)
 - Input: `[Entity]InputSchema`, only when the form differs from the collection
 - Enum: `[Entity][Property]Enum` (e.g., `UserStatusEnum`)
 
 ### File Names
-- Schema: `entity.ts` (singular, camelCase)
+- Schema: one collection per file, in a flat schema directory (no subdirectories); the name is
+  organizational only
 - Migration: `[timestamp]_created_<Name>.js` and friends (auto-generated)
 
 ## See Also

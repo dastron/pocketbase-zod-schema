@@ -11,7 +11,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { generateFieldDefinitionObject } from "../../generator";
-import type { FieldDefinition, PocketBaseFieldType } from "../../types";
+import type { PocketBaseFieldType } from "../../../schema/fields";
+import type { FieldDefinition } from "../../types";
 
 /**
  * Arbitrary for generating field names

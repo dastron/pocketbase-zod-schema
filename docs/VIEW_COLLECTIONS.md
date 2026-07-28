@@ -12,7 +12,7 @@ attached to this media".
 
 ```typescript
 import { z } from 'zod';
-import { baseSchema, defineView, sql } from 'pocketbase-zod-schema/schema';
+import { baseSchema, defineView, sql } from 'pocketbase-zod-schema';
 
 export const ProjectStatsSchema = z
   .object({

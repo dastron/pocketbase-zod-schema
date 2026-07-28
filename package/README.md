@@ -41,7 +41,7 @@ import {
   BoolField,
   RelationField,
   RelationsField,
-} from "pocketbase-zod-schema/schema";
+} from "pocketbase-zod-schema";
 
 // Define the Zod schema
 export const PostSchema = z.object({
@@ -142,7 +142,7 @@ The recommended way to define collections is using `defineCollection()`, which p
 
 ```typescript
 import { z } from "zod";
-import { defineCollection, TextField, EditorField, RelationField } from "pocketbase-zod-schema/schema";
+import { defineCollection, TextField, EditorField, RelationField } from "pocketbase-zod-schema";
 
 export const PostCollectionSchema = z.object({
   title: TextField({ min: 1, max: 200 }),
@@ -190,8 +190,6 @@ export const PostCollection = defineCollection({
 This pattern allows:
 - `PostSchema` - Used for type inference (`z.infer<typeof PostSchema>`) and validation
 - `PostCollection` - Used by the migration generator (has collection metadata)
-
-**Note:** You can still use `withPermissions()` and `withIndexes()` separately if you prefer, but `defineCollection()` is recommended for new code.
 
 ### Field Types
 
@@ -310,7 +308,7 @@ import {
   GeoPointField,
   RelationField,
   RelationsField,
-} from "pocketbase-zod-schema/schema";
+} from "pocketbase-zod-schema";
 
 const ProductSchema = z.object({
   // Text fields
@@ -398,7 +396,7 @@ The library still supports plain Zod types for backward compatibility. The migra
 Use `RelationField()` for single relations and `RelationsField()` for multiple relations:
 
 ```typescript
-import { RelationField, RelationsField } from "pocketbase-zod-schema/schema";
+import { RelationField, RelationsField } from "pocketbase-zod-schema";
 
 const ProjectSchema = z.object({
   name: z.string(),
@@ -436,9 +434,9 @@ const ProjectSchema = z.object({
 - `minSelect?: number` - Minimum number of relations required (default: `0`)
 - `maxSelect?: number` - Maximum number of relations allowed (default: `999`)
 
-> Relations can also be detected from field naming (a `z.string()` starting with an uppercase
-> letter, or a `z.array(z.string())` containing one). That fallback exists for backward
-> compatibility — prefer the helpers, which name the target collection explicitly.
+> Relations are explicit-only. There is no naming-convention fallback — a field is a relation only
+> when it's built with `RelationField()`/`RelationsField()`; a bare `z.array(z.string())` maps to a
+> `json` field, not a relation.
 
 ### Defining View Collections
 
@@ -448,7 +446,7 @@ only:
 
 ```typescript
 import { z } from "zod";
-import { baseSchema, defineView, sql } from "pocketbase-zod-schema/schema";
+import { baseSchema, defineView, sql } from "pocketbase-zod-schema";
 
 export const ProductStatsSchema = z
   .object({
@@ -486,12 +484,12 @@ constraints into compile errors instead of apply-time failures.
 
 ### Defining Permissions
 
-Use `defineCollection()` with permissions, or `withPermissions()` to attach API rules to your schema:
+Attach API rules to a collection through `defineCollection({ permissions })`:
 
 ```typescript
-import { defineCollection, withPermissions } from "pocketbase-zod-schema/schema";
+import { defineCollection } from "pocketbase-zod-schema";
 
-// Using defineCollection (recommended)
+// Explicit rules
 const PostCollection = defineCollection({
   collectionName: "posts",
   schema: z.object({ title: z.string() }),
@@ -504,7 +502,7 @@ const PostCollection = defineCollection({
   },
 });
 
-// Using templates with defineCollection
+// Using a template
 const ProjectCollection = defineCollection({
   collectionName: "projects",
   schema: z.object({ title: z.string(), owner: RelationField({ collection: "users" }) }),
@@ -513,18 +511,6 @@ const ProjectCollection = defineCollection({
     ownerField: "owner",
   },
 });
-
-// Using withPermissions (alternative approach)
-const PostSchemaAlt = withPermissions(
-  z.object({ title: z.string() }),
-  {
-    listRule: '@request.auth.id != ""',
-    viewRule: "",
-    createRule: '@request.auth.id != ""',
-    updateRule: "author = @request.auth.id",
-    deleteRule: "author = @request.auth.id",
-  }
-);
 ```
 
 #### Permission Templates
@@ -541,7 +527,7 @@ const PostSchemaAlt = withPermissions(
 Two more have no template name; call them and pass the result as `permissions`:
 
 ```typescript
-import { PermissionTemplates } from "pocketbase-zod-schema/schema";
+import { PermissionTemplates } from "pocketbase-zod-schema";
 
 PermissionTemplates.locked();                 // every rule null (superusers only)
 PermissionTemplates.readOnlyAuthenticated();  // authenticated read, writes locked
@@ -553,7 +539,6 @@ expression. `manageRule` applies to auth collections only.
 #### Template with Custom Overrides
 
 ```typescript
-// Using defineCollection (recommended)
 const PostCollection = defineCollection({
   collectionName: "posts",
   schema: z.object({ title: z.string(), author: RelationField({ collection: "users" }) }),
@@ -566,26 +551,15 @@ const PostCollection = defineCollection({
     },
   },
 });
-
-// Using withPermissions (alternative)
-const PostSchemaAlt = withPermissions(schema, {
-  template: "owner-only",
-  ownerField: "author",
-  customRules: {
-    listRule: '@request.auth.id != ""',
-    viewRule: "",
-  },
-});
 ```
 
 ### Defining Indexes
 
-Use `defineCollection()` with indexes, or `withIndexes()` to define database indexes:
+Declare database indexes through `defineCollection({ indexes })`:
 
 ```typescript
-import { defineCollection, withIndexes, withPermissions } from "pocketbase-zod-schema/schema";
+import { defineCollection } from "pocketbase-zod-schema";
 
-// Using defineCollection (recommended)
 const UserCollection = defineCollection({
   collectionName: "users",
   schema: z.object({
@@ -600,21 +574,6 @@ const UserCollection = defineCollection({
     'CREATE INDEX idx_users_username ON users (username)',
   ],
 });
-
-// Using withIndexes (alternative)
-const UserSchemaAlt = withIndexes(
-  withPermissions(
-    z.object({
-      email: z.string().email(),
-      username: z.string(),
-    }),
-    { template: "authenticated" }
-  ),
-  [
-    'CREATE UNIQUE INDEX idx_users_email ON users (email)',
-    'CREATE INDEX idx_users_username ON users (username)',
-  ]
-);
 ```
 
 ---
@@ -818,7 +777,7 @@ CLI > environment > config file > defaults.
 
 ## Programmatic API
 
-For custom workflows, use the programmatic API:
+For custom workflows, use the programmatic API from `pocketbase-zod-schema/server`:
 
 ```typescript
 import {
@@ -826,14 +785,14 @@ import {
   compare,
   generate,
   loadSnapshotWithMigrations,
-} from "pocketbase-zod-schema/migration";
+} from "pocketbase-zod-schema/server";
 
 async function generateMigration() {
   const schemaDir = "./src/schema";
   const migrationsDir = "./pocketbase/pb_migrations";
 
   // Parse all schema files
-  const currentSchema = await parseSchemaFiles(schemaDir);
+  const currentSchema = await parseSchemaFiles({ schemaDir });
 
   // Reconstruct the current database state by executing the existing migrations.
   // Returns null when there is nothing to replay; throws SnapshotError if a
@@ -852,12 +811,8 @@ async function generateMigration() {
 }
 ```
 
-> Use `loadSnapshotWithMigrations`, not `loadSnapshotIfExists`. The latter executes **only** the
-> newest snapshot file and ignores every migration after it, so it is almost never the current
-> state.
-
 The execution engine, round-trip verification and the goja lint are also available directly from
-`pocketbase-zod-schema/migration/engine` — see the
+`pocketbase-zod-schema/server` — see the
 [Execution Engine guide](https://github.com/dastron/pocketbase-zod-schema/blob/main/docs/EXECUTION_ENGINE.md).
 
 ---
@@ -869,7 +824,7 @@ Here's a complete example of a blog schema with users, posts, and comments:
 ```typescript
 // src/schema/user.ts
 import { z } from "zod";
-import { baseSchema, defineCollection, TextField, EmailField } from "pocketbase-zod-schema/schema";
+import { baseSchema, defineCollection, TextField, EmailField } from "pocketbase-zod-schema";
 
 // Input schema for forms (includes passwordConfirm for validation)
 export const UserInputSchema = z.object({
@@ -894,6 +849,7 @@ export const UserSchema = UserCollectionSchema.extend(baseSchema);
 // Collection definition with permissions and indexes
 export const UserCollection = defineCollection({
   collectionName: "Users",
+  type: "auth", // auth collections must opt in explicitly; it is never inferred
   schema: UserSchema,
   permissions: {
     listRule: "id = @request.auth.id",
@@ -919,7 +875,7 @@ import {
   DateField,
   RelationField, 
   RelationsField, 
-} from "pocketbase-zod-schema/schema";
+} from "pocketbase-zod-schema";
 
 // Define the Zod schema
 export const PostSchema = z.object({
@@ -953,7 +909,7 @@ export const PostCollection = defineCollection({
 ```typescript
 // src/schema/comment.ts
 import { z } from "zod";
-import { defineCollection, TextField, RelationField } from "pocketbase-zod-schema/schema";
+import { defineCollection, TextField, RelationField } from "pocketbase-zod-schema";
 
 // Define the Zod schema
 export const CommentSchema = z.object({

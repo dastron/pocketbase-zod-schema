@@ -37,75 +37,13 @@
       "import": "./dist/server.js",
       "require": "./dist/server.cjs"
     },
-    "./schema": {
-      "types": "./dist/schema.d.ts",
-      "import": "./dist/schema.js",
-      "require": "./dist/schema.cjs"
-    },
-    "./enums": {
-      "types": "./dist/enums.d.ts",
-      "import": "./dist/enums.js",
-      "require": "./dist/enums.cjs"
-    },
-    "./mutator": {
-      "types": "./dist/mutator.d.ts",
-      "import": "./dist/mutator.js",
-      "require": "./dist/mutator.cjs"
-    },
-    "./migration": {
-      "types": "./dist/migration/index.d.ts",
-      "import": "./dist/migration/index.js",
-      "require": "./dist/migration/index.cjs"
-    },
-    "./migration/analyzer": {
-      "types": "./dist/migration/analyzer.d.ts",
-      "import": "./dist/migration/analyzer.js",
-      "require": "./dist/migration/analyzer.cjs"
-    },
-    "./migration/diff": {
-      "types": "./dist/migration/diff.d.ts",
-      "import": "./dist/migration/diff.js",
-      "require": "./dist/migration/diff.cjs"
-    },
-    "./migration/engine": {
-      "types": "./dist/migration/engine.d.ts",
-      "import": "./dist/migration/engine.js",
-      "require": "./dist/migration/engine.cjs"
-    },
-    "./migration/generator": {
-      "types": "./dist/migration/generator.d.ts",
-      "import": "./dist/migration/generator.js",
-      "require": "./dist/migration/generator.cjs"
-    },
-    "./migration/snapshot": {
-      "types": "./dist/migration/snapshot.d.ts",
-      "import": "./dist/migration/snapshot.js",
-      "require": "./dist/migration/snapshot.cjs"
-    },
-    "./migration/utils": {
-      "types": "./dist/migration/utils/index.d.ts",
-      "import": "./dist/migration/utils/index.js",
-      "require": "./dist/migration/utils/index.cjs"
-    },
-    "./cli": {
-      "types": "./dist/cli/index.d.ts",
-      "import": "./dist/cli/index.js",
-      "require": "./dist/cli/index.cjs"
-    },
-    "./cli/utils": {
-      "types": "./dist/cli/utils/index.d.ts",
-      "import": "./dist/cli/utils/index.js",
-      "require": "./dist/cli/utils/index.cjs"
-    },
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md",
-    "API.md",
-    "MIGRATION_GUIDE.md"
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
